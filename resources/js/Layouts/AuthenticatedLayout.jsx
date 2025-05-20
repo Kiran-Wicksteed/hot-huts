@@ -5,7 +5,7 @@ import InviteTeam from "@/Pages/TeamInvite/InviteTeam";
 import ResponsiveNavLink from "@/Components/ResponsiveNavLink";
 import { Link, usePage } from "@inertiajs/react";
 import { useState } from "react";
-import { PhotoIcon, UserCircleIcon } from "@heroicons/react/24/solid";
+
 import {
     Dialog,
     DialogBackdrop,
@@ -38,6 +38,7 @@ import {
     ClipboardDocumentCheckIcon,
     CameraIcon,
 } from "@heroicons/react/24/outline";
+import { UserIcon } from "@heroicons/react/24/solid";
 
 const foundation = [
     { name: "Dashboard", href: "#", icon: HomeIcon, current: true },
@@ -94,20 +95,12 @@ export default function AuthenticatedLayout({ header, children }) {
                                 </Link>
                             </div>
 
-                            <div className="flex items-center text-gray-500">
-                                <p className="">Honour People</p>
-                                <span className="mx-4">|</span>
-                                <p className="">Steward Faithfully</p>
-                                <span className="mx-4">|</span>
-                                <p className="">Live Joyfully</p>
-                            </div>
-
                             <div className="hidden sm:ms-6 sm:flex sm:items-center">
                                 <div className="relative ms-3">
                                     <Dropdown>
                                         <Dropdown.Trigger>
                                             <div className="flex">
-                                                {user.photo != null ? (
+                                                {/* {user.photo != null ? (
                                                     <div className="mx-auto h-10 w-10 overflow-hidden shrink-0 rounded-full">
                                                         <img
                                                             alt=""
@@ -117,13 +110,12 @@ export default function AuthenticatedLayout({ header, children }) {
                                                             className="object-cover top-0 left-0 w-full h-full"
                                                         />
                                                     </div>
-                                                ) : (
-                                                    <UserCircleIcon
-                                                        aria-hidden="true"
-                                                        className="h-12 w-12 text-gray-300"
-                                                    />
-                                                )}
-
+                                                ) : ( */}
+                                                <UserIcon
+                                                    aria-hidden="true"
+                                                    className="h-10 w-10 text-white bg-hh-orange rounded-full p-1.5"
+                                                />
+                                                {/* // )} */}
                                                 <span className="inline-flex rounded-md">
                                                     <button
                                                         type="button"

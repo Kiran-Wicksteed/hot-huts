@@ -21,16 +21,6 @@ export default function Dashboard() {
 
             <div className="mx-auto ml-[15%] 2xl:ml-[10%] sm:px-6 lg:px-8">
                 <div className="mx-auto ">
-                    <h2
-                        className={`text-2xl xl:text-3xl font-normal text-center text-black mb-6`}
-                    >
-                        Welcome back, {user.name}.
-                    </h2>
-                    <p className="max-w-xl mx-auto mb-4 text-center">
-                        Welcome to your central hub for all things DANCOR
-                        Foundation and its portfolio of companies.
-                    </p>
-
                     <div className="mt-4 grid grid-cols-1 gap-4 sm:mt-12 lg:grid-cols-9 lg:grid-rows-1">
                         <div className="relative lg:col-span-5 overflow-hidden h-80  ring-2 ring-white rounded-md   rounded-tl-3xl glass-card">
                             <a
