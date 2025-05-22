@@ -2,8 +2,21 @@ import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
 import { Head } from "@inertiajs/react";
 import { Link, usePage } from "@inertiajs/react";
 import styles from "../../styles";
+import {
+    ChevronDownIcon,
+    ClockIcon,
+    MapIcon,
+    MinusIcon,
+    NumberedListIcon,
+    PlusIcon,
+    UserCircleIcon,
+} from "@heroicons/react/24/outline";
+import { useState } from "react";
 
 export default function Dashboard() {
+    const [quantity, setQuantity] = useState(0);
+    const [honeyQuantity, setHoneyQuantity] = useState(0);
+    const [reviveQuantity, setReviveQuantity] = useState(0);
     const { auth } = usePage().props;
     const user = auth.user;
 
@@ -19,257 +32,1121 @@ export default function Dashboard() {
         >
             <Head title="Dashboard Home" />
 
-            <div className="mx-auto ml-[15%] 2xl:ml-[10%] sm:px-6 lg:px-8">
+            <div className="mx-auto ml-[256px] 2xl:ml-[10%] ">
                 <div className="mx-auto ">
-                    <div className="mt-4 grid grid-cols-1 gap-4 sm:mt-12 lg:grid-cols-9 lg:grid-rows-1">
-                        <div className="relative lg:col-span-5 overflow-hidden h-80  ring-2 ring-white rounded-md   rounded-tl-3xl glass-card">
-                            <a
-                                href={route("newsletters.index")}
-                                className="relative  h-full flex flex-col justify-end overflow-hidden"
-                            >
-                                <img
-                                    alt="Picture of design motif"
-                                    src="/storage/photos/dashboard-motif-1.png"
-                                    className="h-48 w-48 object-cover absolute -top-16 right-10"
-                                />
-                                <div className="p-6">
-                                    <h4 className=" font-semibold">
-                                        DANCOR FOUNDATION:{" "}
-                                        <span className="font-normal">
-                                            Newsletter
-                                        </span>
-                                    </h4>
-                                    <small className="">
-                                        Stay informed with the latest updates
-                                        and initiatives shaping our community
-                                        impact.
-                                    </small>
-                                </div>
-                            </a>
+                    <div className="mt-4 grid grid-cols-1 gap-4 sm:mt-12 lg:grid-cols-10 lg:grid-rows-1">
+                        <div className="relative lg:col-span-4  h-80 overflow-y-scroll border border-hh-gray rounded-md bg-white">
+                            <div className="relative  h-full flex flex-col justify-end overflow-hidden">
+                                <div className="m-2  border border-hh-gray rounded-md h-full"></div>
+                            </div>
                         </div>
-                        <div className="relative lg:col-span-4 overflow-hidden h-80 ring-2 ring-white rounded-md rounded-tr-3xl glass-card">
-                            <a
-                                href={route("foundation.companies")}
-                                className="relative  h-full flex flex-col justify-end overflow-hidden"
-                            >
-                                <img
-                                    alt="Picture of design motif"
-                                    src="/storage/photos/dashboard-motif-2.png"
-                                    className="h-32 w-full object-contain object-right absolute top-4 right-0"
-                                />
+                        <div className="relative lg:col-span-6 overflow-y-scroll h-80 border border-hh-gray rounded-md  bg-white">
+                            <div className="relative  h-full flex flex-col ">
                                 <div className="p-6">
-                                    <h4 className=" ">Organization Profiles</h4>
+                                    <h4
+                                        className={`${styles.h3} font-medium text-black`}
+                                    >
+                                        Bookings
+                                    </h4>
+                                    <div className="flex border-b border-hh-gray pb-2">
+                                        <div className="flex-initial w-40 flex items-center text-black gap-x-2">
+                                            <ClockIcon className="h-6 w-6 shrink-0" />
+                                            <p
+                                                className={`${styles.paragraph} `}
+                                            >
+                                                Times
+                                            </p>
+                                        </div>
+                                        <div className="flex w-10"></div>
+                                        <div className="flex-initial w-40 flex items-center text-black gap-x-2">
+                                            {" "}
+                                            <MapIcon className="h-6 w-6 shrink-0" />
+                                            <p
+                                                className={`${styles.paragraph} `}
+                                            >
+                                                Location
+                                            </p>
+                                        </div>
+                                        <div className="flex-initial w-40 pl-4 flex items-center text-black gap-x-2">
+                                            {" "}
+                                            <UserCircleIcon className="h-6 w-6 shrink-0" />
+                                            <p
+                                                className={`${styles.paragraph} `}
+                                            >
+                                                Names
+                                            </p>
+                                        </div>
+                                        <div className="flex-initial w-40 flex items-center justify-end text-black gap-x-2">
+                                            {" "}
+                                            <NumberedListIcon className="h-6 w-6 shrink-0" />
+                                            <p
+                                                className={`${styles.paragraph} `}
+                                            >
+                                                Available
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div className="flex mt-3 h-14">
+                                        <div className="flex-initial w-40">
+                                            <p
+                                                className={`${styles.paragraph} !text-[#999999] !text-sm`}
+                                            >
+                                                6:00AM - 6:20AM
+                                            </p>
+                                        </div>
+                                        <div className="flex w-10 mt-1">
+                                            <span class="relative flex size-3">
+                                                <span className="h-14 w-px bg-[#EBEEF0] absolute top-0 left-1/2 -translate-x-1/2"></span>
+                                                <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-hh-orange opacity-75"></span>
+                                                <span class="relative inline-flex size-3 rounded-full bg-hh-orange"></span>
+                                            </span>
+                                        </div>
+                                        <div className="flex-initial w-40">
+                                            <p
+                                                className={`${styles.paragraph} !text-[#999999] !text-sm`}
+                                            >
+                                                St James Tidal Pool
+                                            </p>
+                                        </div>
+                                        <div className="flex-initial w-40 pl-4">
+                                            <p
+                                                className={`${styles.paragraph} !text-[#999999] !text-sm`}
+                                            >
+                                                Samantha Jones
+                                            </p>
+                                        </div>
+                                        <div className="flex-initial w-40  flex justify-center">
+                                            <p
+                                                className={`${styles.paragraph} !text-[#999999] !text-sm `}
+                                            >
+                                                5 pax
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div className="flex h-14">
+                                        <div className="flex-initial w-40">
+                                            <p
+                                                className={`${styles.paragraph} !text-[#999999] !text-sm`}
+                                            >
+                                                6:00AM - 6:20AM
+                                            </p>
+                                        </div>
+                                        <div className="flex w-10 mt-1">
+                                            <span class="relative flex size-3">
+                                                <span className="h-14 w-px bg-[#EBEEF0] absolute top-0 left-1/2 -translate-x-1/2"></span>
+                                                <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-hh-orange opacity-75"></span>
+                                                <span class="relative inline-flex size-3 rounded-full bg-hh-orange"></span>
+                                            </span>
+                                        </div>
+                                        <div className="flex-initial w-40">
+                                            <p
+                                                className={`${styles.paragraph} !text-[#999999] !text-sm`}
+                                            >
+                                                St James Tidal Pool
+                                            </p>
+                                        </div>
+                                        <div className="flex-initial w-40 pl-4">
+                                            <p
+                                                className={`${styles.paragraph} !text-[#999999] !text-sm`}
+                                            >
+                                                Samantha Jones
+                                            </p>
+                                        </div>
+                                        <div className="flex-initial w-40  flex justify-center">
+                                            <p
+                                                className={`${styles.paragraph} !text-[#999999] !text-sm `}
+                                            >
+                                                5 pax
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div className="flex h-14">
+                                        <div className="flex-initial w-40">
+                                            <p
+                                                className={`${styles.paragraph} !text-[#999999] !text-sm`}
+                                            >
+                                                6:00AM - 6:20AM
+                                            </p>
+                                        </div>
+                                        <div className="flex w-10 mt-1">
+                                            <span class="relative flex size-3">
+                                                <span className="h-14 w-px bg-[#EBEEF0] absolute top-0 left-1/2 -translate-x-1/2"></span>
+                                                <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-hh-orange opacity-75"></span>
+                                                <span class="relative inline-flex size-3 rounded-full bg-hh-orange"></span>
+                                            </span>
+                                        </div>
+                                        <div className="flex-initial w-40">
+                                            <p
+                                                className={`${styles.paragraph} !text-[#999999] !text-sm`}
+                                            >
+                                                St James Tidal Pool
+                                            </p>
+                                        </div>
+                                        <div className="flex-initial w-40 pl-4">
+                                            <p
+                                                className={`${styles.paragraph} !text-[#999999] !text-sm`}
+                                            >
+                                                Samantha Jones
+                                            </p>
+                                        </div>
+                                        <div className="flex-initial w-40  flex justify-center">
+                                            <p
+                                                className={`${styles.paragraph} !text-[#999999] !text-sm `}
+                                            >
+                                                5 pax
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div className="flex h-14">
+                                        <div className="flex-initial w-40">
+                                            <p
+                                                className={`${styles.paragraph} !text-[#999999] !text-sm`}
+                                            >
+                                                6:00AM - 6:20AM
+                                            </p>
+                                        </div>
+                                        <div className="flex w-10 mt-1">
+                                            <span class="relative flex size-3">
+                                                <span className="h-14 w-px bg-[#EBEEF0] absolute top-0 left-1/2 -translate-x-1/2"></span>
+                                                <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-hh-orange opacity-75"></span>
+                                                <span class="relative inline-flex size-3 rounded-full bg-hh-orange"></span>
+                                            </span>
+                                        </div>
+                                        <div className="flex-initial w-40">
+                                            <p
+                                                className={`${styles.paragraph} !text-[#999999] !text-sm`}
+                                            >
+                                                St James Tidal Pool
+                                            </p>
+                                        </div>
+                                        <div className="flex-initial w-40 pl-4">
+                                            <p
+                                                className={`${styles.paragraph} !text-[#999999] !text-sm`}
+                                            >
+                                                Samantha Jones
+                                            </p>
+                                        </div>
+                                        <div className="flex-initial w-40  flex justify-center">
+                                            <p
+                                                className={`${styles.paragraph} !text-[#999999] !text-sm `}
+                                            >
+                                                5 pax
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div className="flex h-14">
+                                        <div className="flex-initial w-40">
+                                            <p
+                                                className={`${styles.paragraph} !text-[#999999] !text-sm`}
+                                            >
+                                                6:00AM - 6:20AM
+                                            </p>
+                                        </div>
+                                        <div className="flex w-10 mt-1">
+                                            <span class="relative flex size-3">
+                                                <span className="h-14 w-px bg-[#EBEEF0] absolute top-0 left-1/2 -translate-x-1/2"></span>
+                                                <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-hh-orange opacity-75"></span>
+                                                <span class="relative inline-flex size-3 rounded-full bg-hh-orange"></span>
+                                            </span>
+                                        </div>
+                                        <div className="flex-initial w-40">
+                                            <p
+                                                className={`${styles.paragraph} !text-[#999999] !text-sm`}
+                                            >
+                                                St James Tidal Pool
+                                            </p>
+                                        </div>
+                                        <div className="flex-initial w-40 pl-4">
+                                            <p
+                                                className={`${styles.paragraph} !text-[#999999] !text-sm`}
+                                            >
+                                                Samantha Jones
+                                            </p>
+                                        </div>
+                                        <div className="flex-initial w-40  flex justify-center">
+                                            <p
+                                                className={`${styles.paragraph} !text-[#999999] !text-sm `}
+                                            >
+                                                5 pax
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div className="flex h-14">
+                                        <div className="flex-initial w-40">
+                                            <p
+                                                className={`${styles.paragraph} !text-[#999999] !text-sm`}
+                                            >
+                                                6:00AM - 6:20AM
+                                            </p>
+                                        </div>
+                                        <div className="flex w-10 mt-1">
+                                            <span class="relative flex size-3">
+                                                <span className="h-14 w-px bg-[#EBEEF0] absolute top-0 left-1/2 -translate-x-1/2"></span>
+                                                <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-hh-orange opacity-75"></span>
+                                                <span class="relative inline-flex size-3 rounded-full bg-hh-orange"></span>
+                                            </span>
+                                        </div>
+                                        <div className="flex-initial w-40">
+                                            <p
+                                                className={`${styles.paragraph} !text-[#999999] !text-sm`}
+                                            >
+                                                St James Tidal Pool
+                                            </p>
+                                        </div>
+                                        <div className="flex-initial w-40 pl-4">
+                                            <p
+                                                className={`${styles.paragraph} !text-[#999999] !text-sm`}
+                                            >
+                                                Samantha Jones
+                                            </p>
+                                        </div>
+                                        <div className="flex-initial w-40  flex justify-center">
+                                            <p
+                                                className={`${styles.paragraph} !text-[#999999] !text-sm `}
+                                            >
+                                                5 pax
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="relative lg:col-span-6 overflow-hidden   border border-hh-gray rounded-md  bg-hh-orange">
+                            <div className="relative  h-full flex flex-col  overflow-hidden">
+                                <div className="p-6">
+                                    <h4
+                                        className={`${styles.h3} !mb-4 font-medium text-white`}
+                                    >
+                                        Quick bookings form:
+                                    </h4>
 
-                                    <small className="">
-                                        Explore detailed insights into the
-                                        mission and operations of each
-                                        organisation.
-                                    </small>
-                                </div>
-                            </a>
-                        </div>
-                        <div className="relative lg:col-span-3 overflow-hidden h-80 ring-2 ring-white rounded-md glass-card rounded-bl-3xl">
-                            <a
-                                href={route("organizations.policies.index", {
-                                    organization: user.organization.id,
-                                })}
-                                className="relative  h-full flex flex-col justify-end overflow-hidden"
-                            >
-                                <img
-                                    alt="Picture of design motif"
-                                    src="/storage/photos/dashboard-motif-3.png"
-                                    className="h-28 object-right-top w-full object-contain absolute top-6 right-0"
-                                />
-                                <div className="p-6">
-                                    <h4 className=" font-semibold">
-                                        {user.organization.orgName}:{" "}
-                                        <span className="font-normal">
-                                            Policies & Procedures
-                                        </span>
-                                    </h4>
+                                    <form action="#" method="POST">
+                                        <div>
+                                            <p
+                                                className={`${styles.paragraph} font-medium text-white`}
+                                            >
+                                                Basic Information
+                                            </p>
+                                            <div className="grid grid-cols-1 gap-x-8 gap-y-6 sm:grid-cols-2">
+                                                <div>
+                                                    <label
+                                                        htmlFor="full-name"
+                                                        className="sr-only"
+                                                    >
+                                                        Full Name
+                                                    </label>
+                                                    <div className="mt-2.5">
+                                                        <input
+                                                            id="full-name"
+                                                            name="full-name"
+                                                            type="text"
+                                                            autoComplete="given-name"
+                                                            placeholder="Full Name"
+                                                            className="focus:ring-none block w-full border-0 bg-transparent font-medium  rounded-lg px-3.5 py-2 text-white shadow-sm ring-1  ring-white placeholder:text-white/90 focus:outline-none focus:ring-1 focus:ring-white sm:text-sm"
+                                                        />
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <label
+                                                        htmlFor="last-name"
+                                                        className="sr-only"
+                                                    >
+                                                        Email Address
+                                                    </label>
+                                                    <div className="mt-2.5">
+                                                        <input
+                                                            id="email"
+                                                            name="email"
+                                                            type="email"
+                                                            autoComplete="email"
+                                                            placeholder="Email Address"
+                                                            className="focus:ring-none block w-full border-0 bg-transparent font-medium  rounded-lg px-3.5 py-2 text-white shadow-sm ring-1  ring-white placeholder:text-white/90 focus:outline-none focus:ring-1 focus:ring-white sm:text-sm"
+                                                        />
+                                                    </div>
+                                                </div>
 
-                                    <small className="">
-                                        Access streamlined guides and protocols
-                                        to support consistent operations.
-                                    </small>
-                                </div>
-                            </a>
-                        </div>
-                        <div className="relative lg:col-span-3 overflow-hidden h-80 ring-2 ring-white rounded-md glass-card ">
-                            <a
-                                href={route("organizations.resources.index", {
-                                    organization: user.organization.id,
-                                })}
-                                className="relative  h-full flex flex-col justify-end overflow-hidden"
-                            >
-                                <img
-                                    alt="Picture of design motif"
-                                    src="/storage/photos/dashboard-motif-4-new.png"
-                                    className="h-56 w-full object-cover object-bottom absolute top-0 right-0 border-none"
-                                />
-                                <div className="p-6">
-                                    <h4 className="font-semibold">
-                                        {user.organization.orgName}:{" "}
-                                        <span className="font-normal">
-                                            Resources
-                                        </span>
-                                    </h4>
+                                                <div>
+                                                    <label
+                                                        htmlFor="phone-number"
+                                                        className="sr-only"
+                                                    >
+                                                        Phone Number
+                                                    </label>
+                                                    <div className="mt-2.5">
+                                                        <input
+                                                            id="phone-number"
+                                                            name="phone-number"
+                                                            type="tel"
+                                                            autoComplete="tel"
+                                                            placeholder="Phone Number"
+                                                            className="focus:ring-none block w-full border-0 bg-transparent font-medium  rounded-lg px-3.5 py-2 text-white shadow-sm ring-1  ring-white placeholder:text-white/90 focus:outline-none focus:ring-1 focus:ring-white sm:text-sm"
+                                                        />
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <label
+                                                        htmlFor="location"
+                                                        className="sr-only"
+                                                    >
+                                                        Location
+                                                    </label>
+                                                    <div className="mt-2.5">
+                                                        <input
+                                                            id="location"
+                                                            name="location"
+                                                            type="text"
+                                                            autoComplete="tel"
+                                                            placeholder="Location"
+                                                            className="focus:ring-none block w-full border-0 bg-transparent font-medium  rounded-lg px-3.5 py-2 text-white shadow-sm ring-1  ring-white placeholder:text-white/90 focus:outline-none focus:ring-1 focus:ring-white sm:text-sm"
+                                                        />
+                                                    </div>
+                                                </div>
+                                                <div className="sm:col-span-2 flex justify-between items-center mt-2 p-2">
+                                                    <label
+                                                        htmlFor="message"
+                                                        className={`${styles.paragraph} font-medium text-white`}
+                                                    >
+                                                        Amount of people
+                                                    </label>
+                                                    <div className="flex gap-x-2">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() =>
+                                                                setQuantity(
+                                                                    (prev) =>
+                                                                        Math.max(
+                                                                            0,
+                                                                            prev -
+                                                                                1
+                                                                        )
+                                                                )
+                                                            }
+                                                            className="focus:outline-none"
+                                                            aria-label="Increase quantity"
+                                                        >
+                                                            <MinusIcon className="h-8 w-8 text-hh-orange bg-white rounded-lg p-1.5" />
+                                                        </button>
+                                                        <span
+                                                            className={`${styles.paragraph} font-medium text-white w-6 text-center flex justify-center items-center`}
+                                                        >
+                                                            {" "}
+                                                            {quantity}
+                                                        </span>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() =>
+                                                                setQuantity(
+                                                                    (prev) =>
+                                                                        prev + 1
+                                                                )
+                                                            }
+                                                            className="focus:outline-none"
+                                                            aria-label="Increase quantity"
+                                                        >
+                                                            <PlusIcon className="h-8 w-8 text-hh-orange bg-white rounded-lg p-1.5" />
+                                                        </button>
+                                                    </div>
+                                                </div>
 
-                                    <small className="">
-                                        Discover tools, documents, and support
-                                        materials to enhance your workflow.
-                                    </small>
+                                                <div className="sm:col-span-2 flex justify-between items-center mt-2 border border-white rounded-lg p-2">
+                                                    <div className="flex items-center gap-x-2">
+                                                        <input
+                                                            type="checkbox"
+                                                            id="honey"
+                                                            name="honey"
+                                                            className="h-4 w-4 text-hh-orange focus:ring-white border-none  ring ring-white rounded bg-white"
+                                                        />
+
+                                                        <label
+                                                            htmlFor="message"
+                                                            className={`${styles.paragraph} font-medium text-white`}
+                                                        >
+                                                            Hot honey / R30
+                                                        </label>
+                                                    </div>
+                                                    <div className="flex gap-x-2">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() =>
+                                                                setHoneyQuantity(
+                                                                    (prev) =>
+                                                                        Math.max(
+                                                                            0,
+                                                                            prev -
+                                                                                1
+                                                                        )
+                                                                )
+                                                            }
+                                                            className="focus:outline-none"
+                                                            aria-label="Increase quantity"
+                                                        >
+                                                            <MinusIcon className="h-8 w-8 text-hh-orange bg-white rounded-lg p-1.5" />
+                                                        </button>
+                                                        <span
+                                                            className={`${styles.paragraph} font-medium text-white w-6 text-center flex justify-center items-center`}
+                                                        >
+                                                            {" "}
+                                                            {honeyQuantity}
+                                                        </span>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() =>
+                                                                setHoneyQuantity(
+                                                                    (prev) =>
+                                                                        prev + 1
+                                                                )
+                                                            }
+                                                            className="focus:outline-none"
+                                                            aria-label="Increase quantity"
+                                                        >
+                                                            <PlusIcon className="h-8 w-8 text-hh-orange bg-white rounded-lg p-1.5" />
+                                                        </button>
+                                                    </div>
+                                                </div>
+
+                                                <div className="sm:col-span-2 flex justify-between items-center  border border-white rounded-lg p-2">
+                                                    <div className="flex items-center gap-x-2">
+                                                        <input
+                                                            type="checkbox"
+                                                            id="honey"
+                                                            name="honey"
+                                                            className="h-4 w-4 text-hh-orange focus:ring-white border-none  ring ring-white rounded bg-white"
+                                                        />
+
+                                                        <label
+                                                            htmlFor="message"
+                                                            className={`${styles.paragraph} font-medium text-white`}
+                                                        >
+                                                            REVIVE + Water Combo
+                                                            / R40
+                                                        </label>
+                                                    </div>
+                                                    <div className="flex gap-x-2">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() =>
+                                                                setReviveQuantity(
+                                                                    (prev) =>
+                                                                        Math.max(
+                                                                            0,
+                                                                            prev -
+                                                                                1
+                                                                        )
+                                                                )
+                                                            }
+                                                            className="focus:outline-none"
+                                                            aria-label="Increase quantity"
+                                                        >
+                                                            <MinusIcon className="h-8 w-8 text-hh-orange bg-white rounded-lg p-1.5" />
+                                                        </button>
+                                                        <span
+                                                            className={`${styles.paragraph} font-medium text-white w-6 text-center flex justify-center items-center`}
+                                                        >
+                                                            {" "}
+                                                            {reviveQuantity}
+                                                        </span>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() =>
+                                                                setReviveQuantity(
+                                                                    (prev) =>
+                                                                        prev + 1
+                                                                )
+                                                            }
+                                                            className="focus:outline-none"
+                                                            aria-label="Increase quantity"
+                                                        >
+                                                            <PlusIcon className="h-8 w-8 text-hh-orange bg-white rounded-lg p-1.5" />
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div className="mt-8">
+                                                <button
+                                                    type="submit"
+                                                    className="rounded-md bg-white px-3.5 py-2.5 text-center uppercase font-semibold text-hh-orange shadow-sm  border border-white hover:bg-hh-orange hover:text-white transition-all"
+                                                >
+                                                    Book this spot
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </form>
                                 </div>
-                            </a>
+                            </div>
                         </div>
-                        <div className="relative lg:col-span-3 overflow-hidden h-80  ring-2 ring-white rounded-md glass-card rounded-br-3xl">
-                            <a
-                                href={route("organizations.events.index", {
-                                    organization: user.organization.id,
-                                })}
-                                className="relative  h-full flex flex-col justify-end overflow-hidden"
-                            >
-                                <img
-                                    alt="Picture of design motif"
-                                    src="/storage/photos/dashboard-motif-5.png"
-                                    className="h-56 w-full object-contain object-right absolute -top-4 right-0"
-                                />
+                        <div className="relative lg:col-span-4 overflow-hidden border border-hh-gray rounded-md h-[547px] bg-white">
+                            <div className="relative  h-full flex flex-col  overflow-y-scroll">
                                 <div className="p-6">
-                                    <h4 className=" font-semibold">
-                                        {user.organization.orgName}:{" "}
-                                        <span className="font-normal">
-                                            Events
-                                        </span>
+                                    <h4
+                                        className={`${styles.h3} !mb-4 font-medium text-black text-center`}
+                                    >
+                                        Indemnity form.
                                     </h4>
-                                    <small className=" ">
-                                        Stay up-to-date with upcoming
-                                        gatherings, launches, and key
-                                        milestones.
-                                    </small>
+                                    <p
+                                        className={`${styles.paragraph} !text-[#999999] `}
+                                    >
+                                        Lorem ipsum dolor sit amet consectetur
+                                        adipisicing elit. Natus quia magni nam
+                                        aspernatur odit ipsam hic unde dolor
+                                        officia totam veniam, culpa tenetur
+                                        praesentium accusamus recusandae dolorum
+                                        minima qui, harum exercitationem.
+                                        Tenetur laudantium eveniet repellat,
+                                        doloribus minus eligendi qui et
+                                        repudiandae rerum asperiores alias quas
+                                        quo maxime nostrum dolor libero
+                                        possimus, officiis molestiae. Illo
+                                        delectus minus mollitia laudantium rem,
+                                        esse accusamus temporibus vitae,
+                                        molestias sapiente, explicabo iste?
+                                        Cupiditate modi adipisci, a impedit
+                                        dicta quos neque veritatis natus quod,
+                                        nemo alias pariatur ipsa error unde
+                                        deserunt animi! Iure unde porro
+                                        similique commodi repudiandae aspernatur
+                                        ex illo numquam dignissimos doloremque
+                                        officia rem nisi quod deserunt inventore
+                                        reiciendis dolores quisquam quibusdam
+                                        dolore voluptatibus esse adipisci,
+                                        aliquam consequuntur. Minus, autem
+                                        culpa? Repudiandae, ad ex.
+                                    </p>
+                                    <div className="flex gap-x-2 mt-4 items-center">
+                                        <input
+                                            type="checkbox"
+                                            id="terms-and-conditions"
+                                            name="terms-and-conditions"
+                                            className="h-4 w-4 text-hh-orange focus:ring-white border-none  ring ring-white rounded bg-hh-orange"
+                                        />
+
+                                        <label
+                                            htmlFor="message"
+                                            className={`${styles.paragraph} !text-sm !text-[#999999]`}
+                                        >
+                                            I agree and accept all the terms and
+                                            conditions
+                                        </label>
+                                    </div>
                                 </div>
-                            </a>
+                            </div>
+                        </div>
+                        <div className="relative lg:col-span-full overflow-hidden border border-hh-gray rounded-md  bg-white p-6">
+                            <h4
+                                className={`${styles.h3} !mb-4 font-medium text-black `}
+                            >
+                                Locations: Weekly bookings
+                            </h4>
+                            <div className="space-y-2 mt-4">
+                                <div className="flex justify-between w-full">
+                                    <p
+                                        className={`${styles.paragraph} !text-[#999999] `}
+                                    >
+                                        St James Tidal Pool
+                                    </p>
+                                    <p
+                                        className={`${styles.paragraph} !text-[#999999] `}
+                                    >
+                                        80%
+                                    </p>
+                                </div>
+
+                                <div className="w-full h-2 rounded bg-hh-gray"></div>
+                            </div>
+                            <div className="space-y-2 mt-4">
+                                <div className="flex justify-between w-full">
+                                    <p
+                                        className={`${styles.paragraph} !text-[#999999] `}
+                                    >
+                                        St James Tidal Pool
+                                    </p>
+                                    <p
+                                        className={`${styles.paragraph} !text-[#999999] `}
+                                    >
+                                        80%
+                                    </p>
+                                </div>
+
+                                <div className="w-full h-2 rounded bg-hh-gray"></div>
+                            </div>
+                            <div className="space-y-2 mt-4">
+                                <div className="flex justify-between w-full">
+                                    <p
+                                        className={`${styles.paragraph} !text-[#999999] `}
+                                    >
+                                        St James Tidal Pool
+                                    </p>
+                                    <p
+                                        className={`${styles.paragraph} !text-[#999999] `}
+                                    >
+                                        80%
+                                    </p>
+                                </div>
+
+                                <div className="w-full h-2 rounded bg-hh-gray"></div>
+                            </div>
+                            <div className="space-y-2 mt-4">
+                                <div className="flex justify-between w-full">
+                                    <p
+                                        className={`${styles.paragraph} !text-[#999999] `}
+                                    >
+                                        St James Tidal Pool
+                                    </p>
+                                    <p
+                                        className={`${styles.paragraph} !text-[#999999] `}
+                                    >
+                                        80%
+                                    </p>
+                                </div>
+
+                                <div className="w-full h-2 rounded bg-hh-gray"></div>
+                            </div>
+                            <div className="space-y-2 mt-4">
+                                <div className="flex justify-between w-full">
+                                    <p
+                                        className={`${styles.paragraph} !text-[#999999] `}
+                                    >
+                                        St James Tidal Pool
+                                    </p>
+                                    <p
+                                        className={`${styles.paragraph} !text-[#999999] `}
+                                    >
+                                        80%
+                                    </p>
+                                </div>
+
+                                <div className="w-full h-2 rounded bg-hh-gray"></div>
+                            </div>
+                            <div className="space-y-2 mt-4">
+                                <div className="flex justify-between w-full">
+                                    <p
+                                        className={`${styles.paragraph} !text-[#999999] `}
+                                    >
+                                        St James Tidal Pool
+                                    </p>
+                                    <p
+                                        className={`${styles.paragraph} !text-[#999999] `}
+                                    >
+                                        80%
+                                    </p>
+                                </div>
+
+                                <div className="w-full h-2 rounded bg-hh-gray"></div>
+                            </div>
+                        </div>
+                        <div className="relative lg:col-span-full  overflow-hidden pt-6 pb-12">
+                            <div className="col-span-full flex justify-between items-center mb-6">
+                                <div>
+                                    {" "}
+                                    <h4
+                                        className={`${styles.h3} !mb-0 font-medium text-black `}
+                                    >
+                                        Locations: Weekly bookings
+                                    </h4>
+                                </div>
+                                <div className="flex gap-x-4 items-center">
+                                    <div className="bg-white shadow-md flex items-center gap-x-2 border border-hh-gray p-2 rounded">
+                                        <p
+                                            className={`${styles.paragraph} text-black`}
+                                        >
+                                            St James Tidal Pool
+                                        </p>
+                                        <ChevronDownIcon className="text-black h-6 w-6" />
+                                    </div>
+                                    <div className="bg-white shadow-md flex items-center gap-x-2 border border-hh-gray p-2 rounded">
+                                        <p
+                                            className={`${styles.paragraph} text-black`}
+                                        >
+                                            Last 30 days
+                                        </p>
+                                        <ChevronDownIcon className="text-black h-6 w-6" />
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-12 p-6 gap-x-4">
+                                <div className="col-span-1">
+                                    <p
+                                        className={`${styles.paragraph} text-black`}
+                                    >
+                                        #No
+                                    </p>
+                                </div>
+                                <div className="col-span-2 -ml-6">
+                                    <p
+                                        className={`${styles.paragraph} text-black`}
+                                    >
+                                        Customer Name
+                                    </p>
+                                </div>
+                                <div className="col-span-2">
+                                    <p
+                                        className={`${styles.paragraph} text-black`}
+                                    >
+                                        Date & Time
+                                    </p>
+                                </div>
+                                <div className="col-span-2">
+                                    <p
+                                        className={`${styles.paragraph} text-black`}
+                                    >
+                                        Service
+                                    </p>
+                                </div>
+                                <div className="col-span-2">
+                                    <p
+                                        className={`${styles.paragraph} text-black`}
+                                    >
+                                        Location
+                                    </p>
+                                </div>
+                                <div className="col-span-2">
+                                    <p
+                                        className={`${styles.paragraph} text-black`}
+                                    >
+                                        Duration
+                                    </p>
+                                </div>
+                                <div className="col-span-1">
+                                    <p
+                                        className={`${styles.paragraph} text-black`}
+                                    >
+                                        Status
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="col-span-full space-y-4">
+                                <div className="col-span-full bg-white shadow grid grid-cols-12  gap-x-4 items-center border border-hh-gray rounded p-6">
+                                    <div className="col-span-1">
+                                        <p
+                                            className={`${styles.paragraph} !text-[#999999] `}
+                                        >
+                                            01
+                                        </p>
+                                    </div>
+                                    <div className="col-span-2 flex gap-x-2 items-center -ml-6">
+                                        <div className="bg-[#999999] rounded-full h-8 w-8 flex items-center justify-center shrink-0">
+                                            <p
+                                                className={`${styles.paragraph} !text-white !text-sm `}
+                                            >
+                                                VM
+                                            </p>
+                                        </div>
+                                        <p
+                                            className={`${styles.paragraph} !text-[#999999] !text-sm`}
+                                        >
+                                            Valentino Morose
+                                        </p>
+                                    </div>
+                                    <div className="col-span-2">
+                                        <p
+                                            className={`${styles.paragraph} !text-[#999999] !text-sm`}
+                                        >
+                                            04 May 2025, 6:20AM
+                                        </p>
+                                    </div>
+                                    <div className="col-span-2">
+                                        <p
+                                            className={`${styles.paragraph} !text-[#999999] !text-sm`}
+                                        >
+                                            Single Sauna Session
+                                        </p>
+                                    </div>
+                                    <div className="col-span-2">
+                                        <p
+                                            className={`${styles.paragraph} !text-[#999999] !text-sm`}
+                                        >
+                                            St James Tidal Pool
+                                        </p>
+                                    </div>
+                                    <div className="col-span-2">
+                                        <p
+                                            className={`${styles.paragraph} !text-[#999999] !text-sm`}
+                                        >
+                                            20 minutes
+                                        </p>
+                                    </div>
+                                    <div className="col-span-1">
+                                        <div className="bg-hh-orange rounded-full px-4 py-2">
+                                            <p
+                                                className={`${styles.paragraph} !text-white !text-sm text-center`}
+                                            >
+                                                Paid
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="col-span-full bg-white shadow grid grid-cols-12 gap-x-4 items-center border border-hh-gray rounded p-6">
+                                    <div className="col-span-1">
+                                        <p
+                                            className={`${styles.paragraph} !text-[#999999] `}
+                                        >
+                                            02
+                                        </p>
+                                    </div>
+                                    <div className="col-span-2 flex gap-x-2 items-center -ml-6">
+                                        <div className="bg-[#999999] rounded-full h-8 w-8 flex items-center justify-center shrink-0">
+                                            <p
+                                                className={`${styles.paragraph} !text-white !text-sm `}
+                                            >
+                                                VM
+                                            </p>
+                                        </div>
+                                        <p
+                                            className={`${styles.paragraph} !text-[#999999] !text-sm`}
+                                        >
+                                            Valentino Morose
+                                        </p>
+                                    </div>
+                                    <div className="col-span-2">
+                                        <p
+                                            className={`${styles.paragraph} !text-[#999999] !text-sm`}
+                                        >
+                                            04 May 2025, 6:20AM
+                                        </p>
+                                    </div>
+                                    <div className="col-span-2">
+                                        <p
+                                            className={`${styles.paragraph} !text-[#999999] !text-sm`}
+                                        >
+                                            Single Sauna Session
+                                        </p>
+                                    </div>
+                                    <div className="col-span-2">
+                                        <p
+                                            className={`${styles.paragraph} !text-[#999999] !text-sm`}
+                                        >
+                                            St James Tidal Pool
+                                        </p>
+                                    </div>
+                                    <div className="col-span-2">
+                                        <p
+                                            className={`${styles.paragraph} !text-[#999999] !text-sm`}
+                                        >
+                                            20 minutes
+                                        </p>
+                                    </div>
+                                    <div className="col-span-1">
+                                        <div className="bg-hh-orange rounded-full px-4 py-2">
+                                            <p
+                                                className={`${styles.paragraph} !text-white !text-sm text-center`}
+                                            >
+                                                Paid
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="col-span-full bg-white shadow grid grid-cols-12 gap-x-4 items-center border border-hh-gray rounded p-6">
+                                    <div className="col-span-1">
+                                        <p
+                                            className={`${styles.paragraph} !text-[#999999] `}
+                                        >
+                                            03
+                                        </p>
+                                    </div>
+                                    <div className="col-span-2 flex gap-x-2 items-center -ml-6">
+                                        <div className="bg-[#999999] rounded-full h-8 w-8 flex items-center justify-center shrink-0">
+                                            <p
+                                                className={`${styles.paragraph} !text-white !text-sm `}
+                                            >
+                                                VM
+                                            </p>
+                                        </div>
+                                        <p
+                                            className={`${styles.paragraph} !text-[#999999] !text-sm`}
+                                        >
+                                            Valentino Morose
+                                        </p>
+                                    </div>
+                                    <div className="col-span-2">
+                                        <p
+                                            className={`${styles.paragraph} !text-[#999999] !text-sm`}
+                                        >
+                                            04 May 2025, 6:20AM
+                                        </p>
+                                    </div>
+                                    <div className="col-span-2">
+                                        <p
+                                            className={`${styles.paragraph} !text-[#999999] !text-sm`}
+                                        >
+                                            Single Sauna Session
+                                        </p>
+                                    </div>
+                                    <div className="col-span-2">
+                                        <p
+                                            className={`${styles.paragraph} !text-[#999999] !text-sm`}
+                                        >
+                                            St James Tidal Pool
+                                        </p>
+                                    </div>
+                                    <div className="col-span-2">
+                                        <p
+                                            className={`${styles.paragraph} !text-[#999999] !text-sm`}
+                                        >
+                                            20 minutes
+                                        </p>
+                                    </div>
+                                    <div className="col-span-1">
+                                        <div className="bg-hh-orange rounded-full px-4 py-2">
+                                            <p
+                                                className={`${styles.paragraph} !text-white !text-sm text-center`}
+                                            >
+                                                Paid
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="col-span-full bg-white shadow grid grid-cols-12 gap-x-4 items-center border border-hh-gray rounded p-6">
+                                    <div className="col-span-1">
+                                        <p
+                                            className={`${styles.paragraph} !text-[#999999] `}
+                                        >
+                                            04
+                                        </p>
+                                    </div>
+                                    <div className="col-span-2 flex gap-x-2 items-center -ml-6">
+                                        <div className="bg-[#999999] rounded-full h-8 w-8 flex items-center justify-center shrink-0">
+                                            <p
+                                                className={`${styles.paragraph} !text-white !text-sm `}
+                                            >
+                                                VM
+                                            </p>
+                                        </div>
+                                        <p
+                                            className={`${styles.paragraph} !text-[#999999] !text-sm`}
+                                        >
+                                            Valentino Morose
+                                        </p>
+                                    </div>
+                                    <div className="col-span-2">
+                                        <p
+                                            className={`${styles.paragraph} !text-[#999999] !text-sm`}
+                                        >
+                                            04 May 2025, 6:20AM
+                                        </p>
+                                    </div>
+                                    <div className="col-span-2">
+                                        <p
+                                            className={`${styles.paragraph} !text-[#999999] !text-sm`}
+                                        >
+                                            Single Sauna Session
+                                        </p>
+                                    </div>
+                                    <div className="col-span-2">
+                                        <p
+                                            className={`${styles.paragraph} !text-[#999999] !text-sm`}
+                                        >
+                                            St James Tidal Pool
+                                        </p>
+                                    </div>
+                                    <div className="col-span-2">
+                                        <p
+                                            className={`${styles.paragraph} !text-[#999999] !text-sm`}
+                                        >
+                                            20 minutes
+                                        </p>
+                                    </div>
+                                    <div className="col-span-1">
+                                        <div className="bg-hh-orange rounded-full px-4 py-2">
+                                            <p
+                                                className={`${styles.paragraph} !text-white !text-sm text-center`}
+                                            >
+                                                Paid
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="col-span-full bg-white shadow grid grid-cols-12 gap-x-4 items-center border border-hh-gray rounded p-6">
+                                    <div className="col-span-1">
+                                        <p
+                                            className={`${styles.paragraph} !text-[#999999] `}
+                                        >
+                                            05
+                                        </p>
+                                    </div>
+                                    <div className="col-span-2 flex gap-x-2 items-center -ml-6">
+                                        <div className="bg-[#999999] rounded-full h-8 w-8 flex items-center justify-center shrink-0">
+                                            <p
+                                                className={`${styles.paragraph} !text-white !text-sm `}
+                                            >
+                                                VM
+                                            </p>
+                                        </div>
+                                        <p
+                                            className={`${styles.paragraph} !text-[#999999] !text-sm`}
+                                        >
+                                            Valentino Morose
+                                        </p>
+                                    </div>
+                                    <div className="col-span-2">
+                                        <p
+                                            className={`${styles.paragraph} !text-[#999999] !text-sm`}
+                                        >
+                                            04 May 2025, 6:20AM
+                                        </p>
+                                    </div>
+                                    <div className="col-span-2">
+                                        <p
+                                            className={`${styles.paragraph} !text-[#999999] !text-sm`}
+                                        >
+                                            Single Sauna Session
+                                        </p>
+                                    </div>
+                                    <div className="col-span-2">
+                                        <p
+                                            className={`${styles.paragraph} !text-[#999999] !text-sm`}
+                                        >
+                                            St James Tidal Pool
+                                        </p>
+                                    </div>
+                                    <div className="col-span-2">
+                                        <p
+                                            className={`${styles.paragraph} !text-[#999999] !text-sm`}
+                                        >
+                                            20 minutes
+                                        </p>
+                                    </div>
+                                    <div className="col-span-1">
+                                        <div className="bg-hh-orange rounded-full px-4 py-2">
+                                            <p
+                                                className={`${styles.paragraph} !text-white !text-sm text-center`}
+                                            >
+                                                Paid
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="col-span-full flex justify-end gap-x-2">
+                                    <div className="bg-white rounded-full w-10 h-10 flex justify-center items-center shadow">
+                                        <p
+                                            className={`${styles.paragraph} !text-[#999999] `}
+                                        >
+                                            01
+                                        </p>
+                                    </div>
+                                    <div className="bg-white rounded-full w-10 h-10 flex justify-center items-center shadow">
+                                        <p
+                                            className={`${styles.paragraph} !text-[#999999] `}
+                                        >
+                                            02
+                                        </p>
+                                    </div>
+                                    <div className="bg-hh-orange rounded-full w-10 h-10 flex justify-center items-center shadow">
+                                        <p
+                                            className={`${styles.paragraph} !text-white `}
+                                        >
+                                            03
+                                        </p>
+                                    </div>
+                                    <div className="bg-white rounded-full w-10 h-10 flex justify-center items-center shadow">
+                                        <p
+                                            className={`${styles.paragraph} !text-[#999999] `}
+                                        >
+                                            04
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                    {/* <div className="mt-10 grid grid-cols-1 gap-4 sm:mt-16 lg:grid-cols-6 lg:grid-rows-1">
-                        <div className="relative lg:col-span-3 overflow-hidden">
-                            <div className="absolute inset-px rounded-lg bg-white" />
-                            <div className="relative flex h-full flex-col overflow-hidden">
-                                <img
-                                    alt=""
-                                    src="https://tailwindui.com/plus/img/component-images/bento-01-performance.png"
-                                    className="h-40 object-cover object-left"
-                                />
-                                <div className="p-6pt-4">
-                                    <h3 className="text-sm/4 font-semibold text-indigo-600">
-                                        Performance
-                                    </h3>
-                                    <p className="mt-2 text-lg font-medium tracking-tight text-gray-950">
-                                        Lightning-fast builds
-                                    </p>
-                                    <p className="mt-2 max-w-lg text-sm/6 text-gray-600">
-                                        Lorem ipsum dolor sit amet, consectetur
-                                        adipiscing elit. In gravida justo et
-                                        nulla efficitur, maximus egestas sem
-                                        pellentesque.
-                                    </p>
-                                </div>
-                            </div>
-                            <div className="pointer-events-none absolute inset-px rounded-lg shadow ring-1 ring-black/5" />
-                        </div>
-                        <div className="relative lg:col-span-3">
-                            <div className="absolute inset-px rounded-lg bg-white lg:rounded-tr-[2rem]" />
-                            <div className="relative flex h-full flex-col overflow-hidden rounded-[calc(theme(borderRadius.lg)+1px)] lg:rounded-tr-[calc(2rem+1px)]">
-                                <img
-                                    alt=""
-                                    src="https://tailwindui.com/plus/img/component-images/bento-01-releases.png"
-                                    className="h-40 object-cover object-left lg:object-right"
-                                />
-                                <div className="p-6pt-4">
-                                    <h3 className="text-sm/4 font-semibold text-indigo-600">
-                                        Releases
-                                    </h3>
-                                    <p className="mt-2 text-lg font-medium tracking-tight text-gray-950">
-                                        Push to deploy
-                                    </p>
-                                    <p className="mt-2 max-w-lg text-sm/6 text-gray-600">
-                                        Curabitur auctor, ex quis auctor
-                                        venenatis, eros arcu rhoncus massa,
-                                        laoreet dapibus ex elit vitae odio.
-                                    </p>
-                                </div>
-                            </div>
-                            <div className="pointer-events-none absolute inset-px rounded-lg shadow ring-1 ring-black/5 lg:rounded-tr-[2rem]" />
-                        </div>
-                        <div className="relative lg:col-span-2">
-                            <div className="absolute inset-px rounded-lg bg-white lg:rounded-bl-[2rem]" />
-                            <div className="relative flex h-full flex-col overflow-hidden rounded-[calc(theme(borderRadius.lg)+1px)] lg:rounded-bl-[calc(2rem+1px)]">
-                                <img
-                                    alt=""
-                                    src="https://tailwindui.com/plus/img/component-images/bento-01-speed.png"
-                                    className="h-80 object-cover object-left"
-                                />
-                                <div className="p-6pt-4">
-                                    <h3 className="text-sm/4 font-semibold text-indigo-600">
-                                        Speed
-                                    </h3>
-                                    <p className="mt-2 text-lg font-medium tracking-tight text-gray-950">
-                                        Built for power users
-                                    </p>
-                                    <p className="mt-2 max-w-lg text-sm/6 text-gray-600">
-                                        Sed congue eros non finibus molestie.
-                                        Vestibulum euismod augue.
-                                    </p>
-                                </div>
-                            </div>
-                            <div className="pointer-events-none absolute inset-px rounded-lg shadow ring-1 ring-black/5 lg:rounded-bl-[2rem]" />
-                        </div>
-                        <div className="relative lg:col-span-2">
-                            <div className="absolute inset-px rounded-lg bg-white" />
-                            <div className="relative flex h-full flex-col overflow-hidden rounded-[calc(theme(borderRadius.lg)+1px)]">
-                                <img
-                                    alt=""
-                                    src="https://tailwindui.com/plus/img/component-images/bento-01-integrations.png"
-                                    className="h-80 object-cover"
-                                />
-                                <div className="p-6pt-4">
-                                    <h3 className="text-sm/4 font-semibold text-indigo-600">
-                                        Integrations
-                                    </h3>
-                                    <p className="mt-2 text-lg font-medium tracking-tight text-gray-950">
-                                        Connect your favorite tools
-                                    </p>
-                                    <p className="mt-2 max-w-lg text-sm/6 text-gray-600">
-                                        Maecenas at augue sed elit dictum
-                                        vulputate, in nisi aliquam maximus arcu.
-                                    </p>
-                                </div>
-                            </div>
-                            <div className="pointer-events-none absolute inset-px rounded-lg shadow ring-1 ring-black/5" />
-                        </div>
-                        <div className="relative lg:col-span-2">
-                            <div className="absolute inset-px rounded-lg bg-white max-lg:rounded-b-[2rem] lg:rounded-br-[2rem]" />
-                            <div className="relative flex h-full flex-col overflow-hidden rounded-[calc(theme(borderRadius.lg)+1px)] max-lg:rounded-b-[calc(2rem+1px)] lg:rounded-br-[calc(2rem+1px)]">
-                                <img
-                                    alt=""
-                                    src="https://tailwindui.com/plus/img/component-images/bento-01-network.png"
-                                    className="h-80 object-cover"
-                                />
-                                <div className="p-6pt-4">
-                                    <h3 className="text-sm/4 font-semibold text-indigo-600">
-                                        Network
-                                    </h3>
-                                    <p className="mt-2 text-lg font-medium tracking-tight text-gray-950">
-                                        Globally distributed CDN
-                                    </p>
-                                    <p className="mt-2 max-w-lg text-sm/6 text-gray-600">
-                                        Aenean vulputate justo commodo auctor
-                                        vehicula in malesuada semper.
-                                    </p>
-                                </div>
-                            </div>
-                            <div className="pointer-events-none absolute inset-px rounded-lg shadow ring-1 ring-black/5 max-lg:rounded-b-[2rem] lg:rounded-br-[2rem]" />
-                        </div>
-                    </div> */}
                 </div>
             </div>
         </AuthenticatedLayout>

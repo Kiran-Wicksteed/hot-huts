@@ -25,6 +25,7 @@ export default {
                 "d-accent-blue-medium": "#9099BA",
                 "d-accent-purple": "#B1B5CE",
                 "hh-orange": "#FF7022",
+                "hh-gray": "#C7C7C7",
             },
         },
     },

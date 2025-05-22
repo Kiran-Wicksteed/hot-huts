@@ -37,11 +37,18 @@ import {
     UserPlusIcon,
     ClipboardDocumentCheckIcon,
     CameraIcon,
+    Squares2X2Icon,
+    BookmarkIcon,
+    CreditCardIcon,
+    UserCircleIcon,
+    ServerStackIcon,
+    MapIcon,
+    DocumentChartBarIcon,
 } from "@heroicons/react/24/outline";
 import { UserIcon } from "@heroicons/react/24/solid";
 
 const foundation = [
-    { name: "Dashboard", href: "#", icon: HomeIcon, current: true },
+    { name: "Dashboard", href: "#", icon: Squares2X2Icon, current: true },
     { name: "Team", href: "#", icon: UsersIcon, current: false },
     { name: "Projects", href: "#", icon: FolderIcon, current: false },
     { name: "Calendar", href: "#", icon: CalendarIcon, current: false },
@@ -86,21 +93,26 @@ export default function AuthenticatedLayout({ header, children }) {
     return (
         <>
             <div className=" ">
-                <nav className="!border-b !border-gray-200 glass !shadow-none z-50 fixed top-0 left-0 w-full">
+                <nav className="!border-b !border-gray-200 bg-white !shadow-none z-50 fixed top-0 left-0 w-full">
                     <div className="mx-auto  px-4 sm:px-6 lg:px-8">
                         <div className="flex h-16 items-center justify-between">
-                            <div className="flex">
-                                <Link href="/">
-                                    <ApplicationLogo className="block h-7 w-auto fill-current text-gray-800" />
-                                </Link>
-                            </div>
+                            <Link href="/">
+                                <div className="flex gap-x-4">
+                                    <ApplicationLogo className=" h-7 w-auto fill-current " />
+                                    <p
+                                        className={`text-hh-orange font-medium text-xl`}
+                                    >
+                                        Dashboard
+                                    </p>
+                                </div>
+                            </Link>
 
                             <div className="hidden sm:ms-6 sm:flex sm:items-center">
                                 <div className="relative ms-3">
                                     <Dropdown>
                                         <Dropdown.Trigger>
                                             <div className="flex">
-                                                {/* {user.photo != null ? (
+                                                {user.photo != null ? (
                                                     <div className="mx-auto h-10 w-10 overflow-hidden shrink-0 rounded-full">
                                                         <img
                                                             alt=""
@@ -110,12 +122,12 @@ export default function AuthenticatedLayout({ header, children }) {
                                                             className="object-cover top-0 left-0 w-full h-full"
                                                         />
                                                     </div>
-                                                ) : ( */}
-                                                <UserIcon
-                                                    aria-hidden="true"
-                                                    className="h-10 w-10 text-white bg-hh-orange rounded-full p-1.5"
-                                                />
-                                                {/* // )} */}
+                                                ) : (
+                                                    <UserIcon
+                                                        aria-hidden="true"
+                                                        className="h-10 w-10 text-white bg-hh-orange rounded-full p-1.5"
+                                                    />
+                                                )}
                                                 <span className="inline-flex rounded-md">
                                                     <button
                                                         type="button"
@@ -405,55 +417,13 @@ export default function AuthenticatedLayout({ header, children }) {
                     </div>
                 </Dialog>
                 {/* Static sidebar for desktop */}
-                <div className="hidden lg:fixed lg:inset-y-0 lg:z-40 lg:flex xl:w-72 lg:flex-col ">
+                <div className="hidden lg:fixed lg:inset-y-0 lg:z-40 lg:flex xl:w-64 lg:flex-col ">
                     {/* Sidebar component, swap this element with another sidebar if you like */}
-                    <div className="flex grow  flex-col gap-y-5 overflow-y-auto border-r border-gray-200 glass  pb-4">
+                    <div className="flex grow  flex-col gap-y-5 overflow-y-auto border-r border-gray-200 bg-white  pb-4">
                         <div className="flex h-16 shrink-0 items-center">
                             <div className="flex shrink-0 items-center"></div>
                         </div>
-                        <div className="border-b pb-6 px-4">
-                            <div className="relative  flex items-center gap-x-4 ">
-                                {user.photo != null ? (
-                                    <div className=" h-16 w-16 overflow-hidden shrink-0 rounded-full">
-                                        <img
-                                            alt=""
-                                            src={asset(user.photo)}
-                                            className="object-cover top-0 left-0 w-full h-full"
-                                        />
-                                    </div>
-                                ) : (
-                                    <UserCircleIcon
-                                        aria-hidden="true"
-                                        className="h-16 w-16 text-gray-300"
-                                    />
-                                )}
 
-                                <div className="">
-                                    <p className=" text-gray-900">
-                                        <span className="absolute inset-0" />
-                                        {user.name}
-                                    </p>
-                                    <div className="flex items-center">
-                                        <div className="h-2 w-2 bg-d-accent-blue-light rounded-full mr-2"></div>
-                                        <small className="">
-                                            {user.organization.orgName}
-                                        </small>
-                                    </div>
-                                </div>
-                            </div>
-                            {user.is_approved === true && <InviteTeam />}
-
-                            {user.is_approved === true && (
-                                <div className="">
-                                    <a
-                                        href="/profile"
-                                        className=" flex  ml-4   "
-                                    >
-                                        <small>Manage profile</small>
-                                    </a>
-                                </div>
-                            )}
-                        </div>
                         <nav
                             className={`${
                                 user.is_approved === true
@@ -466,33 +436,29 @@ export default function AuthenticatedLayout({ header, children }) {
                                 className="flex flex-1 flex-col gap-y-7 "
                             >
                                 <li>
-                                    <h6>Foundation</h6>
-                                    <ul
-                                        role="list"
-                                        className="-mx-2 space-y-1 "
-                                    >
+                                    <ul role="list" className=" space-y-3 ">
                                         <li>
                                             <a
                                                 href={route("dashboard")}
                                                 className={classNames(
                                                     route().current("dashboard")
-                                                        ? "bg-gray-100 "
-                                                        : "text-gray-700 hover:bg-gray-100 hover:",
-                                                    "group flex gap-x-3 rounded-md p-1 sidebar-item"
+                                                        ? "bg-gray-100 text-hh-orange border-l-2 border-l-hh-orange"
+                                                        : "text-black hover:bg-gray-100 hover:",
+                                                    "group flex gap-x-3  p-1 sidebar-item !font-medium"
                                                 )}
                                             >
-                                                <HomeIcon
+                                                <Squares2X2Icon
                                                     aria-hidden="true"
                                                     className={classNames(
                                                         route().current(
                                                             "dashboard"
                                                         )
-                                                            ? ""
-                                                            : "text-gray-400 group-hover:",
+                                                            ? "text-hh-orange"
+                                                            : "text-black group-hover:",
                                                         "h-6 w-6 shrink-0"
                                                     )}
                                                 />
-                                                Home
+                                                Dashboard
                                             </a>
                                         </li>
                                         <li>
@@ -504,23 +470,23 @@ export default function AuthenticatedLayout({ header, children }) {
                                                     route().current(
                                                         "foundation.companies"
                                                     )
-                                                        ? "bg-gray-100 "
-                                                        : "text-gray-700 hover:bg-gray-100 hover:",
-                                                    "group flex gap-x-3 rounded-md p-1 sidebar-item"
+                                                        ? "bg-gray-100 text-hh-orange border-l-2 border-l-hh-orange"
+                                                        : "text-black hover:bg-gray-100 hover:",
+                                                    "group flex gap-x-3  p-1 sidebar-item !font-medium"
                                                 )}
                                             >
-                                                <BuildingOfficeIcon
+                                                <BookmarkIcon
                                                     aria-hidden="true"
                                                     className={classNames(
                                                         route().current(
                                                             "foundation.companies"
                                                         )
                                                             ? ""
-                                                            : "text-gray-400 group-hover:",
+                                                            : "text-black group-hover:",
                                                         "h-6 w-6 shrink-0"
                                                     )}
                                                 />
-                                                Organizations
+                                                Bookings
                                             </a>
                                         </li>
                                         <li>
@@ -532,28 +498,140 @@ export default function AuthenticatedLayout({ header, children }) {
                                                     route().current(
                                                         "newsletters.index"
                                                     )
-                                                        ? "bg-gray-100"
-                                                        : "text-gray-700 hover:bg-gray-100",
-                                                    "group flex gap-x-3 rounded-md p-1  sidebar-item"
+                                                        ? "bg-gray-100 text-hh-orange border-l-2 border-l-hh-orange"
+                                                        : "text-black hover:bg-gray-100 hover:",
+                                                    "group flex gap-x-3  p-1 sidebar-item !font-medium"
                                                 )}
                                             >
-                                                <EnvelopeIcon
+                                                <CreditCardIcon
                                                     aria-hidden="true"
                                                     className={classNames(
                                                         route().current(
                                                             "newsletters.index"
                                                         )
                                                             ? ""
-                                                            : "text-gray-400 group-hover:",
+                                                            : "text-black group-hover:",
                                                         "h-6 w-6 shrink-0"
                                                     )}
                                                 />
-                                                Newsletters
+                                                Payments
+                                            </a>
+                                        </li>
+                                        <li>
+                                            <a
+                                                href={route(
+                                                    "newsletters.index"
+                                                )}
+                                                className={classNames(
+                                                    route().current(
+                                                        "newsletters.index"
+                                                    )
+                                                        ? "bg-gray-100 text-hh-orange border-l-2 border-l-hh-orange"
+                                                        : "text-black hover:bg-gray-100 hover:",
+                                                    "group flex gap-x-3  p-1 sidebar-item !font-medium"
+                                                )}
+                                            >
+                                                <UserCircleIcon
+                                                    aria-hidden="true"
+                                                    className={classNames(
+                                                        route().current(
+                                                            "newsletters.index"
+                                                        )
+                                                            ? ""
+                                                            : "text-black group-hover:",
+                                                        "h-6 w-6 shrink-0"
+                                                    )}
+                                                />
+                                                Customers
+                                            </a>
+                                        </li>
+                                        <li>
+                                            <a
+                                                href={route(
+                                                    "newsletters.index"
+                                                )}
+                                                className={classNames(
+                                                    route().current(
+                                                        "newsletters.index"
+                                                    )
+                                                        ? "bg-gray-100 text-hh-orange border-l-2 border-l-hh-orange"
+                                                        : "text-black hover:bg-gray-100 hover:",
+                                                    "group flex gap-x-3  p-1 sidebar-item !font-medium"
+                                                )}
+                                            >
+                                                <ServerStackIcon
+                                                    aria-hidden="true"
+                                                    className={classNames(
+                                                        route().current(
+                                                            "newsletters.index"
+                                                        )
+                                                            ? ""
+                                                            : "text-black group-hover:",
+                                                        "h-6 w-6 shrink-0"
+                                                    )}
+                                                />
+                                                Services
+                                            </a>
+                                        </li>
+                                        <li>
+                                            <a
+                                                href={route(
+                                                    "newsletters.index"
+                                                )}
+                                                className={classNames(
+                                                    route().current(
+                                                        "newsletters.index"
+                                                    )
+                                                        ? "bg-gray-100 text-hh-orange border-l-2 border-l-hh-orange"
+                                                        : "text-black hover:bg-gray-100 hover:",
+                                                    "group flex gap-x-3  p-1 sidebar-item !font-medium"
+                                                )}
+                                            >
+                                                <MapIcon
+                                                    aria-hidden="true"
+                                                    className={classNames(
+                                                        route().current(
+                                                            "newsletters.index"
+                                                        )
+                                                            ? ""
+                                                            : "text-black group-hover:",
+                                                        "h-6 w-6 shrink-0"
+                                                    )}
+                                                />
+                                                Locations
+                                            </a>
+                                        </li>
+                                        <li>
+                                            <a
+                                                href={route(
+                                                    "newsletters.index"
+                                                )}
+                                                className={classNames(
+                                                    route().current(
+                                                        "newsletters.index"
+                                                    )
+                                                        ? "bg-gray-100 text-hh-orange border-l-2 border-l-hh-orange"
+                                                        : "text-black hover:bg-gray-100 hover:",
+                                                    "group flex gap-x-3  p-1 sidebar-item !font-medium"
+                                                )}
+                                            >
+                                                <DocumentChartBarIcon
+                                                    aria-hidden="true"
+                                                    className={classNames(
+                                                        route().current(
+                                                            "newsletters.index"
+                                                        )
+                                                            ? ""
+                                                            : "text-black group-hover:",
+                                                        "h-6 w-6 shrink-0"
+                                                    )}
+                                                />
+                                                Reports
                                             </a>
                                         </li>
                                     </ul>
                                 </li>
-                                {user.is_family === 1 && (
+                                {/* {user.is_family === 1 && (
                                     <li>
                                         <h6>Family</h6>
                                         <ul
@@ -569,9 +647,9 @@ export default function AuthenticatedLayout({ header, children }) {
                                                         route().current(
                                                             "family.resources.index"
                                                         )
-                                                            ? "bg-gray-100 "
-                                                            : "text-gray-700 hover:bg-gray-100 hover:",
-                                                        "group flex gap-x-3 rounded-md p-1 sidebar-item"
+                                                            ? "bg-gray-100 text-hh-orange border-l-2 border-l-hh-orange"
+                                                            : "text-black hover:bg-gray-100 hover:",
+                                                        "group flex gap-x-3  p-1 sidebar-item !font-medium"
                                                     )}
                                                 >
                                                     <ClipboardDocumentCheckIcon
@@ -855,26 +933,15 @@ export default function AuthenticatedLayout({ header, children }) {
                                             </li>
                                         </ul>
                                     </li>
-                                )}
+                                )} */}
                             </ul>
                         </nav>
                     </div>
                 </div>
                 {/* //Content section */}
-                <main className="pt-28  ml-20">
+                <main className="pt-20  bg-[#F8F8F8]">
+                    <div className="bg-white w-full h-64 absolute top-0 left-0"></div>
                     <div className="px-4 sm:px-6 lg:px-8 relative min-h-[85vh]">
-                        <div
-                            aria-hidden="true"
-                            className="absolute inset-x-0 bottom-0 -z-10 transform-gpu overflow-hidden blur-3xl "
-                        >
-                            <div
-                                style={{
-                                    clipPath:
-                                        "polygon(74.1% 44.1%, 100% 61.6%, 97.5% 26.9%, 85.5% 0.1%, 80.7% 2%, 72.5% 32.5%, 60.2% 62.4%, 52.4% 68.1%, 47.5% 58.3%, 45.2% 34.5%, 27.5% 76.7%, 0.1% 64.9%, 17.9% 100%, 27.6% 76.8%, 76.1% 97.7%, 74.1% 44.1%)",
-                                }}
-                                className="relative opacity-45 left-[calc(50%-11rem)] aspect-[1155/678] w-[36.125rem] -translate-x-1/3 rotate-[30deg] bg-gradient-to-tr from-d-accent-purple to-d-accent-purple  sm:left-[calc(50%-30rem)] sm:w-[88.1875rem]"
-                            />
-                        </div>
                         {children}
                     </div>
                 </main>
