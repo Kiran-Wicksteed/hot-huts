@@ -32,10 +32,10 @@ export default function Dashboard() {
         >
             <Head title="Dashboard Home" />
 
-            <div className="mx-auto ml-[256px] 2xl:ml-[10%] ">
+            <div className="mx-auto ml-[256px]  ">
                 <div className="mx-auto ">
                     <div className="mt-4 grid grid-cols-1 gap-4 sm:mt-12 lg:grid-cols-10 lg:grid-rows-1">
-                        <div className="relative lg:col-span-4  h-80 overflow-y-scroll border border-hh-gray rounded-md bg-white">
+                        <div className="relative lg:col-span-4  h-80 border border-hh-gray rounded-md bg-white ">
                             <div className="relative  h-full flex flex-col justify-end overflow-hidden">
                                 <div className="m-2  border border-hh-gray rounded-md h-full"></div>
                             </div>
@@ -403,7 +403,7 @@ export default function Dashboard() {
                                                 </div>
                                                 <div className="sm:col-span-2 flex justify-between items-center mt-2 p-2">
                                                     <label
-                                                        htmlFor="message"
+                                                        htmlFor="amount"
                                                         className={`${styles.paragraph} font-medium text-white`}
                                                     >
                                                         Amount of people

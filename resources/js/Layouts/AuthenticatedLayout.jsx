@@ -78,6 +78,9 @@ export default function AuthenticatedLayout({ header, children }) {
     const { auth } = usePage().props;
     const user = auth.user;
 
+    const page = usePage();
+    const url = page.url;
+
     const organization = auth.organization;
     const [open, setOpen] = useState(false);
 
@@ -463,12 +466,10 @@ export default function AuthenticatedLayout({ header, children }) {
                                         </li>
                                         <li>
                                             <a
-                                                href={route(
-                                                    "foundation.companies"
-                                                )}
+                                                href={route("bookings.index")}
                                                 className={classNames(
                                                     route().current(
-                                                        "foundation.companies"
+                                                        "bookings.index"
                                                     )
                                                         ? "bg-gray-100 text-hh-orange border-l-2 border-l-hh-orange"
                                                         : "text-black hover:bg-gray-100 hover:",
@@ -479,7 +480,7 @@ export default function AuthenticatedLayout({ header, children }) {
                                                     aria-hidden="true"
                                                     className={classNames(
                                                         route().current(
-                                                            "foundation.companies"
+                                                            "bookings.index"
                                                         )
                                                             ? ""
                                                             : "text-black group-hover:",
@@ -491,12 +492,10 @@ export default function AuthenticatedLayout({ header, children }) {
                                         </li>
                                         <li>
                                             <a
-                                                href={route(
-                                                    "newsletters.index"
-                                                )}
+                                                href={route("payments.index")}
                                                 className={classNames(
                                                     route().current(
-                                                        "newsletters.index"
+                                                        "payments.index"
                                                     )
                                                         ? "bg-gray-100 text-hh-orange border-l-2 border-l-hh-orange"
                                                         : "text-black hover:bg-gray-100 hover:",
@@ -507,7 +506,7 @@ export default function AuthenticatedLayout({ header, children }) {
                                                     aria-hidden="true"
                                                     className={classNames(
                                                         route().current(
-                                                            "newsletters.index"
+                                                            "payments.index"
                                                         )
                                                             ? ""
                                                             : "text-black group-hover:",
@@ -519,12 +518,10 @@ export default function AuthenticatedLayout({ header, children }) {
                                         </li>
                                         <li>
                                             <a
-                                                href={route(
-                                                    "newsletters.index"
-                                                )}
+                                                href={route("customers.index")}
                                                 className={classNames(
                                                     route().current(
-                                                        "newsletters.index"
+                                                        "customers.index"
                                                     )
                                                         ? "bg-gray-100 text-hh-orange border-l-2 border-l-hh-orange"
                                                         : "text-black hover:bg-gray-100 hover:",
@@ -535,7 +532,7 @@ export default function AuthenticatedLayout({ header, children }) {
                                                     aria-hidden="true"
                                                     className={classNames(
                                                         route().current(
-                                                            "newsletters.index"
+                                                            "customers.index"
                                                         )
                                                             ? ""
                                                             : "text-black group-hover:",
@@ -940,7 +937,9 @@ export default function AuthenticatedLayout({ header, children }) {
                 </div>
                 {/* //Content section */}
                 <main className="pt-20  bg-[#F8F8F8]">
-                    <div className="bg-white w-full h-64 absolute top-0 left-0"></div>
+                    {url.includes("dashboard") && (
+                        <div className="bg-white w-full h-64 absolute top-0 left-0"></div>
+                    )}
                     <div className="px-4 sm:px-6 lg:px-8 relative min-h-[85vh]">
                         {children}
                     </div>

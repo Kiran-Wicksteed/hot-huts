@@ -33,12 +33,26 @@ Route::middleware('auth', 'approved')->group(function () {
 });
 
 
+
+
 Route::middleware(['auth', 'verified', 'approved'])->group(
     function () {
 
         Route::get('/dashboard', function () {
             return Inertia::render('Dashboard');
         })->middleware(['auth', 'verified'])->name('dashboard');
+
+        Route::get('/bookings', function () {
+            return Inertia::render('bookings/index'); 
+        })->name('bookings.index');
+
+        Route::get('/payments', function () {
+            return Inertia::render('payments/index'); 
+        })->name('payments.index');
+
+        Route::get('/customers', function () {
+            return Inertia::render('customers/index'); 
+        })->name('customers.index');
 
         Route::middleware(['auth', 'verified'])->group(function () {
             Route::post('/profile/change-organization', [ProfileController::class, 'changeUserOrganization'])->name('profile.change-organization.update');
