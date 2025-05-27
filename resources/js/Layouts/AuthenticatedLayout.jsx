@@ -544,12 +544,10 @@ export default function AuthenticatedLayout({ header, children }) {
                                         </li>
                                         <li>
                                             <a
-                                                href={route(
-                                                    "newsletters.index"
-                                                )}
+                                                href={route("services.index")}
                                                 className={classNames(
                                                     route().current(
-                                                        "newsletters.index"
+                                                        "services.index"
                                                     )
                                                         ? "bg-gray-100 text-hh-orange border-l-2 border-l-hh-orange"
                                                         : "text-black hover:bg-gray-100 hover:",
@@ -560,7 +558,7 @@ export default function AuthenticatedLayout({ header, children }) {
                                                     aria-hidden="true"
                                                     className={classNames(
                                                         route().current(
-                                                            "newsletters.index"
+                                                            "services.index"
                                                         )
                                                             ? ""
                                                             : "text-black group-hover:",
@@ -572,12 +570,10 @@ export default function AuthenticatedLayout({ header, children }) {
                                         </li>
                                         <li>
                                             <a
-                                                href={route(
-                                                    "newsletters.index"
-                                                )}
+                                                href={route("locations.index")}
                                                 className={classNames(
                                                     route().current(
-                                                        "newsletters.index"
+                                                        "locations.index"
                                                     )
                                                         ? "bg-gray-100 text-hh-orange border-l-2 border-l-hh-orange"
                                                         : "text-black hover:bg-gray-100 hover:",
@@ -588,7 +584,7 @@ export default function AuthenticatedLayout({ header, children }) {
                                                     aria-hidden="true"
                                                     className={classNames(
                                                         route().current(
-                                                            "newsletters.index"
+                                                            "locations.index"
                                                         )
                                                             ? ""
                                                             : "text-black group-hover:",

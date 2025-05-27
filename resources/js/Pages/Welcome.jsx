@@ -19,14 +19,14 @@ export default function Welcome({ auth, laravelVersion, phpVersion }) {
     return (
         <>
             <Head title="Welcome" />
-            <div className="welcome-screen ">
+            <div className="bg-hh-orange ">
                 <div className="relative flex min-h-screen flex-col  w-full justify-start">
                     <header className="px-20 py-10 flex justify-end">
                         <nav className=" ">
                             {auth.user ? (
                                 <Link
                                     href={route("dashboard")}
-                                    className="rounded-md px-3 py-2 text-white ring-1 ring-transparent transition  focus:outline-none focus-visible:ring-[#FF2D20] dark:text-white dark:hover:text-white/80 dark:focus-visible:ring-white"
+                                    className="rounded-md px-3 py-2 text-white font-medium ring-1 ring-white transition  focus:outline-none focus-visible:ring-[#FF2D20] dark:text-white dark:hover:text-white/80 dark:focus-visible:ring-white"
                                 >
                                     Dashboard
                                 </Link>
@@ -34,13 +34,13 @@ export default function Welcome({ auth, laravelVersion, phpVersion }) {
                                 <>
                                     <Link
                                         href={route("login")}
-                                        className="rounded-md px-3 py-2 text-white ring-1 ring-transparent transition  focus:outline-none focus-visible:ring-[#FF2D20] dark:text-white dark:hover:text-white/80 dark:focus-visible:ring-white"
+                                        className="rounded-md px-3 py-2 text-white font-medium ring-1 ring-white transition  focus:outline-none focus-visible:ring-[#FF2D20] dark:text-white dark:hover:text-white/80 dark:focus-visible:ring-white"
                                     >
                                         Log in
                                     </Link>
                                     <Link
                                         href={route("register")}
-                                        className="rounded-md px-3 py-2 text-white ring-1 ring-transparent transition  focus:outline-none focus-visible:ring-[#FF2D20] dark:text-white dark:hover:text-white/80 dark:focus-visible:ring-white"
+                                        className="rounded-md px-3 py-2 text-white font-medium ring-1 ring-white transition  focus:outline-none focus-visible:ring-[#FF2D20] dark:text-white dark:hover:text-white/80 dark:focus-visible:ring-white"
                                     >
                                         Register
                                     </Link>
@@ -52,7 +52,7 @@ export default function Welcome({ auth, laravelVersion, phpVersion }) {
                     <main className="mt-6 flex items-center justify-center  flex-1">
                         <img
                             className="w-36 h-36 -translate-y-20"
-                            src="/storage/images/dancor.png"
+                            src="/storage/images/logo.png"
                         />
                     </main>
                 </div>

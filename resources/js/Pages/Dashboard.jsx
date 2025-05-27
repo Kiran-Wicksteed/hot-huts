@@ -12,11 +12,14 @@ import {
     UserCircleIcon,
 } from "@heroicons/react/24/outline";
 import { useState } from "react";
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
 
 export default function Dashboard() {
     const [quantity, setQuantity] = useState(0);
     const [honeyQuantity, setHoneyQuantity] = useState(0);
     const [reviveQuantity, setReviveQuantity] = useState(0);
+    const [startDate, setStartDate] = useState(new Date());
     const { auth } = usePage().props;
     const user = auth.user;
 
@@ -37,7 +40,15 @@ export default function Dashboard() {
                     <div className="mt-4 grid grid-cols-1 gap-4 sm:mt-12 lg:grid-cols-10 lg:grid-rows-1">
                         <div className="relative lg:col-span-4  h-80 border border-hh-gray rounded-md bg-white ">
                             <div className="relative  h-full flex flex-col justify-end overflow-hidden">
-                                <div className="m-2  border border-hh-gray rounded-md h-full"></div>
+                                <div className="m-2  border border-hh-gray rounded-md h-full ">
+                                    <DatePicker
+                                        selected={startDate}
+                                        onChange={(date) => setStartDate(date)}
+                                        showOutsideMonthDays={false}
+                                        inline // This makes the calendar always visible
+                                        className="border border-hh-gray rounded-md" // Move border styling here
+                                    />
+                                </div>
                             </div>
                         </div>
                         <div className="relative lg:col-span-6 overflow-y-scroll h-80 border border-hh-gray rounded-md  bg-white">

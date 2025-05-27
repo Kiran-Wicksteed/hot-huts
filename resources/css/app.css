@@ -140,3 +140,110 @@ small {
     justify-content: center;
     align-items: center;
 }
+
+.react-datepicker__day-name,
+.react-datepicker__day,
+.react-datepicker__time-name {
+    width: 3rem !important;
+}
+
+.react-datepicker__month-container {
+    width: 100% !important;
+}
+
+.react-datepicker {
+    font-family: "Helvetica Neue", helvetica, arial, sans-serif;
+    font-size: 0.8rem;
+    background-color: #fff;
+    color: #000;
+    border: none !important;
+    width: 100% !important;
+}
+
+h2.react-datepicker__current-month {
+    padding: 10px 0 !important;
+    margin-bottom: 6px !important;
+}
+
+.react-datepicker__header {
+    text-align: center;
+    background-color: #ffffff !important;
+    border-bottom: 1px solid #c7c7c7 !important;
+    border-top-left-radius: 0.3rem;
+    padding: 8px 10px !important;
+    position: relative;
+}
+
+.react-datepicker__navigation--next {
+    right: 50px !important;
+    top: 16px !important;
+}
+
+.react-datepicker__navigation--previous {
+    left: 50px !important;
+    top: 16px !important;
+}
+
+.react-datepicker__day--selected,
+.react-datepicker__day--in-selecting-range,
+.react-datepicker__day--in-range,
+.react-datepicker__month-text--selected,
+.react-datepicker__month-text--in-selecting-range,
+.react-datepicker__month-text--in-range,
+.react-datepicker__quarter-text--selected,
+.react-datepicker__quarter-text--in-selecting-range,
+.react-datepicker__quarter-text--in-range,
+.react-datepicker__year-text--selected,
+.react-datepicker__year-text--in-selecting-range,
+.react-datepicker__year-text--in-range {
+    border-radius: 0.3rem;
+    background-color: #ff7022 !important;
+    color: #fff;
+}
+
+.react-datepicker__day--keyboard-selected,
+.react-datepicker__month-text--keyboard-selected,
+.react-datepicker__quarter-text--keyboard-selected,
+.react-datepicker__year-text--keyboard-selected {
+    border-radius: 0.3rem;
+    background-color: white !important;
+    color: rgb(0, 0, 0);
+}
+
+.react-datepicker__day--today,
+.react-datepicker__month-text--today,
+.react-datepicker__quarter-text--today,
+.react-datepicker__year-text--today {
+    font-weight: normal !important;
+}
+
+.react-datepicker__day--keyboard-selected:not([aria-disabled="true"]):hover,
+.react-datepicker__month-text--keyboard-selected:not(
+        [aria-disabled="true"]
+    ):hover,
+.react-datepicker__quarter-text--keyboard-selected:not(
+        [aria-disabled="true"]
+    ):hover,
+.react-datepicker__year-text--keyboard-selected:not(
+        [aria-disabled="true"]
+    ):hover {
+    background-color: #f0f0f0 !important;
+}
+
+.react-datepicker {
+    font-family: "Montserrat", sans-serif; /* Replace with your font */
+}
+
+/* Optionally target specific elements */
+.react-datepicker__header {
+    font-family: "Montserrat", sans-serif;
+}
+
+.react-datepicker__day-name {
+    font-family: "Montserrat", sans-serif;
+}
+
+.react-datepicker__current-month {
+    font-family: "Montserrat", sans-serif;
+    font-weight: 600 !important;
+}

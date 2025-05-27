@@ -113,7 +113,7 @@ export default function BookingPage() {
                                         <span
                                             className={`${styles.paragraph} text-black `}
                                         >
-                                            Province
+                                            City
                                         </span>
                                         <ChevronDownIcon
                                             aria-hidden="true"

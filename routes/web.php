@@ -54,6 +54,14 @@ Route::middleware(['auth', 'verified', 'approved'])->group(
             return Inertia::render('customers/index'); 
         })->name('customers.index');
 
+        Route::get('/services', function () {
+            return Inertia::render('services/index'); 
+        })->name('services.index');
+
+        Route::get('/locations', function () {
+            return Inertia::render('locations/index'); 
+        })->name('locations.index');
+
         Route::middleware(['auth', 'verified'])->group(function () {
             Route::post('/profile/change-organization', [ProfileController::class, 'changeUserOrganization'])->name('profile.change-organization.update');
         });
