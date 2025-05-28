@@ -1,11 +1,13 @@
 import InvoiceDetails from "@/Components/checkout/InvoiceDetails";
-import Menu from "@/Layouts/menu";
+import Footer from "@/Layouts/Footer";
+import Menu from "@/Layouts/Menu";
 
 export default function CheckoutPage() {
     return (
         <>
             <Menu />
             <InvoiceDetails />
+            <Footer />
         </>
     );
 }

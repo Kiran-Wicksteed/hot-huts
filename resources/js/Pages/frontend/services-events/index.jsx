@@ -1,6 +1,7 @@
 import EventsSection from "@/Components/services-events/EventsSection";
 import Hero from "@/Components/services-events/Hero";
-import Menu from "@/Layouts/menu";
+import Footer from "@/Layouts/Footer";
+import Menu from "@/Layouts/Menu";
 
 export default function ServicesEventsPage() {
     return (
@@ -8,6 +9,7 @@ export default function ServicesEventsPage() {
             <Menu />
             <Hero />
             <EventsSection />
+            <Footer />
         </>
     );
 }

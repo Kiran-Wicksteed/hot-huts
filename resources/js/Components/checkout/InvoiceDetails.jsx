@@ -1,55 +1,6 @@
-import { MapPinIcon } from "@heroicons/react/24/outline";
 import styles from "../../../styles";
-import { useState } from "react";
-import { MinusIcon, PlusIcon } from "@heroicons/react/24/solid";
-
-const morningSlots = [
-    {
-        id: 1,
-        time: "06:00AM - 06:20AM",
-        spotsLeft: "3 SLOTS LEFT",
-    },
-    {
-        id: 2,
-        time: "06:00AM - 06:20AM",
-        spotsLeft: "3 SLOTS LEFT",
-    },
-    {
-        id: 3,
-        time: "06:00AM - 06:20AM",
-        spotsLeft: "3 SLOTS LEFT",
-    },
-    {
-        id: 4,
-        time: "06:00AM - 06:20AM",
-        spotsLeft: "3 SLOTS LEFT",
-    },
-    {
-        id: 5,
-        time: "06:00AM - 06:20AM",
-        spotsLeft: "3 SLOTS LEFT",
-    },
-    {
-        id: 6,
-        time: "06:00AM - 06:20AM",
-        spotsLeft: "3 SLOTS LEFT",
-    },
-    {
-        id: 7,
-        time: "06:00AM - 06:20AM",
-        spotsLeft: "3 SLOTS LEFT",
-    },
-    {
-        id: 8,
-        time: "06:00AM - 06:20AM",
-        spotsLeft: "3 SLOTS LEFT",
-    },
-];
 
 export default function InvoiceDetails() {
-    const [peopleQuantity, setPeopleQuantity] = useState(0);
-    const [selectedTime, setSelectedTime] = useState(null);
-
     return (
         <div
             className={`${styles.boxWidth} pb-28 pt-10 px-4 2xl:px-28 md:px-10 lg:px-16 xl:px-20`}

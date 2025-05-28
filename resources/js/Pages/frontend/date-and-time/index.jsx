@@ -1,6 +1,7 @@
 import Hero from "@/Components/time-date/Hero";
 import PickASlot from "@/Components/time-date/PickASlot";
-import Menu from "@/Layouts/menu";
+import Footer from "@/Layouts/Footer";
+import Menu from "@/Layouts/Menu";
 
 export default function TimeDatePage() {
     return (
@@ -8,6 +9,7 @@ export default function TimeDatePage() {
             <Menu />
             <Hero />
             <PickASlot />
+            <Footer />
         </>
     );
 }

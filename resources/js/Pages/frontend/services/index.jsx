@@ -1,6 +1,7 @@
 import Hero from "@/Components/services/Hero";
 import ServiceSection from "@/Components/services/ServiceSection";
-import Menu from "@/Layouts/menu";
+import Footer from "@/Layouts/Footer";
+import Menu from "@/Layouts/Menu";
 
 export default function ServicesPage() {
     return (
@@ -8,6 +9,7 @@ export default function ServicesPage() {
             <Menu />
             <Hero />
             <ServiceSection />
+            <Footer />
         </>
     );
 }
