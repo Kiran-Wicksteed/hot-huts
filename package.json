@@ -32,6 +32,8 @@
         "dayjs": "^1.11.13",
         "framer-motion": "^12.12.2",
         "react-datepicker": "^7.6.0",
+        "react-slick": "^0.30.3",
+        "slick-carousel": "^1.8.1",
         "ziggy-js": "^2.4.0"
     }
 }

@@ -1,14 +1,17 @@
-import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
-import styles from "../../../../styles";
-import { MagnifyingGlassIcon } from "@heroicons/react/24/outline";
 import Menu from "@/Layouts/menu";
-import Hero from "@/Components/locations/hero";
+import Hero from "@/Components/locations/Hero";
+import Calendar from "@/Components/locations/Calendar";
+import SliderSection from "@/Components/locations/Slider";
+import UpcomingEvents from "@/Components/locations/UpcomingEvents";
 
 export default function LocationPage() {
     return (
-        <div>
+        <>
             <Menu />
             <Hero />
-        </div>
+            <Calendar />
+            <SliderSection />
+            <UpcomingEvents />
+        </>
     );
 }

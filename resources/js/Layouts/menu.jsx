@@ -9,7 +9,9 @@ import styles from "../../styles";
 
 export default function Menu() {
     return (
-        <div className={`${styles.boxWidth} py-4 `}>
+        <div
+            className={`${styles.boxWidth} py-4 px-4 2xl:px-28 md:px-10 lg:px-16 xl:px-20`}
+        >
             <div className="border border-hh-orange bg-white rounded-md shadow">
                 <nav>
                     <ul className="flex justify-between max-w-6xl mx-auto items-center">

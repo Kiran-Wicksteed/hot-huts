@@ -66,6 +66,22 @@ Route::middleware(['auth', 'verified', 'approved'])->group(
             return Inertia::render('frontend/locations/index'); 
         })->name('frontend.locations.index');
 
+           Route::get('/frontend/services', function () {
+            return Inertia::render('frontend/services/index'); 
+        })->name('frontend.services.index');
+
+        Route::get('/frontend/services-events', function () {
+            return Inertia::render('frontend/services-events/index'); 
+        })->name('frontend.services-events.index');
+
+        Route::get('/frontend/date-and-time', function () {
+            return Inertia::render('frontend/date-and-time/index'); 
+        })->name('frontend.date-and-time.index');
+
+        Route::get('/frontend/checkout', function () {
+            return Inertia::render('frontend/checkout/index'); 
+        })->name('frontend.checkout.index');
+
         Route::middleware(['auth', 'verified'])->group(function () {
             Route::post('/profile/change-organization', [ProfileController::class, 'changeUserOrganization'])->name('profile.change-organization.update');
         });
