@@ -1,6 +1,20 @@
+import { UserIcon } from "@heroicons/react/24/solid";
 import styles from "../../../styles";
+import { usePage } from "@inertiajs/react";
+import {
+    EnvelopeIcon,
+    MapPinIcon,
+    PhoneIcon,
+} from "@heroicons/react/24/outline";
 
 export default function InvoiceDetails() {
+    const { auth } = usePage().props;
+    const user = auth.user;
+
+    const asset = (path) => {
+        return `/storage/${path}`;
+    };
+
     return (
         <div
             className={`${styles.boxWidth} pb-28 pt-10 px-4 2xl:px-28 md:px-10 lg:px-16 xl:px-20`}
@@ -38,7 +52,7 @@ export default function InvoiceDetails() {
                                 <p
                                     className={`${styles.paragraph} !mb-2 font-medium text-black !text-lg`}
                                 >
-                                    Samantha Jones
+                                    {user.name}
                                 </p>
                                 <p
                                     className={`${styles.paragraph} text-right !text-sm text-black/50`}
@@ -212,13 +226,116 @@ export default function InvoiceDetails() {
                         </div>
                     </div>
                 </div>
-                <div className="col-span-1 sticky top-12">
-                    <div className="p-8  border border-hh-gray bg-white rounded-md shadow h-fit">
-                        <h4
-                            className={`${styles.h3} !mb-4 font-medium text-black`}
-                        >
-                            Client Information
-                        </h4>
+                <div className="col-span-1 ">
+                    <div className="sticky top-12">
+                        <div className="p-8  border border-hh-gray bg-white rounded-md shadow h-fit ">
+                            <h4
+                                className={`${styles.h3} !mb-4 font-medium text-black`}
+                            >
+                                Client Information
+                            </h4>
+                            <div className="flex gap-x-4 mt-4">
+                                {user.photo != null ? (
+                                    <div className=" h-10 w-10 overflow-hidden shrink-0 rounded-full">
+                                        <img
+                                            alt=""
+                                            src={asset(user.photo)}
+                                            className="object-cover top-0 left-0 w-full h-full"
+                                        />
+                                    </div>
+                                ) : (
+                                    <UserIcon
+                                        aria-hidden="true"
+                                        className="h-10 w-10 text-white bg-hh-orange rounded-full p-1.5"
+                                    />
+                                )}
+                                <span className="inline-flex rounded-md">
+                                    <div
+                                        className={`${styles.paragraph} inline-flex items-center  font-medium text-black transition duration-150 ease-in-out`}
+                                    >
+                                        {user.name}
+                                    </div>
+                                </span>
+                            </div>
+                            <dl className="mt-10 space-y-4 text-base/7 text-black/50">
+                                <div className="flex gap-x-4">
+                                    <dt className="flex-none">
+                                        <span className="sr-only">Email</span>
+                                        <EnvelopeIcon
+                                            aria-hidden="true"
+                                            className="h-7 w-6 text-black/50"
+                                        />
+                                    </dt>
+                                    <dd>
+                                        <a
+                                            href="mailto:hello@example.com"
+                                            className="hover:text-black"
+                                        >
+                                            {user.email}
+                                        </a>
+                                    </dd>
+                                </div>
+
+                                <div className="flex gap-x-4">
+                                    <dt className="flex-none">
+                                        <span className="sr-only">
+                                            Telephone
+                                        </span>
+                                        <PhoneIcon
+                                            aria-hidden="true"
+                                            className="h-7 w-6 text-black/50"
+                                        />
+                                    </dt>
+                                    <dd>
+                                        <a
+                                            href="tel:+12 3456 7890"
+                                            className="hover:text-black"
+                                        >
+                                            +12 3456 7890
+                                        </a>
+                                    </dd>
+                                </div>
+                                <div className="flex gap-x-4">
+                                    <dt className="flex-none">
+                                        <span className="sr-only">Address</span>
+                                        <MapPinIcon
+                                            aria-hidden="true"
+                                            className="h-7 w-6 text-black/50"
+                                        />
+                                    </dt>
+                                    <dd
+                                        className={`${styles.paragraph} text-black/50`}
+                                    >
+                                        545 Mavis Island
+                                        <br />
+                                        Chicago, IL 99191
+                                    </dd>
+                                </div>
+                                <button className="bg-white shadow border border-hh-orange px-10  py-1.5 text-hh-orange rounded">
+                                    <span
+                                        className={`${styles.paragraph} text-center font-medium`}
+                                    >
+                                        Edit my profile
+                                    </span>
+                                </button>
+                            </dl>
+                        </div>
+                        <div className="space-y-2 mt-6">
+                            <button className=" shadow border border-hh-orange w-full py-2 text-white bg-hh-orange rounded">
+                                <span
+                                    className={`${styles.paragraph} text-center font-medium`}
+                                >
+                                    Proceed to payment
+                                </span>
+                            </button>
+                            <button className="bg-black shadow border border-black w-full  py-2 text-white rounded">
+                                <span
+                                    className={`${styles.paragraph} text-center font-medium`}
+                                >
+                                    Book another session
+                                </span>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>

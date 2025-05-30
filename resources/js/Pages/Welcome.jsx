@@ -21,8 +21,8 @@ export default function Welcome({ auth, laravelVersion, phpVersion }) {
             <Head title="Welcome" />
             <div className="bg-hh-orange ">
                 <div className="relative flex min-h-screen flex-col  w-full justify-start">
-                    <header className="px-20 py-10 flex justify-end">
-                        <nav className=" ">
+                    <header className="px-20 py-10 flex  justify-end">
+                        <nav className="space-x-2 ">
                             {auth.user ? (
                                 <Link
                                     href={route("dashboard")}

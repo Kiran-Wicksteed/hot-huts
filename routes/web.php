@@ -82,6 +82,14 @@ Route::middleware(['auth', 'verified', 'approved'])->group(
             return Inertia::render('frontend/checkout/index'); 
         })->name('frontend.checkout.index');
 
+        Route::get('/frontend/confirmed', function () {
+            return Inertia::render('frontend/confirmed/index'); 
+        })->name('frontend.confirmed.index');
+
+        Route::get('/frontend/my-bookings', function () {
+            return Inertia::render('frontend/my-bookings/index'); 
+        })->name('frontend.my-bookings.index');
+
         Route::middleware(['auth', 'verified'])->group(function () {
             Route::post('/profile/change-organization', [ProfileController::class, 'changeUserOrganization'])->name('profile.change-organization.update');
         });
