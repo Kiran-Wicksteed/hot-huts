@@ -15,14 +15,18 @@ use Inertia\Inertia;
 use App\Http\Controllers\TeamInvitationController;
 use App\Http\Middleware\AdminMiddleware;
 
-Route::get('/', function () {
+Route::get('/welcome', function () {
     return Inertia::render('Welcome', [
         'canLogin' => Route::has('login'),
         'canRegister' => Route::has('register'),
-        'laravelVersion' => Application::VERSION,
+        'laravelVersion' => Application::VERSION, 
         'phpVersion' => PHP_VERSION,
     ]);
 });
+
+Route::get('/', function () {
+    return Inertia::render('Index'); 
+})->name('Index'); 
 
 Route::middleware('auth', 'approved')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
@@ -62,31 +66,9 @@ Route::middleware(['auth', 'verified', 'approved'])->group(
             return Inertia::render('locations/index'); 
         })->name('locations.index');
 
-        Route::get('/frontend/locations', function () {
-            return Inertia::render('frontend/locations/index'); 
-        })->name('frontend.locations.index');
 
-           Route::get('/frontend/services', function () {
-            return Inertia::render('frontend/services/index'); 
-        })->name('frontend.services.index');
 
-        Route::get('/frontend/services-events', function () {
-            return Inertia::render('frontend/services-events/index'); 
-        })->name('frontend.services-events.index');
-
-        Route::get('/frontend/date-and-time', function () {
-            return Inertia::render('frontend/date-and-time/index'); 
-        })->name('frontend.date-and-time.index');
-
-        Route::get('/frontend/checkout', function () {
-            return Inertia::render('frontend/checkout/index'); 
-        })->name('frontend.checkout.index');
-
-        Route::get('/frontend/confirmed', function () {
-            return Inertia::render('frontend/confirmed/index'); 
-        })->name('frontend.confirmed.index');
-
-        Route::get('/frontend/my-bookings', function () {
+        Route::get('/my-bookings', function () {
             return Inertia::render('frontend/my-bookings/index'); 
         })->name('frontend.my-bookings.index');
 

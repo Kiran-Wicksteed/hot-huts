@@ -8,13 +8,6 @@ import {
 } from "@heroicons/react/24/outline";
 
 export default function InvoiceDetails() {
-    const { auth } = usePage().props;
-    const user = auth.user;
-
-    const asset = (path) => {
-        return `/storage/${path}`;
-    };
-
     return (
         <div
             className={`${styles.boxWidth} pb-28 pt-10 px-4 2xl:px-28 md:px-10 lg:px-16 xl:px-20`}
@@ -50,9 +43,10 @@ export default function InvoiceDetails() {
                             </div>
                             <div>
                                 <p
-                                    className={`${styles.paragraph} !mb-2 font-medium text-black !text-lg`}
+                                    className={`${styles.paragraph} !mb-2 font-medium text-black !text-lg text-right`}
                                 >
-                                    {user.name}
+                                    {" "}
+                                    John Doe
                                 </p>
                                 <p
                                     className={`${styles.paragraph} text-right !text-sm text-black/50`}
@@ -235,25 +229,15 @@ export default function InvoiceDetails() {
                                 Client Information
                             </h4>
                             <div className="flex gap-x-4 mt-4">
-                                {user.photo != null ? (
-                                    <div className=" h-10 w-10 overflow-hidden shrink-0 rounded-full">
-                                        <img
-                                            alt=""
-                                            src={asset(user.photo)}
-                                            className="object-cover top-0 left-0 w-full h-full"
-                                        />
-                                    </div>
-                                ) : (
-                                    <UserIcon
-                                        aria-hidden="true"
-                                        className="h-10 w-10 text-white bg-hh-orange rounded-full p-1.5"
-                                    />
-                                )}
+                                <UserIcon
+                                    aria-hidden="true"
+                                    className="h-10 w-10 text-white bg-hh-orange rounded-full p-1.5"
+                                />
                                 <span className="inline-flex rounded-md">
                                     <div
                                         className={`${styles.paragraph} inline-flex items-center  font-medium text-black transition duration-150 ease-in-out`}
                                     >
-                                        {user.name}
+                                        John Doe
                                     </div>
                                 </span>
                             </div>
@@ -271,7 +255,7 @@ export default function InvoiceDetails() {
                                             href="mailto:hello@example.com"
                                             className="hover:text-black"
                                         >
-                                            {user.email}
+                                            hello@example.com
                                         </a>
                                     </dd>
                                 </div>

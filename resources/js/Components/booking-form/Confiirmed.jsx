@@ -1,7 +1,7 @@
 import styles from "../../../styles";
 import { usePage } from "@inertiajs/react";
 
-export default function Content() {
+export default function Confiirmed() {
     const { auth } = usePage().props;
     const user = auth.user;
 

@@ -7,7 +7,14 @@ import {
 } from "@heroicons/react/24/outline";
 import styles from "../../styles";
 
-export default function Menu() {
+export default function Menu({ currentStep }) {
+    const steps = {
+        1: "locations",
+        2: "services",
+        3: "datetime",
+        4: "checkout",
+    };
+
     return (
         <div
             className={`${styles.boxWidth} py-4 px-4 2xl:px-28 md:px-10 lg:px-16 xl:px-20`}
@@ -16,7 +23,7 @@ export default function Menu() {
                 <nav>
                     <ul className="flex justify-between max-w-6xl mx-auto items-center">
                         <li>
-                            <a href="#" className="-m-1.5 p-1.5">
+                            <a href="/" className="-m-1.5 p-1.5">
                                 <span className="sr-only">Hot Huts</span>
                                 <img
                                     alt="Picture of Hot Huts logo"
@@ -27,7 +34,13 @@ export default function Menu() {
                         </li>
                         <li>
                             <p
-                                className={`${styles.paragraph} !font-medium !text-lg flex items-center gap-x-2 text-black hover:text-hh-orange w-fit cursor-pointer transition-all`}
+                                className={`${
+                                    styles.paragraph
+                                } !font-medium !text-lg flex items-center gap-x-2 w-fit cursor-pointer transition-all ${
+                                    currentStep === 1
+                                        ? "text-hh-orange"
+                                        : "text-black hover:text-hh-orange"
+                                }`}
                             >
                                 <MapPinIcon className="h-6 w-6 " />
                                 <span>Locations</span>
@@ -35,7 +48,13 @@ export default function Menu() {
                         </li>
                         <li>
                             <p
-                                className={`${styles.paragraph} !font-medium !text-lg flex items-center gap-x-2 text-black hover:text-hh-orange w-fit cursor-pointer transition-all`}
+                                className={`${
+                                    styles.paragraph
+                                } !font-medium !text-lg flex items-center gap-x-2 w-fit cursor-pointer transition-all ${
+                                    currentStep === 2
+                                        ? "text-hh-orange"
+                                        : "text-black hover:text-hh-orange"
+                                }`}
                             >
                                 <QueueListIcon className="h-6 w-6 " />
                                 <span>Services</span>
@@ -43,7 +62,13 @@ export default function Menu() {
                         </li>
                         <li>
                             <p
-                                className={`${styles.paragraph} !font-medium !text-lg flex items-center gap-x-2 text-black hover:text-hh-orange w-fit cursor-pointer transition-all`}
+                                className={`${
+                                    styles.paragraph
+                                } !font-medium !text-lg flex items-center gap-x-2 w-fit cursor-pointer transition-all ${
+                                    currentStep === 3
+                                        ? "text-hh-orange"
+                                        : "text-black hover:text-hh-orange"
+                                }`}
                             >
                                 <ClockIcon className="h-6 w-6 " />
                                 <span>Date & Time</span>
@@ -51,7 +76,13 @@ export default function Menu() {
                         </li>
                         <li>
                             <p
-                                className={`${styles.paragraph} !font-medium !text-lg flex items-center gap-x-2 text-black hover:text-hh-orange w-fit cursor-pointer transition-all`}
+                                className={`${
+                                    styles.paragraph
+                                } !font-medium !text-lg flex items-center gap-x-2 w-fit cursor-pointer transition-all ${
+                                    currentStep === 4
+                                        ? "text-hh-orange"
+                                        : "text-black hover:text-hh-orange"
+                                }`}
                             >
                                 <ShoppingCartIcon className="h-6 w-6 " />
                                 <span>Check Out</span>

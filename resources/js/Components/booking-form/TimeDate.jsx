@@ -46,17 +46,48 @@ const morningSlots = [
     },
 ];
 
-export default function PickASlot() {
-    const [honeyQuantity, setHoneyQuantity] = useState(0);
-    const [reviveQuantity, setReviveQuantity] = useState(0);
-    const [peopleQuantity, setPeopleQuantity] = useState(0);
+export default function TimeDate({
+    nextStep,
+    prevStep,
+    updateFormData,
+    formData,
+}) {
+    const { services, date, time } = formData;
     const [selectedTime, setSelectedTime] = useState(null);
+
+    // Update service quantities
+    const updateService = (field, value) => {
+        updateFormData({
+            services: {
+                ...services,
+                [field]: Math.max(0, value),
+            },
+        });
+    };
+
+    // Update time slot selection
+    const handleTimeSelect = (item) => {
+        setSelectedTime(item.id);
+        updateFormData({
+            time: item.time,
+            // Add date if needed: date: "24/04/2025"
+        });
+    };
 
     return (
         <div
             className={`${styles.boxWidth} pb-28 pt-10 px-4 2xl:px-28 md:px-10 lg:px-16 xl:px-20`}
         >
-            <div className=" grid grid-cols-3 gap-x-20 relative">
+            {" "}
+            <h1
+                className={`${styles.h3} !text-2xl !text-black font-normal max-w-3xl`}
+            >
+                Feel the Chill, Embrace the Heat — sauna sessions by the sea.{" "}
+                <span className="text-hh-orange block">
+                    St James Tidal Pool.
+                </span>
+            </h1>
+            <div className=" grid grid-cols-3 gap-x-20 relative mt-10">
                 <div className="col-span-2  bg-white">
                     <h3 className={`${styles.h2} text-black font-medium`}>
                         Pick a slot on a{" "}
@@ -80,7 +111,7 @@ export default function PickASlot() {
                                                 ? "border-hh-orange"
                                                 : "border-hh-gray"
                                         }`}
-                                        onClick={() => setSelectedTime(item.id)}
+                                        onClick={() => handleTimeSelect(item)}
                                     >
                                         <p
                                             className={`${styles.paragraph} text-black font-medium `}
@@ -113,7 +144,7 @@ export default function PickASlot() {
                                                 ? "border-hh-orange"
                                                 : "border-hh-gray"
                                         }`}
-                                        onClick={() => setSelectedTime(item.id)}
+                                        onClick={() => handleTimeSelect(item)}
                                     >
                                         <p
                                             className={`${styles.paragraph} text-black font-medium `}
@@ -178,14 +209,13 @@ export default function PickASlot() {
                                 <div className="flex items-center gap-x-4">
                                     <div className="flex gap-x-1">
                                         <button
-                                            type="button"
                                             onClick={() =>
-                                                setPeopleQuantity((prev) =>
-                                                    Math.max(0, prev - 1)
+                                                updateService(
+                                                    "people",
+                                                    services.people - 1
                                                 )
                                             }
-                                            className="focus:outline-none"
-                                            aria-label="Increase quantity"
+                                            aria-label="Decrease people quantity"
                                         >
                                             <MinusIcon className="h-6 w-6 text-black bg-[#E2E2E2] rounded-lg p-0.5" />
                                         </button>
@@ -193,17 +223,19 @@ export default function PickASlot() {
                                             className={`${styles.paragraph} font-medium text-black w-6 text-center flex justify-center items-center`}
                                         >
                                             {" "}
-                                            {peopleQuantity}
+                                            {services.people}
                                         </span>
                                         <button
-                                            type="button"
                                             onClick={() =>
-                                                setPeopleQuantity(
-                                                    (prev) => prev + 1
+                                                updateService(
+                                                    "people",
+                                                    Math.min(
+                                                        8,
+                                                        services.people + 1
+                                                    )
                                                 )
                                             }
-                                            className="focus:outline-none"
-                                            aria-label="Increase quantity"
+                                            aria-label="Increase people quantity"
                                         >
                                             <PlusIcon className="h-6 w-6 text-black bg-[#E2E2E2] rounded-lg p-0.5" />
                                         </button>
@@ -221,14 +253,13 @@ export default function PickASlot() {
                                 <div className="flex items-center gap-x-4">
                                     <div className="flex gap-x-1">
                                         <button
-                                            type="button"
                                             onClick={() =>
-                                                setPeopleQuantity((prev) =>
-                                                    Math.max(0, prev - 1)
+                                                updateService(
+                                                    "honey",
+                                                    services.honey - 1
                                                 )
                                             }
-                                            className="focus:outline-none"
-                                            aria-label="Increase quantity"
+                                            aria-label="Decrease honey quantity"
                                         >
                                             <MinusIcon className="h-6 w-6 text-black bg-[#E2E2E2] rounded-lg p-0.5" />
                                         </button>
@@ -236,17 +267,16 @@ export default function PickASlot() {
                                             className={`${styles.paragraph} font-medium text-black w-6 text-center flex justify-center items-center`}
                                         >
                                             {" "}
-                                            {peopleQuantity}
+                                            {services.honey}
                                         </span>
                                         <button
-                                            type="button"
                                             onClick={() =>
-                                                setPeopleQuantity(
-                                                    (prev) => prev + 1
+                                                updateService(
+                                                    "honey",
+                                                    services.honey + 1
                                                 )
                                             }
-                                            className="focus:outline-none"
-                                            aria-label="Increase quantity"
+                                            aria-label="Increase honey quantity"
                                         >
                                             <PlusIcon className="h-6 w-6 text-black bg-[#E2E2E2] rounded-lg p-0.5" />
                                         </button>
@@ -264,14 +294,13 @@ export default function PickASlot() {
                                 <div className="flex items-center gap-x-4">
                                     <div className="flex gap-x-1">
                                         <button
-                                            type="button"
                                             onClick={() =>
-                                                setPeopleQuantity((prev) =>
-                                                    Math.max(0, prev - 1)
+                                                updateService(
+                                                    "revive",
+                                                    services.revive - 1
                                                 )
                                             }
-                                            className="focus:outline-none"
-                                            aria-label="Increase quantity"
+                                            aria-label="Decrease revive quantity"
                                         >
                                             <MinusIcon className="h-6 w-6 text-black bg-[#E2E2E2] rounded-lg p-0.5" />
                                         </button>
@@ -279,17 +308,16 @@ export default function PickASlot() {
                                             className={`${styles.paragraph} font-medium text-black w-6 text-center flex justify-center items-center`}
                                         >
                                             {" "}
-                                            {peopleQuantity}
+                                            {services.revive}
                                         </span>
                                         <button
-                                            type="button"
                                             onClick={() =>
-                                                setPeopleQuantity(
-                                                    (prev) => prev + 1
+                                                updateService(
+                                                    "revive",
+                                                    services.revive + 1
                                                 )
                                             }
-                                            className="focus:outline-none"
-                                            aria-label="Increase quantity"
+                                            aria-label="Increase revive quantity"
                                         >
                                             <PlusIcon className="h-6 w-6 text-black bg-[#E2E2E2] rounded-lg p-0.5" />
                                         </button>
@@ -300,16 +328,16 @@ export default function PickASlot() {
                                 {" "}
                                 <div className="bg-white w-full py-3 shadow flex items-center justify-center gap-1 text-hh-orange rounded border border-hh-orange">
                                     <p
-                                        className={`${styles.paragraph} uppercase `}
+                                        className={`${styles.paragraph} uppercase`}
                                     >
-                                        24/04/2025
+                                        {date || "Date selected"}
                                     </p>
                                 </div>
                                 <div className="bg-white w-full py-3 shadow flex items-center justify-center gap-1 text-hh-orange rounded border border-hh-orange">
                                     <p
                                         className={`${styles.paragraph} uppercase `}
                                     >
-                                        6:20AM
+                                        {time || "Time selected"}
                                     </p>
                                 </div>
                             </div>
