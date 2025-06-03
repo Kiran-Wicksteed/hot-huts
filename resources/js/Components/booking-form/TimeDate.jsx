@@ -2,6 +2,7 @@ import { MapPinIcon } from "@heroicons/react/24/outline";
 import styles from "../../../styles";
 import { useState } from "react";
 import { MinusIcon, PlusIcon } from "@heroicons/react/24/solid";
+import dayjs from "dayjs";
 
 const morningSlots = [
     {
@@ -59,6 +60,13 @@ export default function TimeDate({
         honey: 30,
         revive: 40,
     };
+    const today = dayjs();
+    const [selectedDate, setSelectedDate] = useState(today);
+
+    // Get current week starting from today
+    const days = Array(7)
+        .fill(null)
+        .map((_, i) => today.add(i, "day"));
 
     // Update service quantities
     const updateService = (field, value) => {
@@ -114,6 +122,44 @@ export default function TimeDate({
                             {location.day}
                         </span>
                     </h3>
+                    <p
+                        className={`!font-medium !text-xl text-black mt-2 mb-4 ${styles.paragraph}`}
+                    >
+                        {selectedDate.format("MMMM YYYY")}
+                    </p>
+                    <div className="flex gap-x-6 mb-16">
+                        {days.map((day) => {
+                            const isSelected = day.isSame(selectedDate, "day");
+                            return (
+                                <div
+                                    key={day.toString()}
+                                    onClick={() => setSelectedDate(day)}
+                                    className={`text-center   cursor-pointer `}
+                                >
+                                    <div
+                                        className={`text-xl  w-16 py-4 rounded-md ${
+                                            isSelected
+                                                ? "bg-hh-orange text-white !font-bold border border-hh-orange"
+                                                : "bg-white text-hh-gray border border-hh-gray !font-medium"
+                                        }`}
+                                    >
+                                        {day.date()}
+                                    </div>
+                                    <div
+                                        className={`${
+                                            styles.paragraph
+                                        } !font-medium ${
+                                            isSelected
+                                                ? " text-hh-orange"
+                                                : " text-hh-gray"
+                                        }`}
+                                    >
+                                        {day.format("ddd")}
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
                     <div className="space-y-10">
                         <div>
                             <p
@@ -121,6 +167,7 @@ export default function TimeDate({
                             >
                                 Morining Slots
                             </p>
+
                             <div className="h-[485px] overflow-y-scroll scroll-container space-y-2">
                                 {morningSlots.map((item, index) => (
                                     <div
