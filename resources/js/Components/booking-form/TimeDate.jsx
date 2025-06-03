@@ -54,6 +54,11 @@ export default function TimeDate({
 }) {
     const { location, services, date, time } = formData;
     const [selectedTime, setSelectedTime] = useState(null);
+    const prices = {
+        people: 80,
+        honey: 30,
+        revive: 40,
+    };
 
     // Update service quantities
     const updateService = (field, value) => {
@@ -64,6 +69,25 @@ export default function TimeDate({
             },
         });
     };
+
+    const calculateTotal = () => {
+        return (
+            services.people * prices.people +
+            services.honey * prices.honey +
+            services.revive * prices.revive
+        );
+    };
+
+    const formatCurrency = (amount) => {
+        return amount.toLocaleString("en-ZA", {
+            style: "currency",
+            currency: "ZAR",
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0,
+        });
+    };
+
+    const total = calculateTotal();
 
     // Update time slot selection
     const handleTimeSelect = (item) => {
@@ -268,7 +292,10 @@ export default function TimeDate({
                                             onClick={() =>
                                                 updateService(
                                                     "honey",
-                                                    services.honey + 1
+                                                    Math.min(
+                                                        8,
+                                                        services.honey + 1
+                                                    )
                                                 )
                                             }
                                             aria-label="Increase honey quantity"
@@ -309,7 +336,10 @@ export default function TimeDate({
                                             onClick={() =>
                                                 updateService(
                                                     "revive",
-                                                    services.revive + 1
+                                                    Math.min(
+                                                        8,
+                                                        services.revive + 1
+                                                    )
                                                 )
                                             }
                                             aria-label="Increase revive quantity"
@@ -323,7 +353,7 @@ export default function TimeDate({
                                 {" "}
                                 <div className="bg-white w-full py-3 shadow flex items-center justify-center gap-1 text-hh-orange rounded border border-hh-orange">
                                     <p
-                                        className={`${styles.paragraph} uppercase`}
+                                        className={`${styles.paragraph} uppercase  !text-sm`}
                                     >
                                         {date || "Date selected"}
                                     </p>
@@ -339,7 +369,7 @@ export default function TimeDate({
                             <h4
                                 className={`${styles.h3} !mb-4 font-medium text-hh-orange pt-8`}
                             >
-                                Total:
+                                Total: {formatCurrency(total)}
                             </h4>
                             <div className="flex items-center gap-x-2">
                                 <input
