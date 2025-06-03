@@ -8,8 +8,20 @@ export default function ServiceSection({
     prevStep,
     updateFormData,
     servicesData,
+    formData,
 }) {
+    const { location } = formData;
     const { honey, revive, people } = servicesData;
+    const pricePerPerson = 80;
+    const priceHoney = 30;
+    const priceRevive = 40;
+
+    const calculateTotalPrice = () => {
+        const basePrice = people * pricePerPerson;
+        const honeyPrice = honey * priceHoney;
+        const revivePrice = revive * priceRevive;
+        return basePrice + honeyPrice + revivePrice;
+    };
 
     const updateQuantity = (field, value) => {
         updateFormData({
@@ -30,7 +42,7 @@ export default function ServiceSection({
             >
                 Cold dip, warm glow: dive into the Sea, Then unwind in a
                 beachfront sauna at{" "}
-                <span className="text-hh-orange">St James Tidal Pool.</span>
+                <span className="text-hh-orange">{location.name}.</span>
             </h1>
             <div className="border border-hh-orange bg-white rounded-md shadow grid grid-cols-3 overflow-hidden items-center mt-10">
                 <div className="col-span-1">
@@ -47,14 +59,14 @@ export default function ServiceSection({
                             <p
                                 className={`${styles.paragraph} uppercase !text-sm`}
                             >
-                                Wednesday
+                                {location.day}
                             </p>
                         </div>
                         <div className="bg-hh-orange py-1 px-4 shadow flex items-center gap-1 text-white rounded">
                             <p
                                 className={`${styles.paragraph} uppercase !text-sm`}
                             >
-                                15 MINUTES
+                                {location.time}
                             </p>
                         </div>
                     </div>
@@ -155,7 +167,7 @@ export default function ServiceSection({
                                 <p
                                     className={`${styles.h2} text-hh-orange font-medium !mb-0`}
                                 >
-                                    R80
+                                    R{calculateTotalPrice()}
                                     <span
                                         className={`!text-hh-gray font-normal  ${styles.paragraph}`}
                                     >
@@ -168,7 +180,7 @@ export default function ServiceSection({
                                 <p
                                     className={`text-hh-gray ${styles.paragraph}`}
                                 >
-                                    No of poeple (max 8)
+                                    No of people (max 8)
                                 </p>
                                 <div className="flex gap-x-1">
                                     <button

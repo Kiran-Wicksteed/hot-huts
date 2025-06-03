@@ -52,7 +52,7 @@ export default function TimeDate({
     updateFormData,
     formData,
 }) {
-    const { services, date, time } = formData;
+    const { location, services, date, time } = formData;
     const [selectedTime, setSelectedTime] = useState(null);
 
     // Update service quantities
@@ -68,10 +68,7 @@ export default function TimeDate({
     // Update time slot selection
     const handleTimeSelect = (item) => {
         setSelectedTime(item.id);
-        updateFormData({
-            time: item.time,
-            // Add date if needed: date: "24/04/2025"
-        });
+        updateFormData({ time: item.time });
     };
 
     return (
@@ -83,16 +80,14 @@ export default function TimeDate({
                 className={`${styles.h3} !text-2xl !text-black font-normal max-w-3xl`}
             >
                 Feel the Chill, Embrace the Heat — sauna sessions by the sea.{" "}
-                <span className="text-hh-orange block">
-                    St James Tidal Pool.
-                </span>
+                <span className="text-hh-orange block">{location.name}</span>
             </h1>
             <div className=" grid grid-cols-3 gap-x-20 relative mt-10">
                 <div className="col-span-2  bg-white">
                     <h3 className={`${styles.h2} text-black font-medium`}>
                         Pick a slot on a{" "}
                         <span className="text-hh-orange font-semibold">
-                            Wednesday
+                            {location.day}
                         </span>
                     </h3>
                     <div className="space-y-10">
@@ -177,7 +172,7 @@ export default function TimeDate({
                                 <p
                                     className={`${styles.paragraph} uppercase !text-sm`}
                                 >
-                                    Wednesday
+                                    {location.day}
                                 </p>
                             </div>
                             <div className="bg-hh-orange py-1 px-4 shadow flex items-center gap-1 text-white rounded">
@@ -194,7 +189,7 @@ export default function TimeDate({
                                 <h3
                                     className={`${styles.h3}  !mb-0  font-medium`}
                                 >
-                                    St James Tidal Pool
+                                    {location.name}
                                 </h3>
                             </div>
 
@@ -324,7 +319,7 @@ export default function TimeDate({
                                     </div>
                                 </div>
                             </div>
-                            <div className="pt-6 flex justify-between gap-x-4 items-center">
+                            <div className="pt-6 flex justify-between gap-x-2 items-center">
                                 {" "}
                                 <div className="bg-white w-full py-3 shadow flex items-center justify-center gap-1 text-hh-orange rounded border border-hh-orange">
                                     <p
@@ -335,7 +330,7 @@ export default function TimeDate({
                                 </div>
                                 <div className="bg-white w-full py-3 shadow flex items-center justify-center gap-1 text-hh-orange rounded border border-hh-orange">
                                     <p
-                                        className={`${styles.paragraph} uppercase `}
+                                        className={`${styles.paragraph} uppercase !text-sm`}
                                     >
                                         {time || "Time selected"}
                                     </p>
@@ -364,18 +359,20 @@ export default function TimeDate({
                             </div>
                             <div className="flex items-center gap-x-2 pt-6">
                                 <div className="bg-white border  border-hh-orange py-1 px-4 shadow flex items-center gap-1 text-hh-orange rounded">
-                                    <p
+                                    <button
+                                        onClick={prevStep}
                                         className={`${styles.paragraph} uppercase whitespace-nowrap`}
                                     >
                                         go back
-                                    </p>
+                                    </button>
                                 </div>
                                 <div className="bg-hh-orange py-1 w-full px-4 shadow flex items-center justify-center gap-1 text-white rounded">
-                                    <p
+                                    <button
+                                        onClick={nextStep}
                                         className={`${styles.paragraph} uppercase `}
                                     >
                                         Continue
-                                    </p>
+                                    </button>
                                 </div>
                             </div>
                         </div>

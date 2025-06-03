@@ -7,7 +7,24 @@ import {
     PhoneIcon,
 } from "@heroicons/react/24/outline";
 
-export default function InvoiceDetails() {
+export default function InvoiceDetails({ nextStep, prevStep, formData }) {
+    const pricePerPerson = 80;
+    const honeyPrice = 30;
+    const revivePrice = 40;
+
+    const totalPricePerPerson = pricePerPerson * formData.services.people;
+    const honeyTotal = honeyPrice * formData.services.honey;
+    const reviveTotal = revivePrice * formData.services.revive;
+
+    const totalAmount = totalPricePerPerson + honeyTotal + reviveTotal;
+
+    // Format date
+    const invoiceDate = new Date().toLocaleDateString("en-GB", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+    });
+
     return (
         <div
             className={`${styles.boxWidth} pb-28 pt-10 px-4 2xl:px-28 md:px-10 lg:px-16 xl:px-20`}
@@ -20,7 +37,7 @@ export default function InvoiceDetails() {
                         Single sauna session
                     </h1>
                     <p className={`${styles.h3} !mb-4 font-medium text-black`}>
-                        St James Tidal Pool
+                        {formData.location.name}
                     </p>
                     <div className="bg-[#F5F5F5] rounded-md p-6">
                         <div className="justify-between flex">
@@ -38,7 +55,7 @@ export default function InvoiceDetails() {
                                 <p
                                     className={`${styles.paragraph} !text-sm text-black/50`}
                                 >
-                                    23 April 2025
+                                    {invoiceDate}
                                 </p>
                             </div>
                             <div>
@@ -101,7 +118,8 @@ export default function InvoiceDetails() {
                                     <p
                                         className={`${styles.paragraph} !text-sm text-black w-1/2`}
                                     >
-                                        Single sauna session St James Tidal Pool
+                                        Single sauna session{" "}
+                                        <span>{formData.location.name}</span>
                                     </p>
                                 </div>
                                 <div className="col-span-2">
@@ -109,7 +127,7 @@ export default function InvoiceDetails() {
                                     <p
                                         className={`${styles.paragraph} !text-sm text-black/50`}
                                     >
-                                        3
+                                        {formData.services.people}
                                     </p>
                                 </div>
                                 <div className="col-span-2">
@@ -117,7 +135,7 @@ export default function InvoiceDetails() {
                                     <p
                                         className={`${styles.paragraph} !text-sm text-black/50`}
                                     >
-                                        R80
+                                        R{pricePerPerson}
                                     </p>
                                 </div>
                                 <div className="col-span-1">
@@ -125,78 +143,82 @@ export default function InvoiceDetails() {
                                     <p
                                         className={`${styles.paragraph} !text-sm text-black `}
                                     >
-                                        R210
+                                        R{totalPricePerPerson}
                                     </p>
                                 </div>
                             </div>
-                            <div className="grid grid-cols-8 h-16 items-center">
-                                <div className="col-span-3">
-                                    {" "}
-                                    <p
-                                        className={`${styles.paragraph} !text-sm text-black `}
-                                    >
-                                        Hot Honey
-                                    </p>
+                            {formData.services.honey > 0 && (
+                                <div className="grid grid-cols-8 h-16 items-center">
+                                    <div className="col-span-3">
+                                        {" "}
+                                        <p
+                                            className={`${styles.paragraph} !text-sm text-black `}
+                                        >
+                                            Hot Honey
+                                        </p>
+                                    </div>
+                                    <div className="col-span-2">
+                                        {" "}
+                                        <p
+                                            className={`${styles.paragraph} !text-sm text-black/50`}
+                                        >
+                                            {formData.services.honey}
+                                        </p>
+                                    </div>
+                                    <div className="col-span-2">
+                                        {" "}
+                                        <p
+                                            className={`${styles.paragraph} !text-sm text-black/50`}
+                                        >
+                                            R{honeyPrice}
+                                        </p>
+                                    </div>
+                                    <div className="col-span-1">
+                                        {" "}
+                                        <p
+                                            className={`${styles.paragraph} !text-sm text-black `}
+                                        >
+                                            R{honeyTotal}
+                                        </p>
+                                    </div>
                                 </div>
-                                <div className="col-span-2">
-                                    {" "}
-                                    <p
-                                        className={`${styles.paragraph} !text-sm text-black/50`}
-                                    >
-                                        1
-                                    </p>
+                            )}
+                            {formData.services.revive > 0 && (
+                                <div className="grid grid-cols-8 h-16 items-center">
+                                    <div className="col-span-3">
+                                        {" "}
+                                        <p
+                                            className={`${styles.paragraph} !text-sm text-black w-1/2`}
+                                        >
+                                            REVIVE + Water combo
+                                        </p>
+                                    </div>
+                                    <div className="col-span-2">
+                                        {" "}
+                                        <p
+                                            className={`${styles.paragraph} !text-sm text-black/50`}
+                                        >
+                                            {formData.services.revive}
+                                        </p>
+                                    </div>
+                                    <div className="col-span-2">
+                                        {" "}
+                                        <p
+                                            className={`${styles.paragraph} !text-sm text-black/50`}
+                                        >
+                                            R{revivePrice}
+                                        </p>
+                                    </div>
+                                    <div className="col-span-1">
+                                        {" "}
+                                        <p
+                                            className={`${styles.paragraph} !text-sm text-black `}
+                                        >
+                                            R{reviveTotal}
+                                        </p>
+                                    </div>
                                 </div>
-                                <div className="col-span-2">
-                                    {" "}
-                                    <p
-                                        className={`${styles.paragraph} !text-sm text-black/50`}
-                                    >
-                                        R30
-                                    </p>
-                                </div>
-                                <div className="col-span-1">
-                                    {" "}
-                                    <p
-                                        className={`${styles.paragraph} !text-sm text-black `}
-                                    >
-                                        R60
-                                    </p>
-                                </div>
-                            </div>
-                            <div className="grid grid-cols-8 h-16 items-center">
-                                <div className="col-span-3">
-                                    {" "}
-                                    <p
-                                        className={`${styles.paragraph} !text-sm text-black w-1/2`}
-                                    >
-                                        REVIVE + Water combo
-                                    </p>
-                                </div>
-                                <div className="col-span-2">
-                                    {" "}
-                                    <p
-                                        className={`${styles.paragraph} !text-sm text-black/50`}
-                                    >
-                                        1
-                                    </p>
-                                </div>
-                                <div className="col-span-2">
-                                    {" "}
-                                    <p
-                                        className={`${styles.paragraph} !text-sm text-black/50`}
-                                    >
-                                        R40
-                                    </p>
-                                </div>
-                                <div className="col-span-1">
-                                    {" "}
-                                    <p
-                                        className={`${styles.paragraph} !text-sm text-black `}
-                                    >
-                                        R80
-                                    </p>
-                                </div>
-                            </div>
+                            )}
                         </div>
                         <div className="col-span-full grid grid-cols-8 bg-[#F5F5F5] py-4 mt-8 rounded">
                             <div className="col-span-3"></div>
@@ -214,7 +236,7 @@ export default function InvoiceDetails() {
                                 <p
                                     className={`${styles.paragraph} !text-sm text-black`}
                                 >
-                                    R350
+                                    R{totalAmount}
                                 </p>
                             </div>
                         </div>
@@ -305,7 +327,10 @@ export default function InvoiceDetails() {
                             </dl>
                         </div>
                         <div className="space-y-2 mt-6">
-                            <button className=" shadow border border-hh-orange w-full py-2 text-white bg-hh-orange rounded">
+                            <button
+                                onClick={nextStep}
+                                className=" shadow border border-hh-orange w-full py-2 text-white bg-hh-orange rounded"
+                            >
                                 <span
                                     className={`${styles.paragraph} text-center font-medium`}
                                 >

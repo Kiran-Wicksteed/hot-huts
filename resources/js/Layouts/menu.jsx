@@ -89,11 +89,12 @@ export default function Menu({ currentStep }) {
                             </p>
                         </li>
                         <li>
-                            <button
+                            <a
+                                href="/my-bookings"
                                 className={`${styles.paragraph} border border-hh-orange font-medium shadow !text-lg rounded p-4 text-hh-orange w-fit cursor-pointer transition-all`}
                             >
                                 <span>My Bookings</span>
-                            </button>
+                            </a>
                         </li>
                     </ul>
                 </nav>

@@ -5,22 +5,28 @@ import ServiceSection from "@/Components/booking-form/ServiceSection";
 import TimeDate from "@/Components/booking-form/TimeDate";
 import InvoiceDetails from "@/Components/booking-form/InvoiceDetails";
 import Locations from "@/Components/booking-form/Locations";
+import Confiirmed from "@/Components/booking-form/Confiirmed";
 
 export default function Index() {
     const [currentStep, setCurrentStep] = useState(1);
     const [formData, setFormData] = useState({
-        location: "",
+        location: {
+            day: "",
+            name: "",
+            period: "",
+            time: "",
+        },
         services: {
             honey: 0,
             revive: 0,
-            people: 0,
+            people: 1,
         },
         date: "",
         time: "",
         payment: {},
     });
     const goToNextStep = () => {
-        if (currentStep < 4) setCurrentStep(currentStep + 1);
+        if (currentStep < 5) setCurrentStep(currentStep + 1);
     };
 
     const goToPrevStep = () => {
@@ -39,7 +45,6 @@ export default function Index() {
                     <Locations
                         nextStep={goToNextStep}
                         updateFormData={updateFormData}
-                        data={formData.location}
                     />
                 )}
 
@@ -49,6 +54,7 @@ export default function Index() {
                         prevStep={goToPrevStep}
                         updateFormData={updateFormData}
                         servicesData={formData.services}
+                        formData={formData}
                     />
                 )}
 
@@ -62,15 +68,18 @@ export default function Index() {
                 )}
 
                 {currentStep === 4 && (
-                    <InvoiceDetails />
-                    // <CheckoutStep
-                    //     data={formData}
-                    //     updateFormData={updateFormData}
-                    //     prevStep={goToPrevStep}
-                    //     submitForm={() =>
-                    //         console.log("Form submitted!", formData)
-                    //     }
-                    // />
+                    <InvoiceDetails
+                        nextStep={goToNextStep}
+                        prevStep={goToPrevStep}
+                        formData={formData}
+                    />
+                )}
+                {currentStep === 5 && (
+                    <Confiirmed
+                        nextStep={goToNextStep}
+                        prevStep={goToPrevStep}
+                        formData={formData}
+                    />
                 )}
             </div>
             <Footer />

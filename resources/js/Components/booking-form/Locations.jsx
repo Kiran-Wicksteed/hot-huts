@@ -4,72 +4,76 @@ import styles from "../../../styles";
 const schedule = {
     Monday: {
         AM: [
-            { name: "Dalebrook tidal Pool", time: "6-11AM" },
-            { name: "Dalebrook tidal Pool", time: "6-11AM" },
+            { name: "Dalebrook Tidal Pool", time: "6-11AM" },
+            { name: "St James Tidal Pool", time: "6-11AM" },
         ],
         PM: [
-            { name: "Dalebrook tidal Pool", time: "4-8PM" },
-            { name: "Dalebrook tidal Pool", time: "4-8PM" },
+            { name: "Dalebrook Tidal Pool", time: "5-8PM" },
+            { name: "St James Tidal Pool", time: "5-8PM" },
         ],
     },
     Tuesday: {
         AM: [
-            { name: "Dalebrook tidal Pool", time: "6-11AM" },
-            { name: "Dalebrook tidal Pool", time: "6-11AM" },
+            { name: "Dalebrook Tidal Pool", time: "6-11AM" },
+            { name: "St James Tidal Pool", time: "6-11AM" },
         ],
         PM: [
-            { name: "Dalebrook tidal Pool", time: "4-8PM" },
-            { name: "Dalebrook tidal Pool", time: "4-8PM" },
+            { name: "Dalebrook Tidal Pool", time: "5-8PM" },
+            { name: "St James Tidal Pool", time: "5-8PM" },
         ],
     },
     Wednesday: {
         AM: [
-            { name: "Dalebrook tidal Pool", time: "6-11AM" },
-            { name: "Dalebrook tidal Pool", time: "6-11AM" },
+            { name: "Dalebrook Tidal Pool", time: "6-11AM" },
+            { name: "St James Tidal Pool", time: "6-11AM" },
         ],
         PM: [
-            { name: "Dalebrook tidal Pool", time: "4-8PM" },
-            { name: "Dalebrook tidal Pool", time: "4-8PM" },
+            { name: "Dalebrook Tidal Pool", time: "5-8PM" },
+            { name: "St James Tidal Pool", time: "5-8PM" },
         ],
     },
     Thursday: {
         AM: [
-            { name: "Dalebrook tidal Pool", time: "6-11AM" },
-            { name: "Dalebrook tidal Pool", time: "6-11AM" },
+            { name: "Dalebrook Tidal Pool", time: "6-11AM" },
+            { name: "St James Tidal Pool", time: "6-11AM" },
         ],
         PM: [
-            { name: "Dalebrook tidal Pool", time: "4-8PM" },
-            { name: "Dalebrook tidal Pool", time: "4-8PM" },
+            { name: "Dalebrook Tidal Pool", time: "5-8PM" },
+            { name: "St James Tidal Pool", time: "5-8PM" },
         ],
     },
     Friday: {
         AM: [
-            { name: "Dalebrook tidal Pool", time: "6-11AM" },
-            { name: "Dalebrook tidal Pool", time: "6-11AM" },
+            { name: "Dalebrook Tidal Pool", time: "6-11AM" },
+            { name: "St James Tidal Pool", time: "6-11AM" },
         ],
         PM: [
-            { name: "Dalebrook tidal Pool", time: "4-8PM" },
-            { name: "Dalebrook tidal Pool", time: "4-8PM" },
+            { name: "Dalebrook Tidal Pool", time: "5-8PM" },
+            { name: "St James Tidal Pool", time: "5-8PM" },
         ],
     },
     // Add more days as needed...
 };
 
 export default function Locations({ nextStep, updateFormData }) {
-    const [selected, setSelected] = useState(null);
+    const [selectedSlot, setSelectedSlot] = useState(null);
 
-    const handleSelect = (day, period, index) => {
-        setSelected({ day, period, index });
-        updateFormData({
-            location: {
-                day,
-                period,
-                ...selectedSlot,
-            },
-        });
+    const handleSelect = (day, period, slot) => {
+        setSelectedSlot({ day, period, ...slot });
+    };
 
-        // Move to next step
-        nextStep();
+    const handleNext = () => {
+        if (selectedSlot) {
+            updateFormData({
+                location: {
+                    day: selectedSlot.day,
+                    name: selectedSlot.name,
+                    period: selectedSlot.period,
+                    time: selectedSlot.time,
+                },
+            });
+            nextStep();
+        }
     };
 
     return (
@@ -130,9 +134,10 @@ export default function Locations({ nextStep, updateFormData }) {
                                 >
                                     {periods[period]?.map((slot, index) => {
                                         const isSelected =
-                                            selected?.day === day &&
-                                            selected?.period === period &&
-                                            selected?.index === index;
+                                            selectedSlot?.day === day &&
+                                            selectedSlot?.period === period &&
+                                            selectedSlot?.name === slot.name &&
+                                            selectedSlot?.time === slot.time;
                                         return (
                                             <div
                                                 key={index}
@@ -140,7 +145,7 @@ export default function Locations({ nextStep, updateFormData }) {
                                                     handleSelect(
                                                         day,
                                                         period,
-                                                        index
+                                                        slot
                                                     )
                                                 }
                                                 className={`border border-hh-orange rounded-2xl p-1.5 transition-all cursor-pointer hover:bg-hh-orange/10 ${
@@ -165,23 +170,10 @@ export default function Locations({ nextStep, updateFormData }) {
                 ))}
             </div>
             <div className="h-20 mt-8">
-                {selected && (
+                {selectedSlot && (
                     <div className="pl-12">
                         <button
-                            onClick={() => {
-                                const selectedSlot =
-                                    schedule[selected.day][selected.period][
-                                        selected.index
-                                    ];
-                                updateFormData({
-                                    location: {
-                                        day: selected.day,
-                                        period: selected.period,
-                                        ...selectedSlot,
-                                    },
-                                });
-                                nextStep();
-                            }}
+                            onClick={handleNext}
                             className={`bg-hh-orange text-white py-2 px-6 rounded hover:bg-hh-orange/80 transition ${styles.paragraph}`}
                         >
                             Next

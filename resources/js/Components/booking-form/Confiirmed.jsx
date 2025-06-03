@@ -1,7 +1,7 @@
 import styles from "../../../styles";
 import { usePage } from "@inertiajs/react";
 
-export default function Confiirmed() {
+export default function Confiirmed({ formData }) {
     const { auth } = usePage().props;
     const user = auth.user;
 
@@ -27,20 +27,32 @@ export default function Confiirmed() {
                     <p className={`${styles.paragraph}  !text-[#2C2C2C] `}>
                         Single Sauna Session
                     </p>
-                    <p className={`${styles.paragraph}  !text-[#2C2C2C] `}>5</p>
-                </div>
-                <div className="bg-white flex items-center justify-between py-2 px-6 shadow rounded border border-hh-gray">
                     <p className={`${styles.paragraph}  !text-[#2C2C2C] `}>
-                        Hot Honey
+                        {" "}
+                        {formData.services.people}
                     </p>
-                    <p className={`${styles.paragraph}  !text-[#2C2C2C] `}>2</p>
                 </div>
-                <div className="bg-white flex items-center justify-between py-2 px-6 shadow rounded border border-hh-gray">
-                    <p className={`${styles.paragraph}  !text-[#2C2C2C] `}>
-                        REVIVE + Water Combo
-                    </p>
-                    <p className={`${styles.paragraph}  !text-[#2C2C2C] `}>0</p>
-                </div>
+                {formData.services.honey > 0 && (
+                    <div className="bg-white flex items-center justify-between py-2 px-6 shadow rounded border border-hh-gray">
+                        <p className={`${styles.paragraph}  !text-[#2C2C2C] `}>
+                            Hot Honey
+                        </p>
+                        <p className={`${styles.paragraph}  !text-[#2C2C2C] `}>
+                            {" "}
+                            {formData.services.honey}
+                        </p>
+                    </div>
+                )}
+                {formData.services.revive > 0 && (
+                    <div className="bg-white flex items-center justify-between py-2 px-6 shadow rounded border border-hh-gray">
+                        <p className={`${styles.paragraph}  !text-[#2C2C2C] `}>
+                            REVIVE + Water Combo
+                        </p>
+                        <p className={`${styles.paragraph}  !text-[#2C2C2C] `}>
+                            {formData.services.revive}
+                        </p>
+                    </div>
+                )}
             </div>
         </div>
     );
