@@ -26,11 +26,19 @@ export default function Index() {
         payment: {},
     });
     const goToNextStep = () => {
-        if (currentStep < 5) setCurrentStep(currentStep + 1);
+        if (currentStep < 5) {
+            setCurrentStep(currentStep + 1);
+            // Scroll to top on navigation
+            window.scrollTo(0, 0);
+        }
     };
 
     const goToPrevStep = () => {
-        if (currentStep > 1) setCurrentStep(currentStep - 1);
+        if (currentStep > 1) {
+            setCurrentStep(currentStep - 1);
+            // Scroll to top on navigation
+            window.scrollTo(0, 0);
+        }
     };
 
     const updateFormData = (newData) => {
