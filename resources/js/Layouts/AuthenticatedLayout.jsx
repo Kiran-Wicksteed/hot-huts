@@ -25,6 +25,7 @@ import {
     FolderIcon,
     HomeIcon,
     UsersIcon,
+    TruckIcon,
     BuildingLibraryIcon,
     XMarkIcon,
     ChatBubbleBottomCenterIcon,
@@ -596,337 +597,32 @@ export default function AuthenticatedLayout({ header, children }) {
                                         </li>
                                         <li>
                                             <a
-                                                href={route(
-                                                    "newsletters.index"
-                                                )}
+                                                href={route("saunas.index")}
                                                 className={classNames(
                                                     route().current(
-                                                        "newsletters.index"
+                                                        "saunas.index"
                                                     )
                                                         ? "bg-gray-100 text-hh-orange border-l-2 border-l-hh-orange"
                                                         : "text-black hover:bg-gray-100 hover:",
                                                     "group flex gap-x-3  p-1 sidebar-item !font-medium"
                                                 )}
                                             >
-                                                <DocumentChartBarIcon
+                                                <TruckIcon
                                                     aria-hidden="true"
                                                     className={classNames(
                                                         route().current(
-                                                            "newsletters.index"
+                                                            "saunas.index"
                                                         )
                                                             ? ""
                                                             : "text-black group-hover:",
                                                         "h-6 w-6 shrink-0"
                                                     )}
                                                 />
-                                                Reports
+                                                Saunas
                                             </a>
                                         </li>
                                     </ul>
                                 </li>
-                                {/* {user.is_family === 1 && (
-                                    <li>
-                                        <h6>Family</h6>
-                                        <ul
-                                            role="list"
-                                            className="-mx-2 space-y-1 "
-                                        >
-                                            <li>
-                                                <a
-                                                    href={route(
-                                                        "family.resources.index"
-                                                    )}
-                                                    className={classNames(
-                                                        route().current(
-                                                            "family.resources.index"
-                                                        )
-                                                            ? "bg-gray-100 text-hh-orange border-l-2 border-l-hh-orange"
-                                                            : "text-black hover:bg-gray-100 hover:",
-                                                        "group flex gap-x-3  p-1 sidebar-item !font-medium"
-                                                    )}
-                                                >
-                                                    <ClipboardDocumentCheckIcon
-                                                        aria-hidden="true"
-                                                        className={classNames(
-                                                            route().current(
-                                                                "family.resources.index"
-                                                            )
-                                                                ? ""
-                                                                : "text-gray-400 group-hover:",
-                                                            "h-6 w-6 shrink-0"
-                                                        )}
-                                                    />
-                                                    Documents
-                                                </a>
-                                            </li>
-                                            <li>
-                                                <a
-                                                    href={route(
-                                                        "family.gallery.index"
-                                                    )}
-                                                    className={classNames(
-                                                        route().current(
-                                                            "family.gallery.index"
-                                                        )
-                                                            ? "bg-gray-100 "
-                                                            : "text-gray-700 hover:bg-gray-100 hover:",
-                                                        "group flex gap-x-3 rounded-md p-1 sidebar-item"
-                                                    )}
-                                                >
-                                                    <CameraIcon
-                                                        aria-hidden="true"
-                                                        className={classNames(
-                                                            route().current(
-                                                                "family.gallery.index"
-                                                            )
-                                                                ? ""
-                                                                : "text-gray-400 group-hover:",
-                                                            "h-6 w-6 shrink-0"
-                                                        )}
-                                                    />
-                                                    Gallery
-                                                </a>
-                                            </li>
-                                        </ul>
-                                    </li>
-                                )}
-                                {organization && (
-                                    <li>
-                                        <h6 className="">
-                                            {organization.orgName}
-                                        </h6>
-                                        <ul
-                                            role="list"
-                                            className="-mx-2 space-y-1 "
-                                        >
-                                            <li>
-                                                <Link
-                                                    href={route(
-                                                        "organizations.users.index",
-                                                        {
-                                                            organization:
-                                                                organization.id,
-                                                        }
-                                                    )}
-                                                    className={classNames(
-                                                        route().current(
-                                                            "organizations.users.index"
-                                                        )
-                                                            ? "bg-gray-100"
-                                                            : "text-gray-700 hover:bg-gray-100",
-                                                        "group flex gap-x-3 rounded-md p-1 sidebar-item"
-                                                    )}
-                                                >
-                                                    <UserGroupIcon
-                                                        aria-hidden="true"
-                                                        className={classNames(
-                                                            route().current(
-                                                                "organizations.users.index"
-                                                            )
-                                                                ? ""
-                                                                : "text-gray-400 group-hover:",
-                                                            "h-6 w-6 shrink-0"
-                                                        )}
-                                                    />
-                                                    Team
-                                                </Link>
-                                            </li>
-                                            <li>
-                                                <Link
-                                                    href={route(
-                                                        "organizations.chats.index",
-                                                        {
-                                                            organization:
-                                                                organization.id,
-                                                        }
-                                                    )}
-                                                    className={classNames(
-                                                        route().current(
-                                                            "organizations.chats.index"
-                                                        )
-                                                            ? "bg-gray-100"
-                                                            : "text-gray-700 hover:bg-gray-100",
-                                                        "group flex gap-x-3 rounded-md p-1 sidebar-item"
-                                                    )}
-                                                >
-                                                    <ChatBubbleBottomCenterIcon
-                                                        aria-hidden="true"
-                                                        className={classNames(
-                                                            route().current(
-                                                                "organizations.chats.index"
-                                                            )
-                                                                ? ""
-                                                                : "text-gray-400 group-hover:",
-                                                            "h-6 w-6 shrink-0"
-                                                        )}
-                                                    />
-                                                    Chatroom
-                                                </Link>
-                                            </li>
-                                            <li>
-                                                <Link
-                                                    href={route(
-                                                        "organizations.events.index",
-                                                        {
-                                                            organization:
-                                                                organization.id,
-                                                        }
-                                                    )}
-                                                    className={classNames(
-                                                        route().current(
-                                                            "organizations.events.index"
-                                                        )
-                                                            ? "bg-gray-100"
-                                                            : "text-gray-700 hover:bg-gray-100",
-                                                        "group flex gap-x-3 rounded-md p-1 sidebar-item"
-                                                    )}
-                                                >
-                                                    <CalendarDaysIcon
-                                                        aria-hidden="true"
-                                                        className={classNames(
-                                                            route().current(
-                                                                "organizations.events.index"
-                                                            )
-                                                                ? ""
-                                                                : "text-gray-400 group-hover:",
-                                                            "h-6 w-6 shrink-0"
-                                                        )}
-                                                    />
-                                                    Events
-                                                </Link>
-                                            </li>
-                                            <li>
-                                                <Link
-                                                    href={route(
-                                                        "organizations.resources.index",
-                                                        {
-                                                            organization:
-                                                                organization.id,
-                                                        }
-                                                    )}
-                                                    className={classNames(
-                                                        route().current(
-                                                            "organizations.resources.index"
-                                                        )
-                                                            ? "bg-gray-100"
-                                                            : "text-gray-700 hover:bg-gray-100",
-                                                        "group flex gap-x-3 rounded-md p-1  sidebar-item"
-                                                    )}
-                                                >
-                                                    <FolderOpenIcon
-                                                        aria-hidden="true"
-                                                        className={classNames(
-                                                            route().current(
-                                                                "organizations.resources.index"
-                                                            )
-                                                                ? ""
-                                                                : "text-gray-400 group-hover:",
-                                                            "h-6 w-6 shrink-0"
-                                                        )}
-                                                    />
-                                                    Files & Resources
-                                                </Link>
-                                            </li>
-                                            <li>
-                                                <Link
-                                                    href={route(
-                                                        "organizations.policies.index",
-                                                        {
-                                                            organization:
-                                                                organization.id,
-                                                        }
-                                                    )}
-                                                    className={classNames(
-                                                        route().current(
-                                                            "organizations.policies.index"
-                                                        )
-                                                            ? "bg-gray-100"
-                                                            : "text-gray-700 hover:bg-gray-100",
-                                                        "group flex gap-x-3 rounded-md p-1  sidebar-item"
-                                                    )}
-                                                >
-                                                    <ScaleIcon
-                                                        aria-hidden="true"
-                                                        className={classNames(
-                                                            route().current(
-                                                                "organizations.policies.index"
-                                                            )
-                                                                ? ""
-                                                                : "text-gray-400 group-hover:",
-                                                            "h-6 w-6 shrink-0"
-                                                        )}
-                                                    />
-                                                    Policies & Procedures
-                                                </Link>
-                                            </li>
-                                        </ul>
-                                    </li>
-                                )}
-
-                                {user.is_admin === 1 && (
-                                    <li>
-                                        <h6>Administrator</h6>
-                                        <ul
-                                            role="list"
-                                            className="-mx-2 space-y-1"
-                                        >
-                                            <li>
-                                                <a
-                                                    href={route("admin.users")}
-                                                    className={classNames(
-                                                        route().current(
-                                                            "admin.users"
-                                                        )
-                                                            ? "bg-gray-100"
-                                                            : "text-gray-700 hover:bg-gray-100",
-                                                        "group flex gap-x-3 rounded-md p-1  sidebar-item"
-                                                    )}
-                                                >
-                                                    <UsersIcon
-                                                        aria-hidden="true"
-                                                        className={classNames(
-                                                            route().current(
-                                                                "admin.users"
-                                                            )
-                                                                ? ""
-                                                                : "text-gray-400 group-hover:",
-                                                            "h-6 w-6 shrink-0"
-                                                        )}
-                                                    />
-                                                    User Management
-                                                </a>
-                                            </li>
-                                            <li>
-                                                <a
-                                                    href={route(
-                                                        "admin.organizations.index"
-                                                    )}
-                                                    className={classNames(
-                                                        route().current(
-                                                            "admin.organizations.index"
-                                                        )
-                                                            ? "bg-gray-100"
-                                                            : "text-gray-700 hover:bg-gray-100",
-                                                        "group flex gap-x-3 rounded-md p-1  sidebar-item"
-                                                    )}
-                                                >
-                                                    <BuildingLibraryIcon
-                                                        aria-hidden="true"
-                                                        className={classNames(
-                                                            route().current(
-                                                                "admin.organizations"
-                                                            )
-                                                                ? ""
-                                                                : "text-gray-400 group-hover:",
-                                                            "h-6 w-6 shrink-0"
-                                                        )}
-                                                    />
-                                                    Manage Organizations
-                                                </a>
-                                            </li>
-                                        </ul>
-                                    </li>
-                                )} */}
                             </ul>
                         </nav>
                     </div>

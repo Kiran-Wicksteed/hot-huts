@@ -1,16 +1,12 @@
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
 import styles from "../../../styles";
-import CreateLocation from "./Partials/CreateLocation";
+import CreateSauna from "./Partials/CreateSauna";
 import { useState } from "react";
 import { Link, usePage } from "@inertiajs/react";
 
-export default function LocationsPage({ locations }) {
+export default function LocationsPage({ saunas }) {
     const [editing, setEditing] = useState(null);
-    console.log("Locations:", locations);
-
-    const asset = (path) => {
-        return `/storage/${path}`;
-    };
+    console.log("saunas:", saunas);
 
     return (
         <AuthenticatedLayout>
@@ -24,7 +20,7 @@ export default function LocationsPage({ locations }) {
                             <p
                                 className={`${styles.paragraph} whitespace-nowrap`}
                             >
-                                Add a new location
+                                Add a new sauna
                             </p>
                         </button>
                     </div>
@@ -34,14 +30,14 @@ export default function LocationsPage({ locations }) {
                             <h4
                                 className={`${styles.h3} !mb-0 font-medium text-black `}
                             >
-                                Location List
+                                Sauna List
                             </h4>
                         </div>
                     </div>
                     <div className="grid grid-cols-12 p-6 gap-x-4">
                         <div className="col-span-1">
                             <p className={`${styles.paragraph} text-black`}>
-                                #No
+                                Sauna ID
                             </p>
                         </div>
                         <div className="col-span-2 ">
@@ -51,80 +47,68 @@ export default function LocationsPage({ locations }) {
                         </div>
                         <div className="col-span-2">
                             <p className={`${styles.paragraph} text-black`}>
-                                Image
+                                Description
                             </p>
                         </div>
                         <div className="col-span-3">
                             <p className={`${styles.paragraph} text-black`}>
-                                Address
-                            </p>
-                        </div>
-                        <div className="col-span-2">
-                            <p className={`${styles.paragraph} text-black`}>
-                                Days
+                                Schedule
                             </p>
                         </div>
                     </div>
                     <div className="col-span-full space-y-4">
-                        {locations.data.map((loc) => (
+                        {saunas.data.map((sauna) => (
                             <div
-                                key={loc.id}
+                                key={sauna.id}
                                 className="col-span-full bg-white shadow grid grid-cols-12  gap-x-4 items-center border border-hh-gray rounded p-6"
                             >
                                 <div className="col-span-1">
                                     <p
                                         className={`${styles.paragraph} !text-[#999999] `}
                                     >
-                                        {loc.id}
+                                        {sauna.id}
                                     </p>
                                 </div>
                                 <div className="col-span-2 ">
                                     <p
                                         className={`${styles.paragraph} !text-[#999999] !text-sm`}
                                     >
-                                        {loc.name}
+                                        {sauna.name}
                                     </p>
                                 </div>
-                                <div className="col-span-2 ">
-                                    {loc.image_path ? (
-                                        <img
-                                            src={asset(loc.image_path)}
-                                            alt={loc.name}
-                                            className="h-12 w-12 object-cover rounded"
-                                        />
-                                    ) : (
-                                        <span className="text-sm text-gray-400">
-                                            No image
-                                        </span>
-                                    )}
-                                </div>
-                                <div className="col-span-3">
-                                    <p
-                                        className={`${styles.paragraph} !text-[#999999] !text-sm`}
-                                    >
-                                        {loc.address}
-                                    </p>
-                                </div>
+
                                 <div className="col-span-2">
                                     <p
                                         className={`${styles.paragraph} !text-[#999999] !text-sm`}
                                     >
-                                        Wednesday
+                                        {sauna.description}
+                                    </p>
+                                </div>
+                                <div className="col-span-5">
+                                    <p
+                                        className={`${styles.paragraph} !text-[#999999] !text-sm`}
+                                    >
+                                        <Link
+                                            href={route(
+                                                "saunas.schedules.index",
+                                                sauna.id
+                                            )}
+                                            className="text-hh-orange hover:underline"
+                                        >
+                                            Manage Schedule
+                                        </Link>
                                     </p>
                                 </div>
 
                                 <div className="col-span-2 flex gap-x-4 w-full justify-end items-center">
                                     <span
-                                        onClick={() => setEditing(loc)}
+                                        onClick={() => setEditing(sauna)}
                                         className={`${styles.paragraph} !mb-0 text-black hover:text-hh-orange transition-all !text-sm cursor-pointer`}
                                     >
                                         Edit
                                     </span>
                                     <Link
-                                        href={route(
-                                            "locations.destroy",
-                                            loc.id
-                                        )}
+                                        href={route("saunas.destroy", sauna.id)}
                                         as="button"
                                         method="delete"
                                         className=" "
@@ -139,7 +123,7 @@ export default function LocationsPage({ locations }) {
                             </div>
                         ))}
                         <div className="col-span-full flex justify-end gap-x-2 mt-4">
-                            {locations.links.map((link, i) => {
+                            {saunas.links.map((link, i) => {
                                 // Skip the "Previous" / "Next" placeholders here if you only want numbers
                                 // If you want them, treat them the same but give them a different label.
                                 if (
@@ -172,7 +156,7 @@ export default function LocationsPage({ locations }) {
                     </div>
                 </div>
                 {editing !== null && (
-                    <CreateLocation
+                    <CreateSauna
                         item={editing}
                         onClose={() => setEditing(null)}
                     />

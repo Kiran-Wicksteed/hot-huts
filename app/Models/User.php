@@ -60,39 +60,4 @@ class User extends Authenticatable implements MustVerifyEmail
     {
         return $this->is_admin;
     }
-
-    public function events(): HasMany
-    {
-        return $this->hasMany(Event::class);
-    }
-
-    public function familyGallery(): HasMany
-    {
-        return $this->hasMany(FamilyGallery::class);
-    }
-
-    public function resources(): HasMany
-    {
-        return $this->hasMany(Resource::class);
-    }
-
-    public function chats(): HasMany
-    {
-        return $this->hasMany(Chat::class);
-    }
-
-    public function policies(): HasMany
-    {
-        return $this->hasMany(Policy::class);
-    }
-
-    public function newsletters(): HasMany
-    {
-        return $this->hasMany(Newsletter::class);
-    }
-
-    public function Organization(): BelongsTo
-    {
-        return $this->belongsTo(Organization::class);
-    }
 }
