@@ -1,12 +1,15 @@
 import ContentSection from "@/Components/my-bookings/ContentSection";
 import Footer from "@/Layouts/Footer";
-import Menu from "@/Layouts/Menu";
+import ConfirmedMenu from "@/Layouts/ConfirmedMenu";
 
-export default function MyBookings() {
+export default function MyBookings({ events, upcoming, past }) {
+    console.log("events", events);
+    console.log("upcoming", upcoming);
+    console.log("past", past);
     return (
         <>
-            <Menu />
-            <ContentSection />
+            <ConfirmedMenu />
+            <ContentSection upcoming={upcoming} events={events} past={past} />
             <Footer />
         </>
     );

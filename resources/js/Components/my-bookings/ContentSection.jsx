@@ -1,9 +1,10 @@
 import styles from "../../../styles";
-import { usePage } from "@inertiajs/react";
+import { usePage, Link } from "@inertiajs/react";
 import FrontendSidebar from "@/Layouts/FrontendSidebar";
 import { useState } from "react";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
+import dayjs from "dayjs";
 
 import {
     ClockIcon,
@@ -12,34 +13,11 @@ import {
     CalendarIcon,
 } from "@heroicons/react/24/outline";
 
-const ProgressCircle = ({ points }) => {
-    // Calculate progress percentage (0-100)
-    const normalizedPoints = points % 4;
-    const progress =
-        normalizedPoints === 0 && points > 0 ? 100 : normalizedPoints * 25;
-
-    return (
-        <div className="relative h-14 w-14">
-            {/* Background circle (empty state) */}
-            <div className="absolute inset-0 rounded-full border border-hh-gray shadow" />
-
-            {/* Progress fill */}
-            <div
-                className="absolute inset-0 rounded-full"
-                style={{
-                    background: `conic-gradient(
-              #FF5733 0% ${progress}%, 
-              transparent ${progress}% 100%
-            )`,
-                    mask: "radial-gradient(white 55%",
-                    WebkitMask: "radial-gradient(white 55%)",
-                }}
-            />
-        </div>
-    );
-};
-
-export default function ContentSection() {
+export default function ContentSection({
+    upcoming = [],
+    events = [],
+    past = [],
+}) {
     const [startDate, setStartDate] = useState(new Date());
     const { auth } = usePage().props;
     const user = auth.user;
@@ -99,158 +77,16 @@ export default function ContentSection() {
                             >
                                 Upcoming
                             </h3>
-                            <div className="border border-hh-gray px-6 py-16 rounded-md flex flex-col justify-center items-center shadow-md">
-                                <CalendarIcon className="h-16 w-16 text-hh-gray" />
-                                <h4
-                                    className={`${styles.h3} !mb-0 mt-4 font-medium text-black`}
-                                >
-                                    No upcoming bookings
-                                </h4>
-                                <p
-                                    className={`${styles.paragraph} font-medium text-hh-gray`}
-                                >
-                                    Your upcoming bookings will appear here
-                                </p>
-                                <button className="bg-hh-orange rounded border border-hh-orange py-2 px-6 w-fit mt-4">
-                                    <span
-                                        className={`${styles.paragraph} text-white uppercase`}
-                                    >
-                                        Book now
-                                    </span>
-                                </button>
-                            </div>
+                            <UpcomingSection />
                         </div>
                         <div>
-                            <div className="flex items-center justify-between pt-20">
+                            <div className="flex flex-col items-between justify-start pt-20">
                                 <h3
                                     className={`${styles.h3} font-medium text-black`}
                                 >
                                     Past Bookings
                                 </h3>
-                            </div>
-                            <div className="border border-hh-gray bg-white rounded-md shadow grid grid-cols-3 overflow-hidden items-center mt-6">
-                                <div className="col-span-1">
-                                    <img
-                                        src="/storage/images/colourful-huts.png"
-                                        alt=""
-                                        className="w-full h-full object-cover"
-                                    />
-                                </div>
-                                <div className="col-span-2 p-6 ">
-                                    <h3
-                                        className={`${styles.paragraph}  text-black font-medium`}
-                                    >
-                                        Camps Bay Tidal Pool
-                                    </h3>
-                                    <p
-                                        className={`${styles.paragraph} text-sm text-black`}
-                                    >
-                                        Tue, 19 March 2025 at 9:20AM
-                                    </p>
-                                    <p
-                                        className={`${styles.paragraph} text-sm text-hh-gray mt-2`}
-                                    >
-                                        Single Sauna Session
-                                    </p>
-                                    <button
-                                        className={`text-hh-orange uppercase font-medium ${styles.paragraph}`}
-                                    >
-                                        Book Again
-                                    </button>
-                                </div>
-                            </div>
-                            <div className="border border-hh-gray bg-white rounded-md shadow grid grid-cols-3 overflow-hidden items-center mt-8">
-                                <div className="col-span-1">
-                                    <img
-                                        src="/storage/images/colourful-huts.png"
-                                        alt=""
-                                        className="w-full h-full object-cover"
-                                    />
-                                </div>
-                                <div className="col-span-2 p-6 ">
-                                    <h3
-                                        className={`${styles.paragraph}  text-black font-medium`}
-                                    >
-                                        Camps Bay Tidal Pool
-                                    </h3>
-                                    <p
-                                        className={`${styles.paragraph} text-sm text-black`}
-                                    >
-                                        Tue, 19 March 2025 at 9:20AM
-                                    </p>
-                                    <p
-                                        className={`${styles.paragraph} text-sm text-hh-gray mt-2`}
-                                    >
-                                        Single Sauna Session
-                                    </p>
-                                    <button
-                                        className={`text-hh-orange uppercase font-medium ${styles.paragraph}`}
-                                    >
-                                        Book Again
-                                    </button>
-                                </div>
-                            </div>
-                            <div className="border border-hh-gray bg-white rounded-md shadow grid grid-cols-3 overflow-hidden items-center mt-8">
-                                <div className="col-span-1">
-                                    <img
-                                        src="/storage/images/colourful-huts.png"
-                                        alt=""
-                                        className="w-full h-full object-cover"
-                                    />
-                                </div>
-                                <div className="col-span-2 p-6 ">
-                                    <h3
-                                        className={`${styles.paragraph}  text-black font-medium`}
-                                    >
-                                        Camps Bay Tidal Pool
-                                    </h3>
-                                    <p
-                                        className={`${styles.paragraph} text-sm text-black`}
-                                    >
-                                        Tue, 19 March 2025 at 9:20AM
-                                    </p>
-                                    <p
-                                        className={`${styles.paragraph} text-sm text-hh-gray mt-2`}
-                                    >
-                                        Single Sauna Session
-                                    </p>
-                                    <button
-                                        className={`text-hh-orange uppercase font-medium ${styles.paragraph}`}
-                                    >
-                                        Book Again
-                                    </button>
-                                </div>
-                            </div>
-                            <div className="border border-hh-gray bg-white rounded-md shadow grid grid-cols-3 overflow-hidden items-center mt-8">
-                                <div className="col-span-1">
-                                    <img
-                                        src="/storage/images/colourful-huts.png"
-                                        alt=""
-                                        className="w-full h-full object-cover"
-                                    />
-                                </div>
-                                <div className="col-span-2 p-6 ">
-                                    <h3
-                                        className={`${styles.paragraph}  text-black font-medium`}
-                                    >
-                                        Camps Bay Tidal Pool
-                                    </h3>
-                                    <p
-                                        className={`${styles.paragraph} text-sm text-black`}
-                                    >
-                                        Tue, 19 March 2025 at 9:20AM
-                                    </p>
-                                    <p
-                                        className={`${styles.paragraph} text-sm text-hh-gray mt-2`}
-                                    >
-                                        Single Sauna Session
-                                    </p>
-                                    <button
-                                        className={`text-hh-orange uppercase font-medium ${styles.paragraph}`}
-                                    >
-                                        Book Again
-                                    </button>
-                                </div>
+                                <PastSection />
                             </div>
                         </div>
                     </div>
@@ -498,3 +334,172 @@ export default function ContentSection() {
         </div>
     );
 }
+
+const UpcomingSection = () => {
+    const asset = (path) => {
+        return `/storage/${path}`;
+    };
+    const { auth, upcoming = [], past = [] } = usePage().props;
+    const user = auth.user;
+
+    if (upcoming.length === 0) {
+        return (
+            <div className="border border-hh-gray px-6 py-16 rounded-md flex flex-col justify-center items-center shadow-md">
+                <CalendarIcon className="h-16 w-16 text-hh-gray" />
+                <h4 className={`${styles.h3} mt-4 font-medium text-black`}>
+                    No upcoming bookings
+                </h4>
+                <p className={`${styles.paragraph} text-hh-gray`}>
+                    Your upcoming bookings will appear here
+                </p>
+                <Link
+                    href={route("index")} /* or wherever “book now” lives   */
+                    className="bg-hh-orange rounded py-2 px-6 text-white mt-4"
+                >
+                    Book now
+                </Link>
+            </div>
+        );
+    }
+
+    return upcoming.map((b) => {
+        const loc = b.timeslot.schedule.location;
+        const start = dayjs(b.timeslot.starts_at);
+        const oneLine = start.format("ddd, D MMM YYYY [at] h:mma");
+
+        return (
+            <div
+                key={b.id}
+                className="border border-hh-gray bg-white rounded-md shadow grid grid-cols-3 overflow-hidden items-center mt-6"
+            >
+                <div className="col-span-1">
+                    <img
+                        src={
+                            loc.image_path
+                                ? asset(loc.image_path)
+                                : "/storage/images/placeholder.jpg"
+                        }
+                        alt={loc.name}
+                        className="w-full h-full object-cover"
+                    />
+                </div>
+
+                <div className="col-span-2 p-6">
+                    <h3
+                        className={`${styles.paragraph} text-black font-medium`}
+                    >
+                        {loc.name}
+                    </h3>
+
+                    <p className={`${styles.paragraph} text-sm text-black`}>
+                        {oneLine}
+                    </p>
+
+                    <p
+                        className={`${styles.paragraph} text-sm text-hh-gray mt-2`}
+                    >
+                        {/* first service line label */}
+                        {b.services[0]?.name ?? "Sauna Session"}
+                    </p>
+                </div>
+            </div>
+        );
+    });
+};
+const PastSection = () => {
+    const asset = (path) => {
+        return `/storage/${path}`;
+    };
+    const { auth, upcoming = [], past = [] } = usePage().props;
+    const user = auth.user;
+
+    if (past.length === 0) {
+        return (
+            <div className="border border-hh-gray px-6 py-16 rounded-md flex flex-col justify-center items-center shadow-md">
+                <CalendarIcon className="h-16 w-16 text-hh-gray" />
+                <h4 className={`${styles.h3} mt-4 font-medium text-black`}>
+                    No past bookings
+                </h4>
+                <p className={`${styles.paragraph} text-hh-gray`}>
+                    Your past bookings will appear here
+                </p>
+                <Link
+                    href={route("index")} /* or wherever “book now” lives   */
+                    className="bg-hh-orange rounded py-2 px-6 text-white mt-4"
+                >
+                    Book now
+                </Link>
+            </div>
+        );
+    }
+
+    return past.map((b) => {
+        const loc = b.timeslot.schedule.location;
+        const start = dayjs(b.timeslot.starts_at);
+        const oneLine = start.format("ddd, D MMM YYYY [at] h:mma");
+
+        return (
+            <div
+                key={b.id}
+                className="border border-hh-gray bg-white rounded-md shadow grid grid-cols-3 overflow-hidden items-center mt-6"
+            >
+                <div className="col-span-1">
+                    <img
+                        src={
+                            loc.image_path
+                                ? asset(loc.image_path)
+                                : "/storage/images/placeholder.jpg"
+                        }
+                        alt={loc.name}
+                        className="w-full h-full object-cover"
+                    />
+                </div>
+
+                <div className="col-span-2 p-6">
+                    <h3
+                        className={`${styles.paragraph} text-black font-medium`}
+                    >
+                        {loc.name}
+                    </h3>
+
+                    <p className={`${styles.paragraph} text-sm text-black`}>
+                        {oneLine}
+                    </p>
+
+                    <p
+                        className={`${styles.paragraph} text-sm text-hh-gray mt-2`}
+                    >
+                        {/* first service line label */}
+                        {b.services[0]?.name ?? "Sauna Session"}
+                    </p>
+                </div>
+            </div>
+        );
+    });
+};
+
+const ProgressCircle = ({ points }) => {
+    // Calculate progress percentage (0-100)
+    const normalizedPoints = points % 4;
+    const progress =
+        normalizedPoints === 0 && points > 0 ? 100 : normalizedPoints * 25;
+    return (
+        <div className="relative h-14 w-14">
+            {/* Background circle (empty state) */}
+            <div className="absolute inset-0 rounded-full border border-hh-gray shadow" />
+
+            {/* Progress fill */}
+            <div
+                className="absolute inset-0 rounded-full"
+                style={{
+                    background: `conic-gradient(
+              #FF5733 0% ${progress}%, 
+              transparent ${progress}% 100%
+            )`,
+                    mask: "radial-gradient(white 55%",
+                    WebkitMask: "radial-gradient(white 55%)",
+                }}
+            />
+        </div>
+    );
+};

@@ -23,7 +23,9 @@ export default function Dashboard() {
     const { auth } = usePage().props;
     const user = auth.user;
 
-    console.log(user);
+    const asset = (path) => {
+        return `/storage/${path}`;
+    };
 
     return (
         <AuthenticatedLayout
@@ -594,50 +596,15 @@ export default function Dashboard() {
                                         Indemnity form.
                                     </h4>
                                     <p
-                                        className={`${styles.paragraph} !text-[#999999] `}
+                                        className={`${styles.paragraph} !text-[#999999] text-center `}
                                     >
-                                        Lorem ipsum dolor sit amet consectetur
-                                        adipisicing elit. Natus quia magni nam
-                                        aspernatur odit ipsam hic unde dolor
-                                        officia totam veniam, culpa tenetur
-                                        praesentium accusamus recusandae dolorum
-                                        minima qui, harum exercitationem.
-                                        Tenetur laudantium eveniet repellat,
-                                        doloribus minus eligendi qui et
-                                        repudiandae rerum asperiores alias quas
-                                        quo maxime nostrum dolor libero
-                                        possimus, officiis molestiae. Illo
-                                        delectus minus mollitia laudantium rem,
-                                        esse accusamus temporibus vitae,
-                                        molestias sapiente, explicabo iste?
-                                        Cupiditate modi adipisci, a impedit
-                                        dicta quos neque veritatis natus quod,
-                                        nemo alias pariatur ipsa error unde
-                                        deserunt animi! Iure unde porro
-                                        similique commodi repudiandae aspernatur
-                                        ex illo numquam dignissimos doloremque
-                                        officia rem nisi quod deserunt inventore
-                                        reiciendis dolores quisquam quibusdam
-                                        dolore voluptatibus esse adipisci,
-                                        aliquam consequuntur. Minus, autem
-                                        culpa? Repudiandae, ad ex.
+                                        Please scan the QR code to continue
                                     </p>
-                                    <div className="flex gap-x-2 mt-4 items-center">
-                                        <input
-                                            type="checkbox"
-                                            id="terms-and-conditions"
-                                            name="terms-and-conditions"
-                                            className="h-4 w-4 text-hh-orange focus:ring-white border-none  ring ring-white rounded bg-hh-orange"
-                                        />
-
-                                        <label
-                                            htmlFor="message"
-                                            className={`${styles.paragraph} !text-sm !text-[#999999]`}
-                                        >
-                                            I agree and accept all the terms and
-                                            conditions
-                                        </label>
-                                    </div>
+                                    <img
+                                        src={asset("/images/qr-code.png")}
+                                        alt="QR Code"
+                                        className="h-3/4 w-full object-contain "
+                                    />
                                 </div>
                             </div>
                         </div>

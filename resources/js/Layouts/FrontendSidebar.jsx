@@ -1,3 +1,4 @@
+import { Link, usePage } from "@inertiajs/react";
 import {
     BookmarkIcon,
     InformationCircleIcon,
@@ -21,12 +22,9 @@ export default function FrontendSidebar() {
                         My Details
                     </span>
                 </button>
-                <button className="shadow bg-white border-hh-gray border rounded py-2 w-48 px-6 flex items-center gap-x-2 text-black">
-                    <InformationCircleIcon className="h-6 w-6 shrink-0" />
-                    <span className={`${styles.paragraph}  whitespace-nowrap`}>
-                        My Bookings
-                    </span>
-                </button>
+                <Link href={route("logout")} method="post" as="button">
+                    Log Out
+                </Link>
             </div>
         </div>
     );

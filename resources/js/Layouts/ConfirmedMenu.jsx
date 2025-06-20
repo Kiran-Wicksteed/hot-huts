@@ -32,7 +32,7 @@ export default function ConfirmedMenu() {
                                 className={`${styles.paragraph} !font-medium !text-lg flex items-center gap-x-2 w-fit cursor-pointer transition-all`}
                             >
                                 <ShoppingCartIcon className="h-6 w-6 " />
-                                <span>Make Another Booking</span>
+                                <span>Book Now</span>
                             </a>
                         </li>
                         <li>

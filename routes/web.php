@@ -10,6 +10,7 @@ use App\Http\Controllers\BookingFormController;
 use App\Http\Controllers\AvailabilityController;
 use App\Http\Controllers\OpeningController;
 use App\Http\Controllers\BookingController;
+use App\Http\Controllers\UserDashboardController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -91,9 +92,7 @@ Route::middleware(['auth', 'verified', 'approved'])->group(
             return Inertia::render('locations/index');
         })->name('locations.index');
 
-        Route::get('/my-bookings', function () {
-            return Inertia::render('frontend/my-bookings/index');
-        })->name('frontend.my-bookings.index');
+        Route::get('/my-bookings', [UserDashboardController::class, 'index'])->name('user.dashboard');
 
         Route::middleware(['auth', 'verified'])->group(function () {
             Route::post('/profile/change-organization', [ProfileController::class, 'changeUserOrganization'])->name('profile.change-organization.update');
