@@ -1,58 +1,81 @@
-import { MapPinIcon } from "@heroicons/react/24/outline";
+import { MapPinIcon, MinusIcon, PlusIcon } from "@heroicons/react/24/outline";
 import styles from "../../../styles";
-import { useState } from "react";
-import { MinusIcon, PlusIcon } from "@heroicons/react/24/solid";
+import { useMemo } from "react";
 
 export default function ServiceSection({
     nextStep,
     prevStep,
     updateFormData,
-    servicesData,
+    servicesData, // {..., SAUNA_HONEY: 2, ADDON_REVIVE : 0, people: 1 }
     formData,
+    addons, // [{id, code, name, price, ...}, ...]  category==='addon'
+    sessionService, // pass the one row where category==='session'
+    locations,
 }) {
     const { location } = formData;
-    const { honey, revive, people } = servicesData;
-    const pricePerPerson = 80;
-    const priceHoney = 30;
-    const priceRevive = 40;
+    const people = servicesData.people;
 
-    const calculateTotalPrice = () => {
-        const basePrice = people * pricePerPerson;
-        const honeyPrice = honey * priceHoney;
-        const revivePrice = revive * priceRevive;
-        return basePrice + honeyPrice + revivePrice;
-    };
+    const currentLocation = useMemo(() => {
+        if (!location.id) return null; // wizard hasn’t chosen yet
+        return locations.find((l) => l.id === location.id);
+    }, [locations, location.id]);
 
-    const updateQuantity = (field, value) => {
+    const thumbSrc = currentLocation
+        ? `/storage/${currentLocation.image_path}` // path from DB
+        : "/storage/images/colourful-huts.png";
+
+    /** ----------------------------------------------------------------
+     * Helpers
+     *----------------------------------------------------------------*/
+
+    /** Update any quantity (people or addon) */
+    const updateQuantity = (code, value) =>
         updateFormData({
-            services: {
-                ...servicesData,
-                [field]: Math.max(0, value),
-            },
+            services: { ...servicesData, [code]: Math.max(0, value) },
         });
-    };
 
+    /** Total price = session*people + Σ(addonQty*addonPrice) */
+    const total = useMemo(() => {
+        let sum = +sessionService.price * people;
+
+        addons.forEach((svc) => {
+            const qty = servicesData[svc.code] ?? 0;
+            sum += qty * svc.price;
+        });
+
+        return sum.toFixed(2);
+    }, [servicesData, addons, people, sessionService.price]);
+
+    /** ----------------------------------------------------------------
+     * Render
+     *----------------------------------------------------------------*/
     return (
         <div
             className={`${styles.boxWidth} pb-28 pt-10 px-4 2xl:px-28 md:px-10 lg:px-16 xl:px-20`}
         >
-            {" "}
             <h1
                 className={`${styles.h3} !text-2xl !text-black font-normal max-w-3xl`}
             >
-                Cold dip, warm glow: dive into the Sea, Then unwind in a
-                beachfront sauna at{" "}
+                Cold dip, warm glow: dive into the Sea,&nbsp;then unwind in a
+                beachfront sauna at&nbsp;
                 <span className="text-hh-orange">{location.name}.</span>
             </h1>
+
             <div className="border border-hh-orange bg-white rounded-md shadow grid grid-cols-3 overflow-hidden items-center mt-10">
-                <div className="col-span-1">
+                {/* thumbnail */}
+                <div className="col-span-1 overflow-hidden h-full">
                     <img
-                        src="/storage/images/colourful-huts.png"
-                        alt=""
-                        className="w-full h-full object-cover"
+                        src={thumbSrc}
+                        alt={
+                            currentLocation ? currentLocation.name : "Hot Huts"
+                        }
+                        className="w-full h-full object-cover object-center"
                     />
                 </div>
-                <div className="col-span-2 py-8 px-20 ">
+
+                {/* right panel */}
+                <div className="col-span-2 py-8 px-20 space-y-6">
+                    {/* Badges */}
                     <div className="flex items-center gap-x-2">
                         <div className="bg-hh-orange py-1 px-4 shadow flex items-center gap-1 text-white rounded">
                             <MapPinIcon className="h-5 w-5" />
@@ -70,112 +93,88 @@ export default function ServiceSection({
                             </p>
                         </div>
                     </div>
-                    <h3 className={`${styles.h2} mt-6 text-black font-medium`}>
+
+                    <h3 className={`${styles.h2} text-black font-medium`}>
                         Single Sauna Session
                     </h3>
+
+                    {/* ----------------- ADD-ONS LIST ----------------- */}
                     <div className="space-y-2">
-                        <div className="flex justify-between items-center border border-hh-orange px-2 py-1 rounded">
-                            <div className="flex items-center gap-x-2">
-                                <input
-                                    type="checkbox"
-                                    id="honey"
-                                    name="honey"
-                                    className="h-4 w-4 text-hh-orange ring-white border-hh-orange  ring focus:ring-hh-orange rounded bg-white"
-                                />
+                        {addons.map((svc) => {
+                            const qty = servicesData[svc.code] ?? 0;
 
-                                <label
-                                    htmlFor="message"
-                                    className={`${styles.paragraph} font-medium  text-black`}
+                            return (
+                                <div
+                                    key={svc.id}
+                                    className="flex justify-between items-center border border-hh-orange px-2 py-1 rounded"
                                 >
-                                    Hot honey / R30
-                                </label>
-                            </div>
-                            <div className="flex gap-x-1">
-                                <button
-                                    onClick={() =>
-                                        updateQuantity("honey", honey - 1)
-                                    }
-                                    aria-label="Decrease honey quantity"
-                                >
-                                    <MinusIcon className="h-6 w-6 text-black bg-[#E2E2E2] rounded-lg p-0.5" />
-                                </button>
-                                <span
-                                    className={`${styles.paragraph} font-medium text-black w-6 text-center flex justify-center items-center`}
-                                >
-                                    {" "}
-                                    {honey}
-                                </span>
-                                <button
-                                    onClick={() =>
-                                        updateQuantity(
-                                            "honey",
-                                            Math.min(8, honey + 1)
-                                        )
-                                    }
-                                    aria-label="Increase honey quantity"
-                                >
-                                    <PlusIcon className="h-6 w-6 text-black bg-[#E2E2E2] rounded-lg p-0.5" />
-                                </button>
-                            </div>
-                        </div>
-                        <div className="flex justify-between items-center border border-hh-orange px-2 py-1 rounded">
-                            <div className="flex items-center gap-x-2">
-                                <input
-                                    type="checkbox"
-                                    id="revive"
-                                    name="revive"
-                                    className="h-4 w-4 text-hh-orange ring-white border-hh-orange  ring focus:ring-hh-orange rounded bg-white"
-                                />
+                                    {/* label */}
+                                    <div className="flex items-center gap-x-2">
+                                        <input
+                                            type="checkbox"
+                                            checked={qty > 0}
+                                            onChange={(e) =>
+                                                updateQuantity(
+                                                    svc.code,
+                                                    e.target.checked ? 1 : 0
+                                                )
+                                            }
+                                            className="h-4 w-4 text-hh-orange border-hh-orange rounded"
+                                        />
+                                        <label
+                                            className={`${styles.paragraph} font-medium text-black`}
+                                        >
+                                            {svc.name} / R{svc.price}
+                                        </label>
+                                    </div>
 
-                                <label
-                                    htmlFor="message"
-                                    className={`${styles.paragraph} font-medium  text-black`}
-                                >
-                                    REVIVE + Water Combo
-                                </label>
-                            </div>
-                            <div className="flex gap-x-1">
-                                <button
-                                    onClick={() =>
-                                        updateQuantity("revive", revive - 1)
-                                    }
-                                    aria-label="Decrease revive quantity"
-                                >
-                                    <MinusIcon className="h-6 w-6 text-black bg-[#E2E2E2] rounded-lg p-0.5" />
-                                </button>
+                                    {/* qty picker */}
+                                    <div className="flex gap-x-1">
+                                        <button
+                                            onClick={() =>
+                                                updateQuantity(
+                                                    svc.code,
+                                                    qty - 1
+                                                )
+                                            }
+                                            aria-label="Decrease quantity"
+                                        >
+                                            <MinusIcon className="h-6 w-6 text-black bg-[#E2E2E2] rounded-lg p-0.5" />
+                                        </button>
+                                        <span
+                                            className={`${styles.paragraph} font-medium text-black w-6 text-center`}
+                                        >
+                                            {qty}
+                                        </span>
+                                        <button
+                                            onClick={() =>
+                                                updateQuantity(
+                                                    svc.code,
+                                                    Math.min(8, qty + 1)
+                                                )
+                                            }
+                                            aria-label="Increase quantity"
+                                        >
+                                            <PlusIcon className="h-6 w-6 text-black bg-[#E2E2E2] rounded-lg p-0.5" />
+                                        </button>
+                                    </div>
+                                </div>
+                            );
+                        })}
+
+                        {/* ----------------- PEOPLE COUNT ----------------- */}
+                        <div className="flex justify-between items-end pr-2 pt-6">
+                            <p
+                                className={`${styles.h2} text-hh-orange font-medium`}
+                            >
+                                R{total}
                                 <span
-                                    className={`${styles.paragraph} font-medium text-black w-6 text-center flex justify-center items-center`}
+                                    className={`ml-1 text-hh-gray ${styles.paragraph}`}
                                 >
-                                    {" "}
-                                    {revive}
+                                    / total
                                 </span>
-                                <button
-                                    onClick={() =>
-                                        updateQuantity(
-                                            "revive",
-                                            Math.min(8, revive + 1)
-                                        )
-                                    }
-                                    aria-label="Increase revive quantity"
-                                >
-                                    <PlusIcon className="h-6 w-6 text-black bg-[#E2E2E2] rounded-lg p-0.5" />
-                                </button>
-                            </div>
-                        </div>
-                        <div className="flex justify-between items-end pr-2 pt-10">
-                            <div className="flex items-center">
-                                <p
-                                    className={`${styles.h2} text-hh-orange font-medium !mb-0`}
-                                >
-                                    R{calculateTotalPrice()}
-                                    <span
-                                        className={`!text-hh-gray font-normal  ${styles.paragraph}`}
-                                    >
-                                        {" "}
-                                        / per person
-                                    </span>
-                                </p>
-                            </div>
+                            </p>
+
                             <div className="flex items-center gap-x-4">
                                 <p
                                     className={`text-hh-gray ${styles.paragraph}`}
@@ -187,14 +186,13 @@ export default function ServiceSection({
                                         onClick={() =>
                                             updateQuantity("people", people - 1)
                                         }
-                                        aria-label="Decrease people quantity"
+                                        aria-label="Decrease people"
                                     >
                                         <MinusIcon className="h-6 w-6 text-black bg-[#E2E2E2] rounded-lg p-0.5" />
                                     </button>
                                     <span
-                                        className={`${styles.paragraph} font-medium text-black w-6 text-center flex justify-center items-center`}
+                                        className={`${styles.paragraph} font-medium text-black w-6 text-center`}
                                     >
-                                        {" "}
                                         {people}
                                     </span>
                                     <button
@@ -204,7 +202,7 @@ export default function ServiceSection({
                                                 Math.min(8, people + 1)
                                             )
                                         }
-                                        aria-label="Increase people quantity"
+                                        aria-label="Increase people"
                                     >
                                         <PlusIcon className="h-6 w-6 text-black bg-[#E2E2E2] rounded-lg p-0.5" />
                                     </button>
@@ -212,10 +210,12 @@ export default function ServiceSection({
                             </div>
                         </div>
                     </div>
+
+                    {/* nav buttons */}
                     <div className="flex items-center gap-x-2 justify-end mt-8">
                         <button
                             onClick={prevStep}
-                            className="bg-white py-1 px-4 shadow  text-hh-orange rounded border-hh-orange border"
+                            className="bg-white py-1 px-4 shadow text-hh-orange rounded border-hh-orange"
                         >
                             <p
                                 className={`${styles.paragraph} uppercase !text-sm`}
@@ -225,7 +225,7 @@ export default function ServiceSection({
                         </button>
                         <button
                             onClick={nextStep}
-                            className="bg-hh-orange py-1 px-4 shadow  text-white rounded border-hh-orange border"
+                            className="bg-hh-orange py-1 px-4 shadow text-white rounded"
                         >
                             <p
                                 className={`${styles.paragraph} uppercase !text-sm`}

@@ -34,4 +34,9 @@ class Sauna extends Model
             SaunaSchedule::class
         );
     }
+
+    public function openings()
+    {
+        return $this->hasMany(LocationOpening::class);
+    }
 }

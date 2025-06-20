@@ -9,8 +9,14 @@ class SaunaScheduleObserver
 {
     public function created(SaunaSchedule $schedule): void
     {
-        $start  = Carbon::parse($schedule->date)->setTime(7, 0);  // 07:00
-        $finish = Carbon::parse($schedule->date)->setTime(11, 0); // stop at 11:00
+
+        [$startHour, $endHour] = $schedule->period === 'evening'
+            ? [17, 20]   // 17:00-20:00
+            : [6, 11];   // 06:00-11:00
+
+
+        $start  = $schedule->date->copy()->setTime($startHour, 0);
+        $finish = $schedule->date->copy()->setTime($endHour,   0);
 
         while ($start < $finish) {
             $schedule->timeslots()->create([

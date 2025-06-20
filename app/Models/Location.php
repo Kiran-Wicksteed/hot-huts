@@ -22,4 +22,9 @@ class Location extends Model
             ? asset('storage/' . $this->image_path)
             : null;
     }
+
+    public function openings()
+    {
+        return $this->hasMany(LocationOpening::class);
+    }
 }

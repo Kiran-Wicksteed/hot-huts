@@ -33,9 +33,10 @@ class Booking extends Model
         return $this->belongsTo(Timeslot::class);
     }
 
-    public function addons()   // pivot: addon_booking
+    public function services()
     {
-        return $this->belongsToMany(Addon::class)
+        // if your pivot table is booking_service the default name is fine
+        return $this->belongsToMany(Service::class)
             ->withPivot(['quantity', 'price_each', 'line_total'])
             ->withTimestamps();
     }

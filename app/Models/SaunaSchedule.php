@@ -11,10 +11,12 @@ class SaunaSchedule extends Model
         'sauna_id',
         'location_id',
         'date',
+        'period'
     ];
 
     protected $casts = [
         'date' => 'date',  // Carbon instance
+        'period' => 'string', // 'morning' or 'evening'
     ];
 
     /* -----------------------------------------------------------------

@@ -4,9 +4,11 @@ import CreateLocation from "./Partials/CreateLocation";
 import { useState } from "react";
 import { Link, usePage } from "@inertiajs/react";
 
-export default function LocationsPage({ locations }) {
+export default function LocationsPage({ locations, saunas }) {
     const [editing, setEditing] = useState(null);
-    console.log("Locations:", locations);
+
+    console.log("locations", locations);
+    console.log("saunas", saunas);
 
     const asset = (path) => {
         return `/storage/${path}`;
@@ -66,7 +68,7 @@ export default function LocationsPage({ locations }) {
                         </div>
                     </div>
                     <div className="col-span-full space-y-4">
-                        {locations.data.map((loc) => (
+                        {locations.map((loc) => (
                             <div
                                 key={loc.id}
                                 className="col-span-full bg-white shadow grid grid-cols-12  gap-x-4 items-center border border-hh-gray rounded p-6"
@@ -138,42 +140,12 @@ export default function LocationsPage({ locations }) {
                                 </div>
                             </div>
                         ))}
-                        <div className="col-span-full flex justify-end gap-x-2 mt-4">
-                            {locations.links.map((link, i) => {
-                                // Skip the "Previous" / "Next" placeholders here if you only want numbers
-                                // If you want them, treat them the same but give them a different label.
-                                if (
-                                    link.label.includes("Previous") ||
-                                    link.label.includes("Next")
-                                ) {
-                                    return null;
-                                }
-
-                                return (
-                                    <Link
-                                        key={i}
-                                        href={link.url || "#"}
-                                        preserveScroll
-                                        className={[
-                                            "rounded-full w-10 h-10 shadow flex items-center justify-center",
-                                            link.active
-                                                ? "bg-hh-orange text-white"
-                                                : "bg-white text-[#999]",
-                                            !link.url &&
-                                                "opacity-40 cursor-not-allowed",
-                                        ].join(" ")}
-                                    >
-                                        {/* `label` is a string—no need for dangerouslySetInnerHTML on numbers */}
-                                        {link.label}
-                                    </Link>
-                                );
-                            })}
-                        </div>
                     </div>
                 </div>
                 {editing !== null && (
                     <CreateLocation
                         item={editing}
+                        saunas={saunas}
                         onClose={() => setEditing(null)}
                     />
                 )}

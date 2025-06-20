@@ -4,15 +4,20 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-class Addon extends Model
+class Service extends Model
 {
     protected $fillable = [
+        'code',
         'name',
+        'category',
         'price',
         'active',
     ];
 
     protected $casts = [
+        'code'    => 'string',
+        'name'    => 'string',
+        'category' => 'string',
         'price'  => 'decimal:2',
         'active' => 'boolean',
     ];
@@ -33,5 +38,9 @@ class Addon extends Model
     public function scopeActive($query)
     {
         return $query->where('active', true);
+    }
+    public function scopeAddons($query)
+    {
+        return $query->where('category', 'addon');
     }
 }

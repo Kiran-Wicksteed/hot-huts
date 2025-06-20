@@ -1,80 +1,86 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import styles from "../../../styles";
+import dayjs from "dayjs";
+const weekdayNames = [
+    "Sunday",
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
+];
 
-const schedule = {
-    Monday: {
-        AM: [
-            { name: "Dalebrook Tidal Pool", time: "6-11AM" },
-            { name: "St James Tidal Pool", time: "6-11AM" },
-        ],
-        PM: [
-            { name: "Dalebrook Tidal Pool", time: "5-8PM" },
-            { name: "St James Tidal Pool", time: "5-8PM" },
-        ],
-    },
-    Tuesday: {
-        AM: [
-            { name: "Dalebrook Tidal Pool", time: "6-11AM" },
-            { name: "St James Tidal Pool", time: "6-11AM" },
-        ],
-        PM: [
-            { name: "Dalebrook Tidal Pool", time: "5-8PM" },
-            { name: "St James Tidal Pool", time: "5-8PM" },
-        ],
-    },
-    Wednesday: {
-        AM: [
-            { name: "Dalebrook Tidal Pool", time: "6-11AM" },
-            { name: "St James Tidal Pool", time: "6-11AM" },
-        ],
-        PM: [
-            { name: "Dalebrook Tidal Pool", time: "5-8PM" },
-            { name: "St James Tidal Pool", time: "5-8PM" },
-        ],
-    },
-    Thursday: {
-        AM: [
-            { name: "Dalebrook Tidal Pool", time: "6-11AM" },
-            { name: "St James Tidal Pool", time: "6-11AM" },
-        ],
-        PM: [
-            { name: "Dalebrook Tidal Pool", time: "5-8PM" },
-            { name: "St James Tidal Pool", time: "5-8PM" },
-        ],
-    },
-    Friday: {
-        AM: [
-            { name: "Dalebrook Tidal Pool", time: "6-11AM" },
-            { name: "St James Tidal Pool", time: "6-11AM" },
-        ],
-        PM: [
-            { name: "Dalebrook Tidal Pool", time: "5-8PM" },
-            { name: "St James Tidal Pool", time: "5-8PM" },
-        ],
-    },
-    // Add more days as needed...
+const PERIODS = {
+    morning: { row: "AM", time: "7 – 12 AM", order: 1 },
+    afternoon: { row: "PM", time: "3 – 4 PM", order: 1 },
+    evening: { row: "PM", time: "4 – 6 PM", order: 2 },
+    night: { row: "PM", time: "6 – 7 PM", order: 3 },
 };
 
-export default function Locations({ nextStep, updateFormData }) {
-    const [selectedSlot, setSelectedSlot] = useState(null);
+const ROWS = ["AM", "PM"];
 
-    const handleSelect = (day, period, slot) => {
-        setSelectedSlot({ day, period, ...slot });
-    };
+export default function Locations({ nextStep, updateFormData }) {
+    const [selected, setSelected] = useState(null); // { day, period, … }
+    const [openings, setOpenings] = useState([]); // raw API rows
+    const [schedule, setSchedule] = useState({});
+
+    useEffect(() => {
+        fetch(route("openings.all"))
+            .then((r) => r.json())
+            .then(setOpenings);
+    }, []);
+
+    useEffect(() => {
+        const tmp = {};
+
+        // always two visual rows
+        weekdayNames.forEach((d) => (tmp[d] = { AM: [], PM: [] }));
+
+        // drop every opening into the right bucket
+        openings.forEach((o) => {
+            const dayName = weekdayNames[o.weekday];
+
+            o.periods.forEach((p) => {
+                const meta = PERIODS[p]; // {row, time, order}
+                tmp[dayName][meta.row].push({
+                    id: o.location_id,
+                    name: o.location,
+                    period: p,
+                    time: meta.time,
+                    order: meta.order, // keep for sorting
+                });
+            });
+        });
+
+        // ── sort “AM” and “PM” arrays by order (and optionally by name/time) ──
+        Object.values(tmp).forEach(({ AM, PM }) => {
+            AM.sort((a, b) => a.order - b.order);
+            PM.sort((a, b) => a.order - b.order);
+        });
+
+        setSchedule(tmp);
+    }, [openings]);
+    const handleSelect = (day, slot) => setSelected({ day, ...slot });
 
     const handleNext = () => {
-        if (selectedSlot) {
-            updateFormData({
-                location: {
-                    day: selectedSlot.day,
-                    name: selectedSlot.name,
-                    period: selectedSlot.period,
-                    time: selectedSlot.time,
-                },
-            });
-            nextStep();
-        }
+        if (!selected) return;
+
+        updateFormData({
+            location: {
+                day: selected.day,
+                name: selected.name,
+                id: selected.id,
+                period: selected.period,
+                time: selected.time,
+            },
+        });
+        nextStep();
     };
+
+    if (!Object.keys(schedule).length) {
+        return <p>Loading calendar…</p>;
+    }
 
     return (
         <div
@@ -92,7 +98,7 @@ export default function Locations({ nextStep, updateFormData }) {
                 the scenery, our Hot Huts offer a unique way to connect with
                 nature while nourishing your body and mind.
             </p>
-            <div className="grid grid-cols-5 pl-12 relative gap-x-6">
+            <div className="grid grid-cols-7 pl-12 relative gap-x-6 ">
                 <div className="absolute bottom-24 left-0">
                     <div className="space-y-36">
                         <p
@@ -119,40 +125,36 @@ export default function Locations({ nextStep, updateFormData }) {
                         </p>
                     </div>
                 </div>
-                {Object.entries(schedule).map(([day, periods]) => (
-                    <div key={day} className="space-y-10">
-                        <div className="bg-hh-orange rounded-2xl shadow py-3 px-6">
-                            <p className="text-white text-2xl uppercase text-center">
+
+                {Object.entries(schedule).map(([day, rows]) => (
+                    <div key={day} className="space-y-10 col-span-1">
+                        <div className="bg-hh-orange rounded-2xl shadow py-3 px-6 flex justify-center">
+                            <p className="text-white text-2xl uppercase">
                                 {day}
                             </p>
                         </div>
+
+                        {/* exactly two fixed rows: AM + PM */}
                         <div className="border border-hh-orange rounded-2xl divide-y divide-hh-orange">
-                            {["AM", "PM"].map((period) => (
+                            {["AM", "PM"].map((row) => (
                                 <div
-                                    key={period}
-                                    className="px-2 py-4 gap-y-4 h-48 flex flex-col justify-center"
+                                    key={row}
+                                    className="px-2 py-4 h-48 flex flex-col justify-center gap-y-4"
                                 >
-                                    {periods[period]?.map((slot, index) => {
-                                        const isSelected =
-                                            selectedSlot?.day === day &&
-                                            selectedSlot?.period === period &&
-                                            selectedSlot?.name === slot.name &&
-                                            selectedSlot?.time === slot.time;
+                                    {rows[row].map((slot, i) => {
+                                        const isSel =
+                                            selected?.day === day &&
+                                            selected?.id === slot.id;
+
                                         return (
                                             <div
-                                                key={index}
+                                                key={i}
                                                 onClick={() =>
-                                                    handleSelect(
-                                                        day,
-                                                        period,
-                                                        slot
-                                                    )
+                                                    handleSelect(day, slot)
                                                 }
-                                                className={`border border-hh-orange rounded-2xl p-1.5 transition-all cursor-pointer hover:bg-hh-orange/10 ${
-                                                    isSelected
-                                                        ? "bg-hh-orange/10"
-                                                        : ""
-                                                }`}
+                                                className={`border border-hh-orange rounded-2xl p-1.5
+                            cursor-pointer transition-all hover:bg-hh-orange/10
+                            ${isSel ? "bg-hh-orange/10" : ""}`}
                                             >
                                                 <p className="text-hh-orange font-medium uppercase text-center leading-snug text-sm">
                                                     {slot.name}
@@ -163,6 +165,13 @@ export default function Locations({ nextStep, updateFormData }) {
                                             </div>
                                         );
                                     })}
+
+                                    {/* empty placeholder to keep row height if no slots */}
+                                    {rows[row].length === 0 && (
+                                        <div className="h-full flex items-center justify-center text-xs text-hh-gray">
+                                            {/* intentionally blank */}
+                                        </div>
+                                    )}
                                 </div>
                             ))}
                         </div>
@@ -170,7 +179,7 @@ export default function Locations({ nextStep, updateFormData }) {
                 ))}
             </div>
             <div className="h-20 mt-8">
-                {selectedSlot && (
+                {selected && (
                     <div className="pl-12">
                         <button
                             onClick={handleNext}

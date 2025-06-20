@@ -6,7 +6,6 @@ import { Link, usePage } from "@inertiajs/react";
 
 export default function LocationsPage({ saunas }) {
     const [editing, setEditing] = useState(null);
-    console.log("saunas:", saunas);
 
     return (
         <AuthenticatedLayout>

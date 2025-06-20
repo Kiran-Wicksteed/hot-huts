@@ -4,7 +4,12 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\LocationController;
 use App\Http\Controllers\SaunaController;
 use App\Http\Controllers\SaunaScheduleController;
-use App\Http\Controllers\AdminController;
+use App\Http\Controllers\ServiceController;
+use App\Http\Controllers\TimeSlotController;
+use App\Http\Controllers\BookingFormController;
+use App\Http\Controllers\AvailabilityController;
+use App\Http\Controllers\OpeningController;
+use App\Http\Controllers\BookingController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -14,14 +19,43 @@ Route::get('/welcome', function () {
     return Inertia::render('Welcome', [
         'canLogin' => Route::has('login'),
         'canRegister' => Route::has('register'),
-        'laravelVersion' => Application::VERSION, 
+        'laravelVersion' => Application::VERSION,
         'phpVersion' => PHP_VERSION,
     ]);
 });
 
-Route::get('/', function () {
-    return Inertia::render('Index'); 
-})->name('Index'); 
+//Public routes
+Route::get('/services', [ServiceController::class, 'index'])->name('services.index');
+Route::get('/', [BookingFormController::class, 'index'])->name('index');
+Route::get(
+    'availability',
+    [AvailabilityController::class, 'index']
+)->name('availability');
+
+Route::get('openings/all', function () {
+    return \App\Models\LocationOpening::with('location:id,name')
+        ->get()
+        ->map(fn($row) => [
+            'location_id' => $row->location_id,
+            'location'    => $row->location->name,
+            'weekday'     => $row->weekday,         // 0 = Sun … 6 = Sat
+            'periods'     => $row->periods,         // ['morning','evening']
+        ]);
+})->name('openings.all');;
+Route::get('openings', [OpeningController::class, 'index'])
+    ->name('openings');
+
+
+
+Route::middleware(['auth'])->group(function () {
+    Route::post('/bookings',  [BookingController::class, 'store'])
+        ->name('bookings.store');
+
+    Route::get('/bookings/{booking}', [BookingController::class, 'show'])
+        ->name('bookings.show');        // <- Confirmed page
+});
+
+
 
 Route::middleware('auth', 'approved')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
@@ -29,6 +63,7 @@ Route::middleware('auth', 'approved')->group(function () {
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
     Route::post('profile/photo', [ProfileController::class, 'uploadPhoto'])->name('profile.photo.upload');
 });
+
 
 
 
@@ -52,18 +87,12 @@ Route::middleware(['auth', 'verified', 'approved'])->group(
             return Inertia::render('customers/index');
         })->name('customers.index');
 
-        Route::get('/services', function () {
-            return Inertia::render('services/index');
-        })->name('services.index');
-
         Route::get('/locations', function () {
             return Inertia::render('locations/index');
         })->name('locations.index');
 
-
-
         Route::get('/my-bookings', function () {
-            return Inertia::render('frontend/my-bookings/index'); 
+            return Inertia::render('frontend/my-bookings/index');
         })->name('frontend.my-bookings.index');
 
         Route::middleware(['auth', 'verified'])->group(function () {
@@ -73,17 +102,6 @@ Route::middleware(['auth', 'verified', 'approved'])->group(
         Route::middleware(['auth', 'admin', 'verified'])->group(function () {
             Route::delete('users/{user}', [ProfileController::class, 'destroyUser'])->name('users.destroy');
         });
-
-
-
-
-
-
-
-
-
-
-        Route::middleware(['auth', 'admin', 'verified'])->get('admin/users', [AdminController::class, 'index'])->name('admin.users');
     }
 );
 
@@ -108,6 +126,10 @@ Route::middleware(['auth', 'admin'])
         Route::delete('saunas/{sauna}', [SaunaController::class, 'destroy'])->name('saunas.destroy');
         Route::get('saunas/{sauna}/schedules',  [SaunaScheduleController::class, 'index'])
             ->name('saunas.schedules.index');
+        Route::get(
+            'saunas/{sauna}/schedules/{schedule}/slots',
+            [TimeslotController::class, 'index']
+        )->name('saunas.schedules.slots');
 
         Route::post('saunas/{sauna}/schedules', [SaunaScheduleController::class, 'store'])
             ->name('saunas.schedules.store');
@@ -122,6 +144,17 @@ Route::middleware(['auth', 'admin'])
             'saunas/{sauna}/weekday-wizard',
             [SaunaScheduleController::class, 'bulkWeekday']
         )->name('saunas.schedules.bulkWeekday');
+
+        Route::post(
+            'saunas/{sauna}/schedules/generate',
+            [SaunaScheduleController::class, 'generate']
+        )->name('saunas.schedules.generate');
+
+
+        Route::delete('/services/{service}', [ServiceController::class, 'destroy'])
+            ->name('services.destroy');
+        Route::post('services',       [ServiceController::class, 'store'])->name('services.store');
+        Route::put('services/{service}', [ServiceController::class, 'update'])->name('services.update');
     });
 
 require __DIR__ . '/auth.php';

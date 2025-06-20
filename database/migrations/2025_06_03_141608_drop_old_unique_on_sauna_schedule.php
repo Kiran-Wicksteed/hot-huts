@@ -11,8 +11,9 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('resources', function (Blueprint $table) {
-            $table->boolean('is_family')->default(false);
+        Schema::table('sauna_schedules', function (Blueprint $table) {
+            // Use the index name that SQLite created
+            $table->dropUnique('sauna_schedules_sauna_id_date_period_unique');
         });
     }
 
@@ -21,8 +22,8 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('resources', function (Blueprint $table) {
-            $table->dropColumn('is_family');
+        Schema::table('sauna_schedules', function (Blueprint $table) {
+            $table->unique(['sauna_id', 'date']);
         });
     }
 };

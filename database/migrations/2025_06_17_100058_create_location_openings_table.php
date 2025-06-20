@@ -11,12 +11,13 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('family_galleries', function (Blueprint $table) {
+        Schema::create('location_openings', function (Blueprint $table) {
             $table->id();
-            $table->string('caption')->nullable();
-            $table->string('file');
-            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('location_id')->constrained()->cascadeOnDelete();
+            $table->tinyInteger('weekday');           // 0 = Sun … 6 = Sat
+            $table->json('periods');
             $table->timestamps();
+            $table->unique(['location_id', 'weekday']);
         });
     }
 
@@ -25,6 +26,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('family_galleries');
+        Schema::dropIfExists('location_openings');
     }
 };

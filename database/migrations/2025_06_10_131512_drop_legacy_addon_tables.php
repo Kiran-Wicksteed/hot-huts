@@ -11,11 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('family_galleries', function (Blueprint $table) {
-            Schema::disableForeignKeyConstraints();
-            Schema::dropIfExists('family_galleries');
-            Schema::enableForeignKeyConstraints();
-        });
+        Schema::dropIfExists('addon_booking');
+        Schema::dropIfExists('addons');
     }
 
     /**
@@ -23,8 +20,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('family_galleries', function (Blueprint $table) {
-            //
-        });
+        //
     }
 };

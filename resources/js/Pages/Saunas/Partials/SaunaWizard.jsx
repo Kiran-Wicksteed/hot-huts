@@ -8,12 +8,20 @@ export default function WeekdayWizard({ sauna, locations }) {
     const [open, setOpen] = useState(false);
     const [locId, setLocId] = useState("");
     const [days, setDays] = useState([]);
+    const [periods, setPeriods] = useState([]);
     const [start, setStart] = useState(new Date());
     const weekdays = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
     const labels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
     const toggleDay = (d) =>
         setDays(days.includes(d) ? days.filter((x) => x !== d) : [...days, d]);
+
+    const toggle = (p) =>
+        setPeriods(
+            periods.includes(p)
+                ? periods.filter((x) => x !== p)
+                : [...periods, p]
+        );
 
     const save = () => {
         router.post(
@@ -23,6 +31,7 @@ export default function WeekdayWizard({ sauna, locations }) {
                 weekdays: days,
                 start_date: start.toISOString().slice(0, 10),
                 days_ahead: 30,
+                periods: periods,
             },
             { onSuccess: () => setOpen(false), preserveScroll: true }
         );
@@ -86,12 +95,34 @@ export default function WeekdayWizard({ sauna, locations }) {
                         </div>
 
                         {/* Start date picker (optional) */}
+
+                        <label className="block text-sm font-medium mb-2">
+                            Start date
+                        </label>
                         <DatePicker
                             selected={start}
                             onChange={setStart}
                             dateFormat="yyyy-MM-dd"
                             className="w-full border p-2 rounded"
                         />
+
+                        <label className="flex items-center gap-2">
+                            <input
+                                type="checkbox"
+                                checked={periods.includes("morning")}
+                                onChange={() => toggle("morning")}
+                            />
+                            Morning (06:00-11:00)
+                        </label>
+
+                        <label className="flex items-center gap-2">
+                            <input
+                                type="checkbox"
+                                checked={periods.includes("evening")}
+                                onChange={() => toggle("evening")}
+                            />
+                            Evening (17:00-20:00)
+                        </label>
 
                         <button
                             disabled={!locId || days.length === 0}
