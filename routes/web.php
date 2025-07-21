@@ -8,9 +8,11 @@ use App\Http\Controllers\ServiceController;
 use App\Http\Controllers\TimeSlotController;
 use App\Http\Controllers\BookingFormController;
 use App\Http\Controllers\AvailabilityController;
+use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\OpeningController;
 use App\Http\Controllers\BookingController;
 use App\Http\Controllers\UserDashboardController;
+use App\Http\Controllers\BookingAdminController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -24,6 +26,13 @@ Route::get('/welcome', function () {
         'phpVersion' => PHP_VERSION,
     ]);
 });
+
+//Payment Routes
+Route::get('/pay', [PaymentController::class, 'pay'])->name('pay');
+Route::get('/pay/post', [PaymentController::class, 'post'])->name('post.pay');
+Route::match(['get', 'post'], '/order/callback', [PaymentController::class, 'handlePaymentCallback'])->name('payment.callback');
+Route::get('/order/success', [PaymentController::class, 'paymentSuccess'])->name('payment.success');
+Route::get('/order/failed', [PaymentController::class, 'paymentFailed'])->name('payment.failed');
 
 //Public routes
 Route::get('/services', [ServiceController::class, 'index'])->name('services.index');
@@ -48,13 +57,13 @@ Route::get('openings', [OpeningController::class, 'index'])
 
 
 
-Route::middleware(['auth'])->group(function () {
-    Route::post('/bookings',  [BookingController::class, 'store'])
-        ->name('bookings.store');
 
-    Route::get('/bookings/{booking}', [BookingController::class, 'show'])
-        ->name('bookings.show');        // <- Confirmed page
-});
+Route::post('/bookings',  [BookingController::class, 'store'])
+    ->name('bookings.store');
+
+Route::get('/bookings/{booking}', [BookingController::class, 'show'])
+    ->name('bookings.show');        // <- Confirmed page
+
 
 
 
@@ -76,9 +85,8 @@ Route::middleware(['auth', 'verified', 'approved'])->group(
             return Inertia::render('Dashboard');
         })->middleware(['auth', 'verified'])->name('dashboard');
 
-        Route::get('/bookings', function () {
-            return Inertia::render('bookings/index');
-        })->name('bookings.index');
+        Route::get('/bookings', [BookingAdminController::class, 'index'])
+            ->name('bookings.index');
 
         Route::get('/payments', function () {
             return Inertia::render('payments/index');

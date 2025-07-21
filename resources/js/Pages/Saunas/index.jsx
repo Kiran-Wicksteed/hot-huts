@@ -19,7 +19,7 @@ export default function LocationsPage({ saunas }) {
                             <p
                                 className={`${styles.paragraph} whitespace-nowrap`}
                             >
-                                Add a new sauna
+                                Add a new territory
                             </p>
                         </button>
                     </div>
@@ -29,14 +29,14 @@ export default function LocationsPage({ saunas }) {
                             <h4
                                 className={`${styles.h3} !mb-0 font-medium text-black `}
                             >
-                                Sauna List
+                                Territory List
                             </h4>
                         </div>
                     </div>
                     <div className="grid grid-cols-12 p-6 gap-x-4">
                         <div className="col-span-1">
                             <p className={`${styles.paragraph} text-black`}>
-                                Sauna ID
+                                Territory ID
                             </p>
                         </div>
                         <div className="col-span-2 ">

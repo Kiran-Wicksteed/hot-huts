@@ -1,241 +1,64 @@
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import styles from "../../../styles";
 import { Menu, MenuButton, MenuItem, MenuItems } from "@headlessui/react";
 import { ChevronDownIcon } from "@heroicons/react/20/solid";
 import { MinusIcon, PlusIcon } from "@heroicons/react/24/solid";
 import { motion } from "framer-motion";
+import { router } from "@inertiajs/react";
 
-export default function BookingPage() {
+export default function BookingPage({ stats, bookings, locations, filters }) {
     const [quantity, setQuantity] = useState(0);
     const [honeyQuantity, setHoneyQuantity] = useState(0);
     const [reviveQuantity, setReviveQuantity] = useState(0);
     const [bookingPercentage, setBookingPercentage] = useState(75);
     const [eventBookings, setEventBookings] = useState(80);
+    const [locationFilter, setLocationFilter] = useState(
+        filters.location_id || ""
+    );
+    const [periodFilter, setPeriodFilter] = useState(filters.period || "30");
+
+    useEffect(() => {
+        // This effect will run when filters change, but we'll trigger reloads manually.
+    }, [locationFilter, periodFilter]);
+
+    const handleFilterChange = () => {
+        router.get(
+            route("bookings.index"),
+            {
+                location_id: locationFilter,
+                period: periodFilter,
+            },
+            {
+                preserveState: true,
+                replace: true,
+            }
+        );
+    };
+    const formatDateTime = (dateString) => {
+        const date = new Date(dateString);
+        return date.toLocaleString("en-US", {
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+            hour: "numeric",
+            minute: "2-digit",
+            hour12: true,
+        });
+    };
+
+    const getInitials = (name) => {
+        if (!name) return "";
+        const names = name.split(" ");
+        return names
+            .map((n) => n[0])
+            .join("")
+            .toUpperCase();
+    };
+
     return (
         <AuthenticatedLayout>
             <div className="mx-auto ml-[256px]  ">
-                {/* REFINE SEARCH */}
-                <div className="relative shadow border border-hh-gray rounded-md  bg-white p-6">
-                    <form action="#" method="POST">
-                        <label className={`${styles.paragraph} text-black`}>
-                            Refine your search
-                        </label>
-                        <div className="flex gap-x-4 items-center mt-4">
-                            <Menu as="div" className="relative  text-left">
-                                <div>
-                                    <MenuButton className=" w-56 justify-between bg-white shadow-md flex  gap-x-2 border border-hh-gray py-2 px-6 rounded  text-sm  hover:bg-gray-50">
-                                        <span
-                                            className={`${styles.paragraph} text-black `}
-                                        >
-                                            Province
-                                        </span>
-                                        <ChevronDownIcon
-                                            aria-hidden="true"
-                                            className="text-black h-6 w-6"
-                                        />
-                                    </MenuButton>
-                                </div>
-
-                                <MenuItems
-                                    transition
-                                    className="absolute left-0 z-10 mt-2 w-56 origin-top-right divide-y divide-gray-100 rounded-md bg-white shadow-lg ring-1 ring-black/5 transition focus:outline-hidden data-closed:scale-95 data-closed:transform data-closed:opacity-0 data-enter:duration-100 data-enter:ease-out data-leave:duration-75 data-leave:ease-in"
-                                >
-                                    <div className="py-1">
-                                        <MenuItem>
-                                            <a
-                                                href="#"
-                                                className="block px-4 py-2 text-sm text-gray-700 data-focus:bg-gray-100 data-focus:text-gray-900 data-focus:outline-hidden"
-                                            >
-                                                Edit
-                                            </a>
-                                        </MenuItem>
-                                        <MenuItem>
-                                            <a
-                                                href="#"
-                                                className="block px-4 py-2 text-sm text-gray-700 data-focus:bg-gray-100 data-focus:text-gray-900 data-focus:outline-hidden"
-                                            >
-                                                Duplicate
-                                            </a>
-                                        </MenuItem>
-                                    </div>
-                                    <div className="py-1">
-                                        <MenuItem>
-                                            <a
-                                                href="#"
-                                                className="block px-4 py-2 text-sm text-gray-700 data-focus:bg-gray-100 data-focus:text-gray-900 data-focus:outline-hidden"
-                                            >
-                                                Archive
-                                            </a>
-                                        </MenuItem>
-                                        <MenuItem>
-                                            <a
-                                                href="#"
-                                                className="block px-4 py-2 text-sm text-gray-700 data-focus:bg-gray-100 data-focus:text-gray-900 data-focus:outline-hidden"
-                                            >
-                                                Move
-                                            </a>
-                                        </MenuItem>
-                                    </div>
-                                    <div className="py-1">
-                                        <MenuItem>
-                                            <a
-                                                href="#"
-                                                className="block px-4 py-2 text-sm text-gray-700 data-focus:bg-gray-100 data-focus:text-gray-900 data-focus:outline-hidden"
-                                            >
-                                                Share
-                                            </a>
-                                        </MenuItem>
-                                        <MenuItem>
-                                            <a
-                                                href="#"
-                                                className="block px-4 py-2 text-sm text-gray-700 data-focus:bg-gray-100 data-focus:text-gray-900 data-focus:outline-hidden"
-                                            >
-                                                Add to favorites
-                                            </a>
-                                        </MenuItem>
-                                    </div>
-                                    <div className="py-1">
-                                        <MenuItem>
-                                            <a
-                                                href="#"
-                                                className="block px-4 py-2 text-sm text-gray-700 data-focus:bg-gray-100 data-focus:text-gray-900 data-focus:outline-hidden"
-                                            >
-                                                Delete
-                                            </a>
-                                        </MenuItem>
-                                    </div>
-                                </MenuItems>
-                            </Menu>
-                            <Menu as="div" className="relative  text-left">
-                                <div>
-                                    <MenuButton className=" w-56 justify-between bg-white shadow-md flex  gap-x-2 border border-hh-gray py-2 px-6 rounded  text-sm  hover:bg-gray-50">
-                                        <span
-                                            className={`${styles.paragraph} text-black `}
-                                        >
-                                            City
-                                        </span>
-                                        <ChevronDownIcon
-                                            aria-hidden="true"
-                                            className="text-black h-6 w-6"
-                                        />
-                                    </MenuButton>
-                                </div>
-
-                                <MenuItems
-                                    transition
-                                    className="absolute left-0 z-10 mt-2 w-56 origin-top-right divide-y divide-gray-100 rounded-md bg-white shadow-lg ring-1 ring-black/5 transition focus:outline-hidden data-closed:scale-95 data-closed:transform data-closed:opacity-0 data-enter:duration-100 data-enter:ease-out data-leave:duration-75 data-leave:ease-in"
-                                >
-                                    <div className="py-1">
-                                        <MenuItem>
-                                            <a
-                                                href="#"
-                                                className="block px-4 py-2 text-sm text-gray-700 data-focus:bg-gray-100 data-focus:text-gray-900 data-focus:outline-hidden"
-                                            >
-                                                Edit
-                                            </a>
-                                        </MenuItem>
-                                        <MenuItem>
-                                            <a
-                                                href="#"
-                                                className="block px-4 py-2 text-sm text-gray-700 data-focus:bg-gray-100 data-focus:text-gray-900 data-focus:outline-hidden"
-                                            >
-                                                Duplicate
-                                            </a>
-                                        </MenuItem>
-                                    </div>
-                                    <div className="py-1">
-                                        <MenuItem>
-                                            <a
-                                                href="#"
-                                                className="block px-4 py-2 text-sm text-gray-700 data-focus:bg-gray-100 data-focus:text-gray-900 data-focus:outline-hidden"
-                                            >
-                                                Archive
-                                            </a>
-                                        </MenuItem>
-                                        <MenuItem>
-                                            <a
-                                                href="#"
-                                                className="block px-4 py-2 text-sm text-gray-700 data-focus:bg-gray-100 data-focus:text-gray-900 data-focus:outline-hidden"
-                                            >
-                                                Move
-                                            </a>
-                                        </MenuItem>
-                                    </div>
-                                    <div className="py-1">
-                                        <MenuItem>
-                                            <a
-                                                href="#"
-                                                className="block px-4 py-2 text-sm text-gray-700 data-focus:bg-gray-100 data-focus:text-gray-900 data-focus:outline-hidden"
-                                            >
-                                                Share
-                                            </a>
-                                        </MenuItem>
-                                        <MenuItem>
-                                            <a
-                                                href="#"
-                                                className="block px-4 py-2 text-sm text-gray-700 data-focus:bg-gray-100 data-focus:text-gray-900 data-focus:outline-hidden"
-                                            >
-                                                Add to favorites
-                                            </a>
-                                        </MenuItem>
-                                    </div>
-                                    <div className="py-1">
-                                        <MenuItem>
-                                            <a
-                                                href="#"
-                                                className="block px-4 py-2 text-sm text-gray-700 data-focus:bg-gray-100 data-focus:text-gray-900 data-focus:outline-hidden"
-                                            >
-                                                Delete
-                                            </a>
-                                        </MenuItem>
-                                    </div>
-                                </MenuItems>
-                            </Menu>
-                            <div>
-                                <button
-                                    type="submit"
-                                    className="rounded-md bg-white px-6 py-2 text-center uppercase font-semibold text-hh-orange shadow-sm  border border-hh-orange hover:bg-hh-orange hover:text-white transition-all"
-                                >
-                                    Search
-                                </button>
-                            </div>
-                        </div>
-                    </form>
-                    <div className="flex w-full justify-between items-center mt-8">
-                        <p
-                            className={`${styles.paragraph} cursor-pointer text-black hover:text-hh-orange hover:underline transition-all`}
-                        >
-                            St James Tidal Pool
-                        </p>
-                        <p
-                            className={`${styles.paragraph} cursor-pointer text-black hover:text-hh-orange hover:underline transition-all`}
-                        >
-                            St James Tidal Pool
-                        </p>
-                        <p
-                            className={`${styles.paragraph} cursor-pointer text-black hover:text-hh-orange hover:underline transition-all`}
-                        >
-                            St James Tidal Pool
-                        </p>
-                        <p
-                            className={`${styles.paragraph} cursor-pointer text-black hover:text-hh-orange hover:underline transition-all`}
-                        >
-                            St James Tidal Pool
-                        </p>
-                        <p
-                            className={`${styles.paragraph} cursor-pointer text-black hover:text-hh-orange hover:underline transition-all`}
-                        >
-                            St James Tidal Pool
-                        </p>
-                        <p
-                            className={`${styles.paragraph} cursor-pointer text-black hover:text-hh-orange hover:underline transition-all`}
-                        >
-                            St James Tidal Pool
-                        </p>
-                    </div>
-                </div>
-
                 {/* ANALYTIC QUANTATIES */}
                 <div className="grid grid-cols-3 gap-x-4 mt-6 ">
                     <div className="relative shadow border border-hh-gray rounded-md  bg-white p-6 flex justify-between">
@@ -243,12 +66,12 @@ export default function BookingPage() {
                             <p
                                 className={`${styles.h2} text-hh-orange font-medium !mb-0`}
                             >
-                                2,0210
+                                {stats.bookingsThisMonth}
                             </p>
                             <p
                                 className={`${styles.paragraph} text-hh-gray !text-sm`}
                             >
-                                Total monthly bookings
+                                Total bookings this month
                             </p>
                         </div>
                     </div>
@@ -257,7 +80,7 @@ export default function BookingPage() {
                             <p
                                 className={`${styles.h2} text-hh-orange font-medium !mb-0`}
                             >
-                                89
+                                {stats.todaysBookings}
                             </p>
                             <p
                                 className={`${styles.paragraph} text-hh-gray !text-sm`}
@@ -271,12 +94,12 @@ export default function BookingPage() {
                             <p
                                 className={`${styles.h2} text-hh-orange font-medium !mb-0`}
                             >
-                                R 52,510
+                                R {stats.totalRevenue}
                             </p>
                             <p
                                 className={`${styles.paragraph} text-hh-gray !text-sm`}
                             >
-                                Total revenue
+                                Total revenue this month
                             </p>
                         </div>
                     </div>
@@ -817,21 +640,41 @@ export default function BookingPage() {
                             </h4>
                         </div>
                         <div className="flex gap-x-4 items-center">
-                            <div className="bg-white shadow-md flex items-center gap-x-2 border border-hh-gray p-2 rounded">
-                                <p className={`${styles.paragraph} text-black`}>
-                                    St James Tidal Pool
-                                </p>
-                                <ChevronDownIcon className="text-black h-6 w-6" />
-                            </div>
-                            <div className="bg-white shadow-md flex items-center gap-x-2 border border-hh-gray p-2 rounded">
-                                <p className={`${styles.paragraph} text-black`}>
-                                    Last 30 days
-                                </p>
-                                <ChevronDownIcon className="text-black h-6 w-6" />
-                            </div>
+                            <select
+                                value={locationFilter}
+                                onChange={(e) =>
+                                    setLocationFilter(e.target.value)
+                                }
+                                className="bg-white shadow-md border border-gray-300 p-2 rounded"
+                            >
+                                <option value="">All Locations</option>
+                                {locations.map((loc) => (
+                                    <option key={loc.id} value={loc.id}>
+                                        {loc.name}
+                                    </option>
+                                ))}
+                            </select>
+                            <select
+                                value={periodFilter}
+                                onChange={(e) =>
+                                    setPeriodFilter(e.target.value)
+                                }
+                                className="bg-white shadow-md border border-gray-300 p-2 rounded"
+                            >
+                                <option value="7">Last 7 Days</option>
+                                <option value="30">Last 30 Days</option>
+                                <option value="90">Last 90 Days</option>
+                                <option value="">All Time</option>
+                            </select>
+                            <button
+                                onClick={handleFilterChange}
+                                className="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg shadow hover:bg-blue-700 transition"
+                            >
+                                Filter
+                            </button>
                         </div>
                     </div>
-                    <div className="grid grid-cols-12 p-6 gap-x-4">
+                    <div className="hidden md:grid grid-cols-12 p-6 gap-x-4">
                         <div className="col-span-1">
                             <p className={`${styles.paragraph} text-black`}>
                                 #No
@@ -842,7 +685,7 @@ export default function BookingPage() {
                                 Customer Name
                             </p>
                         </div>
-                        <div className="col-span-2">
+                        <div className="col-span-3">
                             <p className={`${styles.paragraph} text-black`}>
                                 Date & Time
                             </p>
@@ -857,348 +700,94 @@ export default function BookingPage() {
                                 Location
                             </p>
                         </div>
-                        <div className="col-span-2">
-                            <p className={`${styles.paragraph} text-black`}>
-                                Duration
-                            </p>
-                        </div>
                         <div className="col-span-1">
                             <p className={`${styles.paragraph} text-black`}>
                                 Status
                             </p>
                         </div>
                     </div>
+
                     <div className="col-span-full space-y-4">
-                        <div className="col-span-full bg-white shadow grid grid-cols-12  gap-x-4 items-center border border-hh-gray rounded p-6">
-                            <div className="col-span-1">
-                                <p
-                                    className={`${styles.paragraph} !text-[#999999] `}
+                        {bookings.data.length > 0 ? (
+                            bookings.data.map((booking) => (
+                                <div
+                                    key={booking.id}
+                                    className="col-span-full bg-white shadow grid grid-cols-12 gap-x-4 items-center border border-gray-200 rounded p-6"
                                 >
-                                    01
-                                </p>
-                            </div>
-                            <div className="col-span-2 flex gap-x-2 items-center -ml-6">
-                                <div className="bg-[#999999] rounded-full h-8 w-8 flex items-center justify-center shrink-0">
-                                    <p
-                                        className={`${styles.paragraph} !text-white !text-sm `}
-                                    >
-                                        VM
-                                    </p>
+                                    <div className="col-span-1">
+                                        <p
+                                            className={`${styles.paragraph} !text-[#999999]`}
+                                        >
+                                            {booking.id}
+                                        </p>
+                                    </div>
+                                    <div className="col-span-2 flex gap-x-2 items-center -ml-6">
+                                        <div className="bg-[#999999] rounded-full h-8 w-8 flex items-center justify-center shrink-0">
+                                            <p
+                                                className={`${styles.paragraph} !text-white !text-sm`}
+                                            >
+                                                {getInitials(
+                                                    booking.user?.name
+                                                )}
+                                            </p>
+                                        </div>
+                                        <p
+                                            className={`${styles.paragraph} !text-[#999999] !text-sm`}
+                                        >
+                                            {booking.user?.name || "N/A"}
+                                        </p>
+                                    </div>
+                                    <div className="col-span-3">
+                                        <p
+                                            className={`${styles.paragraph} !text-[#999999] !text-sm`}
+                                        >
+                                            {formatDateTime(
+                                                booking.timeslot.starts_at
+                                            )}
+                                        </p>
+                                    </div>
+                                    <div className="col-span-2">
+                                        <p
+                                            className={`${styles.paragraph} !text-[#999999] !text-sm`}
+                                        >
+                                            {booking.services[0]?.name ||
+                                                "Main Service"}
+                                        </p>
+                                    </div>
+                                    <div className="col-span-2">
+                                        <p
+                                            className={`${styles.paragraph} !text-[#999999] !text-sm`}
+                                        >
+                                            {
+                                                booking.timeslot.schedule
+                                                    .location.name
+                                            }
+                                        </p>
+                                    </div>
+                                    <div className="col-span-1">
+                                        <div
+                                            className={`rounded-full px-4 py-2 ${
+                                                booking.status === "success"
+                                                    ? "bg-green-500"
+                                                    : "bg-orange-500"
+                                            }`}
+                                        >
+                                            <p
+                                                className={`${styles.paragraph} !text-white !text-sm text-center capitalize`}
+                                            >
+                                                {booking.status}
+                                            </p>
+                                        </div>
+                                    </div>
                                 </div>
-                                <p
-                                    className={`${styles.paragraph} !text-[#999999] !text-sm`}
-                                >
-                                    Valentino Morose
+                            ))
+                        ) : (
+                            <div className="col-span-full bg-white text-center p-6 rounded shadow border border-gray-200">
+                                <p className="text-gray-500">
+                                    No recent bookings found.
                                 </p>
                             </div>
-                            <div className="col-span-2">
-                                <p
-                                    className={`${styles.paragraph} !text-[#999999] !text-sm`}
-                                >
-                                    04 May 2025, 6:20AM
-                                </p>
-                            </div>
-                            <div className="col-span-2">
-                                <p
-                                    className={`${styles.paragraph} !text-[#999999] !text-sm`}
-                                >
-                                    Single Sauna Session
-                                </p>
-                            </div>
-                            <div className="col-span-2">
-                                <p
-                                    className={`${styles.paragraph} !text-[#999999] !text-sm`}
-                                >
-                                    St James Tidal Pool
-                                </p>
-                            </div>
-                            <div className="col-span-2">
-                                <p
-                                    className={`${styles.paragraph} !text-[#999999] !text-sm`}
-                                >
-                                    20 minutes
-                                </p>
-                            </div>
-                            <div className="col-span-1">
-                                <div className="bg-hh-orange rounded-full px-4 py-2">
-                                    <p
-                                        className={`${styles.paragraph} !text-white !text-sm text-center`}
-                                    >
-                                        Paid
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                        <div className="col-span-full bg-white shadow grid grid-cols-12 gap-x-4 items-center border border-hh-gray rounded p-6">
-                            <div className="col-span-1">
-                                <p
-                                    className={`${styles.paragraph} !text-[#999999] `}
-                                >
-                                    02
-                                </p>
-                            </div>
-                            <div className="col-span-2 flex gap-x-2 items-center -ml-6">
-                                <div className="bg-[#999999] rounded-full h-8 w-8 flex items-center justify-center shrink-0">
-                                    <p
-                                        className={`${styles.paragraph} !text-white !text-sm `}
-                                    >
-                                        VM
-                                    </p>
-                                </div>
-                                <p
-                                    className={`${styles.paragraph} !text-[#999999] !text-sm`}
-                                >
-                                    Valentino Morose
-                                </p>
-                            </div>
-                            <div className="col-span-2">
-                                <p
-                                    className={`${styles.paragraph} !text-[#999999] !text-sm`}
-                                >
-                                    04 May 2025, 6:20AM
-                                </p>
-                            </div>
-                            <div className="col-span-2">
-                                <p
-                                    className={`${styles.paragraph} !text-[#999999] !text-sm`}
-                                >
-                                    Single Sauna Session
-                                </p>
-                            </div>
-                            <div className="col-span-2">
-                                <p
-                                    className={`${styles.paragraph} !text-[#999999] !text-sm`}
-                                >
-                                    St James Tidal Pool
-                                </p>
-                            </div>
-                            <div className="col-span-2">
-                                <p
-                                    className={`${styles.paragraph} !text-[#999999] !text-sm`}
-                                >
-                                    20 minutes
-                                </p>
-                            </div>
-                            <div className="col-span-1">
-                                <div className="bg-hh-orange rounded-full px-4 py-2">
-                                    <p
-                                        className={`${styles.paragraph} !text-white !text-sm text-center`}
-                                    >
-                                        Paid
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                        <div className="col-span-full bg-white shadow grid grid-cols-12 gap-x-4 items-center border border-hh-gray rounded p-6">
-                            <div className="col-span-1">
-                                <p
-                                    className={`${styles.paragraph} !text-[#999999] `}
-                                >
-                                    03
-                                </p>
-                            </div>
-                            <div className="col-span-2 flex gap-x-2 items-center -ml-6">
-                                <div className="bg-[#999999] rounded-full h-8 w-8 flex items-center justify-center shrink-0">
-                                    <p
-                                        className={`${styles.paragraph} !text-white !text-sm `}
-                                    >
-                                        VM
-                                    </p>
-                                </div>
-                                <p
-                                    className={`${styles.paragraph} !text-[#999999] !text-sm`}
-                                >
-                                    Valentino Morose
-                                </p>
-                            </div>
-                            <div className="col-span-2">
-                                <p
-                                    className={`${styles.paragraph} !text-[#999999] !text-sm`}
-                                >
-                                    04 May 2025, 6:20AM
-                                </p>
-                            </div>
-                            <div className="col-span-2">
-                                <p
-                                    className={`${styles.paragraph} !text-[#999999] !text-sm`}
-                                >
-                                    Single Sauna Session
-                                </p>
-                            </div>
-                            <div className="col-span-2">
-                                <p
-                                    className={`${styles.paragraph} !text-[#999999] !text-sm`}
-                                >
-                                    St James Tidal Pool
-                                </p>
-                            </div>
-                            <div className="col-span-2">
-                                <p
-                                    className={`${styles.paragraph} !text-[#999999] !text-sm`}
-                                >
-                                    20 minutes
-                                </p>
-                            </div>
-                            <div className="col-span-1">
-                                <div className="bg-hh-orange rounded-full px-4 py-2">
-                                    <p
-                                        className={`${styles.paragraph} !text-white !text-sm text-center`}
-                                    >
-                                        Paid
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                        <div className="col-span-full bg-white shadow grid grid-cols-12 gap-x-4 items-center border border-hh-gray rounded p-6">
-                            <div className="col-span-1">
-                                <p
-                                    className={`${styles.paragraph} !text-[#999999] `}
-                                >
-                                    04
-                                </p>
-                            </div>
-                            <div className="col-span-2 flex gap-x-2 items-center -ml-6">
-                                <div className="bg-[#999999] rounded-full h-8 w-8 flex items-center justify-center shrink-0">
-                                    <p
-                                        className={`${styles.paragraph} !text-white !text-sm `}
-                                    >
-                                        VM
-                                    </p>
-                                </div>
-                                <p
-                                    className={`${styles.paragraph} !text-[#999999] !text-sm`}
-                                >
-                                    Valentino Morose
-                                </p>
-                            </div>
-                            <div className="col-span-2">
-                                <p
-                                    className={`${styles.paragraph} !text-[#999999] !text-sm`}
-                                >
-                                    04 May 2025, 6:20AM
-                                </p>
-                            </div>
-                            <div className="col-span-2">
-                                <p
-                                    className={`${styles.paragraph} !text-[#999999] !text-sm`}
-                                >
-                                    Single Sauna Session
-                                </p>
-                            </div>
-                            <div className="col-span-2">
-                                <p
-                                    className={`${styles.paragraph} !text-[#999999] !text-sm`}
-                                >
-                                    St James Tidal Pool
-                                </p>
-                            </div>
-                            <div className="col-span-2">
-                                <p
-                                    className={`${styles.paragraph} !text-[#999999] !text-sm`}
-                                >
-                                    20 minutes
-                                </p>
-                            </div>
-                            <div className="col-span-1">
-                                <div className="bg-hh-orange rounded-full px-4 py-2">
-                                    <p
-                                        className={`${styles.paragraph} !text-white !text-sm text-center`}
-                                    >
-                                        Paid
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                        <div className="col-span-full bg-white shadow grid grid-cols-12 gap-x-4 items-center border border-hh-gray rounded p-6">
-                            <div className="col-span-1">
-                                <p
-                                    className={`${styles.paragraph} !text-[#999999] `}
-                                >
-                                    05
-                                </p>
-                            </div>
-                            <div className="col-span-2 flex gap-x-2 items-center -ml-6">
-                                <div className="bg-[#999999] rounded-full h-8 w-8 flex items-center justify-center shrink-0">
-                                    <p
-                                        className={`${styles.paragraph} !text-white !text-sm `}
-                                    >
-                                        VM
-                                    </p>
-                                </div>
-                                <p
-                                    className={`${styles.paragraph} !text-[#999999] !text-sm`}
-                                >
-                                    Valentino Morose
-                                </p>
-                            </div>
-                            <div className="col-span-2">
-                                <p
-                                    className={`${styles.paragraph} !text-[#999999] !text-sm`}
-                                >
-                                    04 May 2025, 6:20AM
-                                </p>
-                            </div>
-                            <div className="col-span-2">
-                                <p
-                                    className={`${styles.paragraph} !text-[#999999] !text-sm`}
-                                >
-                                    Single Sauna Session
-                                </p>
-                            </div>
-                            <div className="col-span-2">
-                                <p
-                                    className={`${styles.paragraph} !text-[#999999] !text-sm`}
-                                >
-                                    St James Tidal Pool
-                                </p>
-                            </div>
-                            <div className="col-span-2">
-                                <p
-                                    className={`${styles.paragraph} !text-[#999999] !text-sm`}
-                                >
-                                    20 minutes
-                                </p>
-                            </div>
-                            <div className="col-span-1">
-                                <div className="bg-hh-orange rounded-full px-4 py-2">
-                                    <p
-                                        className={`${styles.paragraph} !text-white !text-sm text-center`}
-                                    >
-                                        Paid
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                        <div className="col-span-full flex justify-end gap-x-2">
-                            <div className="bg-white rounded-full w-10 h-10 flex justify-center items-center shadow">
-                                <p
-                                    className={`${styles.paragraph} !text-[#999999] `}
-                                >
-                                    01
-                                </p>
-                            </div>
-                            <div className="bg-white rounded-full w-10 h-10 flex justify-center items-center shadow">
-                                <p
-                                    className={`${styles.paragraph} !text-[#999999] `}
-                                >
-                                    02
-                                </p>
-                            </div>
-                            <div className="bg-hh-orange rounded-full w-10 h-10 flex justify-center items-center shadow">
-                                <p
-                                    className={`${styles.paragraph} !text-white `}
-                                >
-                                    03
-                                </p>
-                            </div>
-                            <div className="bg-white rounded-full w-10 h-10 flex justify-center items-center shadow">
-                                <p
-                                    className={`${styles.paragraph} !text-[#999999] `}
-                                >
-                                    04
-                                </p>
-                            </div>
-                        </div>
+                        )}
                     </div>
                 </div>
 

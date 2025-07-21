@@ -21,6 +21,14 @@ return Application::configure(basePath: dirname(__DIR__))
             'approved' => \App\Http\Middleware\CheckUserApproval::class,
         ]);
 
+        $middleware->trustProxies(at: '*');
+
+        $middleware->validateCsrfTokens(except: [
+            '/pay/post',
+            '/pay',
+            '/order/callback',
+        ]);
+
 
         //
     })

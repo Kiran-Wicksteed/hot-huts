@@ -23,28 +23,16 @@ import {
     Cog6ToothIcon,
     DocumentDuplicateIcon,
     FolderIcon,
-    HomeIcon,
     UsersIcon,
     TruckIcon,
-    BuildingLibraryIcon,
     XMarkIcon,
-    ChatBubbleBottomCenterIcon,
-    BuildingOfficeIcon,
-    CalendarDaysIcon,
-    FolderOpenIcon,
-    ScaleIcon,
-    UserGroupIcon,
-    EnvelopeIcon,
-    UserPlusIcon,
-    ClipboardDocumentCheckIcon,
-    CameraIcon,
     Squares2X2Icon,
     BookmarkIcon,
     CreditCardIcon,
     UserCircleIcon,
     ServerStackIcon,
     MapIcon,
-    DocumentChartBarIcon,
+    MapPinIcon,
 } from "@heroicons/react/24/outline";
 import { UserIcon } from "@heroicons/react/24/solid";
 
@@ -607,7 +595,7 @@ export default function AuthenticatedLayout({ header, children }) {
                                                     "group flex gap-x-3  p-1 sidebar-item !font-medium"
                                                 )}
                                             >
-                                                <TruckIcon
+                                                <MapPinIcon
                                                     aria-hidden="true"
                                                     className={classNames(
                                                         route().current(
@@ -618,7 +606,7 @@ export default function AuthenticatedLayout({ header, children }) {
                                                         "h-6 w-6 shrink-0"
                                                     )}
                                                 />
-                                                Saunas
+                                                Territories
                                             </a>
                                         </li>
                                     </ul>

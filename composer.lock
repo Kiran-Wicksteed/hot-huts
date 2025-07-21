@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "16d48cbb115650fb68d781ae43053593",
+    "content-hash": "1063c7dac782b833be61c28ce8f993a0",
     "packages": [
         {
             "name": "brick/math",
@@ -3255,6 +3255,53 @@
                 }
             ],
             "time": "2024-04-27T21:32:50+00:00"
+        },
+        {
+            "name": "shaz3e/peach-payment",
+            "version": "1.0.1",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/Shaz3e/peach-payment.git",
+                "reference": "678e1531269caa31a0aaebe51f7355c744ac1f28"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/Shaz3e/peach-payment/zipball/678e1531269caa31a0aaebe51f7355c744ac1f28",
+                "reference": "678e1531269caa31a0aaebe51f7355c744ac1f28",
+                "shasum": ""
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Shaz3e\\PeachPayment\\Providers\\PeachPaymentServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "files": [
+                    "src/Helpers/PeachPayment.php"
+                ],
+                "psr-4": {
+                    "Shaz3e\\PeachPayment\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Shahrukh A. Khan",
+                    "email": "iam@shaz3e.com"
+                }
+            ],
+            "description": "Peach payment hosted checkout",
+            "support": {
+                "issues": "https://github.com/Shaz3e/peach-payment/issues",
+                "source": "https://github.com/Shaz3e/peach-payment/tree/1.0.1"
+            },
+            "time": "2023-11-27T15:34:41+00:00"
         },
         {
             "name": "symfony/clock",
@@ -8102,12 +8149,12 @@
     ],
     "aliases": [],
     "minimum-stability": "stable",
-    "stability-flags": [],
+    "stability-flags": {},
     "prefer-stable": true,
     "prefer-lowest": false,
     "platform": {
         "php": "^8.2"
     },
-    "platform-dev": [],
+    "platform-dev": {},
     "plugin-api-version": "2.6.0"
 }

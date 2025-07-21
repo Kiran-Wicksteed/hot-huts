@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
+use Shaz3e\PeachPayment\Helpers\PeachPayment;
 
 class BookingController extends Controller
 {
@@ -24,7 +25,7 @@ class BookingController extends Controller
 
     public function store(Request $request)
     {
-        Log::info('Booking Controller Initiated');
+
 
         /* 1. Validate ----------------------------------------------------- */
         $data = $request->validate([
@@ -34,7 +35,6 @@ class BookingController extends Controller
             'services.*' => ['integer', 'min:0'],
         ]);
 
-        Log::info('Booking Data Validated', $data);
 
         /* 2. Transaction keeps capacity + total consistent --------------- */
         $booking = DB::transaction(function () use ($data) {
@@ -47,13 +47,6 @@ class BookingController extends Controller
                 abort(409, 'This slot is already full.');
             }
 
-            Log::info('Timeslot Capacity Checked', [
-                'timeslot_id' => $slot->id,
-                'current_bookings' => $alreadyBooked,
-                'requested_people' => $data['people'],
-                'remaining_capacity' => $slot->capacity - $alreadyBooked,
-            ]);
-
             /* 3. Create booking header --------------------------------- */
             $booking = Booking::create([
                 'user_id'     => Auth::id(),
@@ -63,12 +56,7 @@ class BookingController extends Controller
                 'amount' => 0, // placeholder, update later
             ]);
 
-            Log::info('Booking Created', [
-                'booking_id' => $booking->id,
-                'user_id' => $booking->user_id,
-                'timeslot_id' => $booking->timeslot_id,
-                'people' => $booking->people,
-            ]);
+
 
             $total = 0;
 
@@ -105,9 +93,37 @@ class BookingController extends Controller
             return $booking; // returned out of the transaction
         });
 
+        $entityId = config('peach-payment.entity_id');
+
+        $amount = $booking->amount;
+
+        $return_url = 'order/callback';
+        'after-main-domain/route/sub-route/?PeachPaymentOrder=OID123456789';
+
+        $peachPayment = new  PeachPayment();
+
+        $checkoutData = $peachPayment->createCheckout($amount, $return_url);
+
+
+        $order_number = $checkoutData['order_number'];
+
+        $checkoutId = $checkoutData['checkoutId'];
+
+        $booking->update([
+            'peach_payment_checkout_id' => $checkoutId,
+        ]);
+
+        // return view('peach-payment', compact('entityId', 'checkoutId'));
+
+        return Inertia::render('Payment/RedirectToGateway', [
+            'entityId' => $entityId,
+            'checkoutId' => $checkoutId,
+            'checkoutScriptUrl' => config('peach-payment.' . config('peach-payment.environment') . '.embedded_checkout_url'),
+        ]);
+
         /* 7. Respond ----------------------------------------------------- */
         // For an SPA / Inertia app:
-        return redirect()->route('bookings.show', $booking);
+        // return redirect()->route('bookings.show', $booking);
         // Or for classic redirect flow:
         // return to_route('bookings.show', $booking);
     }
