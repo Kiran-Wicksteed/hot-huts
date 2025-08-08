@@ -1,6 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import styles from "../../../styles";
 import dayjs from "dayjs";
+import isSameOrAfter from "dayjs/plugin/isSameOrAfter";
+import weekdayPlugin from "dayjs/plugin/weekday";
+import { MapPinIcon, ClockIcon } from "@heroicons/react/24/outline";
+
 const weekdayNames = [
     "Sunday",
     "Monday",
@@ -18,12 +22,17 @@ const PERIODS = {
     night: { row: "PM", time: "6 – 7 PM", order: 3 },
 };
 
-const ROWS = ["AM", "PM"];
+// const ROWS = ["AM", "PM"];
 
-export default function Locations({ nextStep, updateFormData }) {
+export default function Locations({ nextStep, updateFormData, events }) {
     const [selected, setSelected] = useState(null); // { day, period, … }
     const [openings, setOpenings] = useState([]); // raw API rows
     const [schedule, setSchedule] = useState({});
+
+    console.log("events", events);
+
+    dayjs.extend(isSameOrAfter);
+    dayjs.extend(weekdayPlugin);
 
     useEffect(() => {
         fetch(route("openings.all"))
@@ -77,6 +86,42 @@ export default function Locations({ nextStep, updateFormData }) {
         });
         nextStep();
     };
+
+    const bookEvent = (occ) => {
+        updateFormData({
+            event_occurrence_id: occ.id,
+            date: occ.date,
+            time: occ.start_time,
+            location: {
+                id: occ.location_id,
+                name: occ.location,
+                image: occ.location.image,
+            },
+        });
+        nextStep(); // straight to the service step
+    };
+
+    const UPCOMING_LIMIT = 5;
+
+    const upcomingEvents = useMemo(() => {
+        if (!events?.length) return [];
+
+        return (
+            events
+                // future‑dated only
+                .filter((e) => dayjs(e.date).isSameOrAfter(dayjs(), "day"))
+                // earliest first
+                .sort(
+                    (a, b) =>
+                        dayjs(a.date).diff(dayjs(b.date)) ||
+                        dayjs(`1970-01-01 ${a.start_time}`).diff(
+                            dayjs(`1970-01-01 ${b.start_time}`)
+                        )
+                )
+                // trim to limit
+                .slice(0, UPCOMING_LIMIT)
+        );
+    }, [events]);
 
     if (!Object.keys(schedule).length) {
         return <p>Loading calendar…</p>;
@@ -190,6 +235,66 @@ export default function Locations({ nextStep, updateFormData }) {
                     </div>
                 )}
             </div>
+            {upcomingEvents.length > 0 && (
+                <div className="mt-16">
+                    <h2 className={`${styles.h3} !text-xl !text-black mb-4`}>
+                        Upcoming Events
+                    </h2>
+
+                    <div className="space-y-3">
+                        {upcomingEvents.map((ev, i) => (
+                            <div
+                                key={ev.id}
+                                className={[
+                                    "flex items-center gap-x-4 rounded-lg px-4 py-3 transition",
+                                    i === 0
+                                        ? "border border-hh-orange bg-white"
+                                        : "bg-[#f7f7f7] hover:bg-white",
+                                ].join(" ")}
+                            >
+                                {/* Logo or fallback placeholder */}
+                                <img
+                                    src={
+                                        ev.event_image ??
+                                        "/storage/images/hot-huts-logo.png"
+                                    }
+                                    alt={ev.event_name}
+                                    className="w-14 h-14 object-cover rounded"
+                                />
+
+                                {/* Title + meta */}
+                                <div className="flex-1">
+                                    <p className="font-medium text-sm text-black mb-0.5">
+                                        {ev.event_name}
+                                    </p>
+
+                                    <div className="flex items-center gap-x-4 text-xs text-[#666]">
+                                        <span className="flex items-center gap-x-1">
+                                            <MapPinIcon className="w-4 h-4 text-hh-orange" />
+                                            {ev.location}
+                                        </span>
+
+                                        <span className="flex items-center gap-x-1">
+                                            <ClockIcon className="w-4 h-4 text-hh-orange" />
+                                            {dayjs(ev.date).format(
+                                                "D MMM YYYY"
+                                            )}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                {/* CTA */}
+                                <button
+                                    onClick={() => bookEvent(ev)}
+                                    className="text-hh-orange font-semibold text-sm hover:underline"
+                                >
+                                    Book Now
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

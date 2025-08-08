@@ -27,6 +27,8 @@ export default function TimeDate({
     const people = servicesData.people ?? 1;
     // Get current week starting from today
 
+    console.log("timeDate", formData);
+
     // Update service quantities
     const updateQuantity = (code, value) =>
         updateFormData({
@@ -58,7 +60,7 @@ export default function TimeDate({
 
     useEffect(() => {
         if (!location.id || !selectedDate) return;
-        console.log("date", selectedDate);
+
         const fetchSlots = async (period) => {
             const res = await fetch(
                 route("availability", {

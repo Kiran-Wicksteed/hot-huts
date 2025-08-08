@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Booking;
+use App\Models\Timeslot;
 use Carbon\Carbon;
 use Inertia\Inertia;
 use Illuminate\Http\Request;
@@ -48,6 +49,31 @@ class BookingAdminController extends Controller
             ->paginate(10)
             ->withQueryString();
 
+        $today = today();
+
+        $slotsToday = Timeslot::query()
+            ->with(['schedule.location'])   // MUST eager‑load location
+            ->whereDate('starts_at', today())
+            ->orderBy('starts_at')
+            ->get()
+            ->map(fn($t) => [
+                'id'          => $t->id,
+                'starts_at'   => $t->starts_at->format('H:i'),
+                'ends_at'     => $t->ends_at->format('H:i'),
+                'capacity'    => $t->capacity,
+                'bookings'    => $t->bookings     /* already loaded */,
+                // 🔽  add exactly ONE of the two lines below
+                'location_id' => $t->schedule->location_id,          // simplest
+                // or, if you already send the nested object:
+                // 'schedule'   => [..., 'location_id' => $t->schedule->location_id],
+            ]);
+
+        // 2️⃣ all sauna bookings for today (exclude event bookings)
+        $bookingsToday = Booking::with(['user', 'timeslot.schedule.location'])
+            ->whereDate('created_at', $today)
+            ->whereNull('event_occurrence_id')
+            ->get();
+
         // Pass the calculated data to the Inertia component as props.
         return Inertia::render('bookings/index', [
             'stats' => [
@@ -59,6 +85,8 @@ class BookingAdminController extends Controller
             'bookings' => $recentBookings,
             'locations' => Location::all(), // Pass all locations for the dropdown
             'filters' => $request->only(['period', 'location_id']),
+            'slotsToday'    => $slotsToday,
+            'bookingsToday' => $bookingsToday,
         ]);
     }
 }

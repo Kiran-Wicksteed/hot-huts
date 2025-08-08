@@ -35,6 +35,11 @@ class Booking extends Model
         return $this->belongsTo(Timeslot::class);
     }
 
+    public function eventOccurrence()
+    {
+        return $this->belongsTo(EventOccurrence::class);
+    }
+
     public function services()
     {
         // if your pivot table is booking_service the default name is fine

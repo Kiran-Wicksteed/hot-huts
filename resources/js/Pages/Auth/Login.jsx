@@ -34,18 +34,18 @@ export default function Login({ status, canResetPassword }) {
 
             <div className="col-span-1 relative">
                 <img
-                    src="/storage/images/login-image.png"
+                    src="/storage/images/login-bg.png"
                     alt="Picturee of beach"
                     className="h-full w-full absolute top-0 object-cover"
                 />
                 <div className="relative pt-28 px-12">
                     <img
-                        src="/storage/images/logo-footer.png"
+                        src="/storage/images/logo.png"
                         alt="Picturee of beach"
                         className="h-24 w-auto"
                     />
                     <h1
-                        className={`${styles.h2} font-semibold !text-hh-orange `}
+                        className={`${styles.h2} font-semibold !text-hh-orange mt-10`}
                     >
                         Welcome Back to Your Seaside Sanctuary.
                     </h1>

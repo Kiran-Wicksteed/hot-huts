@@ -3,83 +3,120 @@
 namespace App\Http\Controllers;
 
 use App\Models\Booking;
+use App\Models\EventOccurrence;
 use App\Models\Service;
 use App\Models\Timeslot;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 use Shaz3e\PeachPayment\Helpers\PeachPayment;
 
 class BookingController extends Controller
 {
-
+    /* --------------------------------------------------- show */
     public function show(Booking $booking)
     {
-        $booking->load(['services', 'timeslot.schedule.location', 'user']);
+        $booking->load([
+            'services',
+            'timeslot.schedule.location',
+            'eventOccurrence.location',
+            'user',
+        ]);
+
         return Inertia::render('Booking/ConfirmedPage', [
             'booking' => $booking,
         ]);
     }
 
+    /* --------------------------------------------------- store */
     public function store(Request $request)
     {
-
-
-        /* 1. Validate ----------------------------------------------------- */
+        /* 1. Validate -------------------------------------------------- */
         $data = $request->validate([
-            'timeslot_id' => ['required', 'exists:timeslots,id'],
-            'people' => ['required', 'integer', 'between:1,8'],
-            'services' => ['array'], // addonCode => qty
-            'services.*' => ['integer', 'min:0'],
+            'booking_type'        => ['required', 'in:sauna,event'],
+            'timeslot_id'         => ['required', 'exists:timeslots,id'],
+            'event_occurrence_id' => ['nullable', 'exists:event_occurrences,id', 'required_if:booking_type,event'],
+            'people'              => ['required', 'integer', 'between:1,8'],
+            'services'            => ['array'],
+            'services.*'          => ['integer', 'min:0'],
         ]);
 
-
-        /* 2. Transaction keeps capacity + total consistent --------------- */
+        /* 2. Transaction: lock capacity & build booking ---------------- */
         $booking = DB::transaction(function () use ($data) {
 
-            /* 2.1 Capacity guard (row-lock the slot) -------------------- */
+            /* 2A. Lock & capacity checks ------------------------------ */
             $slot = Timeslot::lockForUpdate()->find($data['timeslot_id']);
 
-            $alreadyBooked = $slot->bookings()->sum('people');
-            if ($alreadyBooked + $data['people'] > $slot->capacity) {
-                abort(409, 'This slot is already full.');
+            $slotBooked = $slot->bookings()->sum('people');
+            if ($slotBooked + $data['people'] > $slot->capacity) {
+                abort(409, 'Chosen sauna slot is already full.');
             }
 
-            /* 3. Create booking header --------------------------------- */
+            if ($data['booking_type'] === 'event') {
+                $occ = EventOccurrence::lockForUpdate()->find($data['event_occurrence_id']);
+
+                if (!$occ->is_active) {
+                    abort(409, 'Event is no longer bookable.');
+                }
+
+                $occBooked = $occ->bookings()->sum('people');
+                $occCap    = $occ->effective_capacity ?? 8;
+
+                if ($occBooked + $data['people'] > $occCap) {
+                    abort(409, 'Event capacity reached.');
+                }
+            }
+
+            /* 2B. Create booking header ------------------------------ */
             $booking = Booking::create([
-                'user_id'     => Auth::id(),
-                'timeslot_id' => $slot->id,
-                'people' => $data['people'],
-                'status' => 'pending',
-                'amount' => 0, // placeholder, update later
+                'user_id'             => Auth::id(),
+                'timeslot_id'         => $slot->id,
+                'event_occurrence_id' => $data['booking_type'] === 'event'
+                    ? $occ->id
+                    : null,
+                'people'   => $data['people'],
+                'status'   => 'pending',
+                'amount'   => 0, // update below
             ]);
-
-
 
             $total = 0;
 
-            /* 4. Attach the base session (priced per person) ------------ */
-            $sessionSvc = Service::where('code', 'SAUNA_SESSION')->firstOrFail();
+            /* 2C. Main line item ------------------------------------- */
+            if ($data['booking_type'] === 'sauna') {
+                $sessionSvc = Service::where('code', 'SAUNA_SESSION')->firstOrFail();
+                $line = $data['people'] * $sessionSvc->price;
 
-            $booking->services()->attach($sessionSvc->id, [
-                'quantity' => $data['people'],
-                'price_each' => $sessionSvc->price,
-                'line_total' => $data['people'] * $sessionSvc->price,
-            ]);
+                $booking->services()->attach($sessionSvc->id, [
+                    'quantity'   => $data['people'],
+                    'price_each' => $sessionSvc->price,
+                    'line_total' => $line,
+                ]);
 
-            $total += $data['people'] * $sessionSvc->price;
+                $total += $line;
+            } else { // event package (price stored on occurrence)
+                $pkgSvc = Service::where('code', 'EVENT_PACKAGE')->firstOrFail();
+                $line   = $data['people'] * $occ->effective_price;
 
-            /* 5. Attach each selected add-on --------------------------- */
+                $booking->services()->attach($pkgSvc->id, [
+                    'quantity'   => $data['people'],
+                    'price_each' => $occ->effective_price,
+                    'line_total' => $line,
+                    'meta'       => json_encode(['event_occurrence_id' => $occ->id]),
+                ]);
+
+                $total += $line;
+            }
+
+            /* 2D. Add‑ons ------------------------------------------- */
             foreach ($data['services'] ?? [] as $code => $qty) {
-                if ($qty < 1) continue; // skip un-selected items
+                if ($qty < 1) continue;
 
-                $svc = Service::where('code', $code)->firstOrFail();
+                $svc  = Service::where('code', $code)->firstOrFail();
                 $line = $qty * $svc->price;
 
                 $booking->services()->attach($svc->id, [
-                    'quantity' => $qty,
+                    'quantity'   => $qty,
                     'price_each' => $svc->price,
                     'line_total' => $line,
                 ]);
@@ -87,44 +124,25 @@ class BookingController extends Controller
                 $total += $line;
             }
 
-            /* 6. Save grand total on header ---------------------------- */
             $booking->update(['amount' => $total]);
 
-            return $booking; // returned out of the transaction
+            return $booking;
         });
 
-        $entityId = config('peach-payment.entity_id');
+        /* 3. Peach Payment checkout ---------------------------------- */
+        $peach   = new PeachPayment();
+        $entity  = config('peach-payment.entity_id');
+        $cbUrl   = 'order/callback';
 
-        $amount = $booking->amount;
+        $checkout = $peach->createCheckout($booking->amount, $cbUrl);
 
-        $return_url = 'order/callback';
-        'after-main-domain/route/sub-route/?PeachPaymentOrder=OID123456789';
-
-        $peachPayment = new  PeachPayment();
-
-        $checkoutData = $peachPayment->createCheckout($amount, $return_url);
-
-
-        $order_number = $checkoutData['order_number'];
-
-        $checkoutId = $checkoutData['checkoutId'];
-
-        $booking->update([
-            'peach_payment_checkout_id' => $checkoutId,
-        ]);
-
-        // return view('peach-payment', compact('entityId', 'checkoutId'));
+        $booking->update(['peach_payment_checkout_id' => $checkout['checkoutId']]);
 
         return Inertia::render('Payment/RedirectToGateway', [
-            'entityId' => $entityId,
-            'checkoutId' => $checkoutId,
-            'checkoutScriptUrl' => config('peach-payment.' . config('peach-payment.environment') . '.embedded_checkout_url'),
+            'entityId'          => $entity,
+            'checkoutId'        => $checkout['checkoutId'],
+            'checkoutScriptUrl' =>
+            config('peach-payment.' . config('peach-payment.environment') . '.embedded_checkout_url'),
         ]);
-
-        /* 7. Respond ----------------------------------------------------- */
-        // For an SPA / Inertia app:
-        // return redirect()->route('bookings.show', $booking);
-        // Or for classic redirect flow:
-        // return to_route('bookings.show', $booking);
     }
 }

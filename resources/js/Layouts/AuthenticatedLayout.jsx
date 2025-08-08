@@ -559,6 +559,32 @@ export default function AuthenticatedLayout({ header, children }) {
                                         </li>
                                         <li>
                                             <a
+                                                href={route("events.index")}
+                                                className={classNames(
+                                                    route().current(
+                                                        "events.index"
+                                                    )
+                                                        ? "bg-gray-100 text-hh-orange border-l-2 border-l-hh-orange"
+                                                        : "text-black hover:bg-gray-100 hover:",
+                                                    "group flex gap-x-3  p-1 sidebar-item !font-medium"
+                                                )}
+                                            >
+                                                <CalendarIcon
+                                                    aria-hidden="true"
+                                                    className={classNames(
+                                                        route().current(
+                                                            "events.index"
+                                                        )
+                                                            ? ""
+                                                            : "text-black group-hover:",
+                                                        "h-6 w-6 shrink-0"
+                                                    )}
+                                                />
+                                                Events
+                                            </a>
+                                        </li>
+                                        <li>
+                                            <a
                                                 href={route("locations.index")}
                                                 className={classNames(
                                                     route().current(

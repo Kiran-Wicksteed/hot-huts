@@ -9,24 +9,38 @@ class Event extends Model
 {
     use HasFactory;
 
+    /** -----------------------------------------------------------------
+     *  Mass‑assignable columns
+     *  ----------------------------------------------------------------*/
     protected $fillable = [
-        'location_id',
         'name',
         'description',
-        'start_time',
-        'end_time',
-        'price',
-        'capacity',
+        'default_price',     // e.g. store in cents → 45000
+        'default_capacity',  // max seats available if no override
         'is_active',
     ];
 
+    /** -----------------------------------------------------------------
+     *  Attribute casting
+     *  ----------------------------------------------------------------
+     *  - default_price: integer if you store cents   (preferred for money)
+     *                  OR decimal:2 if the column is DECIMAL(8,2)
+     *  - default_capacity: always an integer
+     *  - is_active: boolean for easy true/false checks
+     */
     protected $casts = [
-        'start_time' => 'datetime',
-        'end_time' => 'datetime',
+        'default_price'    => 'integer',   // or 'decimal:2'
+        'default_capacity' => 'integer',
+        'is_active'        => 'boolean',
     ];
 
-    public function location()
+    /** -----------------------------------------------------------------
+     *  Relationships
+     *  ----------------------------------------------------------------
+     *  Each template can spawn many dated occurrences.
+     */
+    public function occurrences()
     {
-        return $this->belongsTo(Location::class);
+        return $this->hasMany(EventOccurrence::class);
     }
 }

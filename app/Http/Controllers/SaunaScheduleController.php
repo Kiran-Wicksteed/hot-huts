@@ -61,7 +61,7 @@ class SaunaScheduleController extends Controller
             'start_date'  => ['nullable', 'date'],
             'days_ahead'  => ['nullable', 'integer', 'between:1,90'],
             'periods'     => ['required', 'array', 'min:1'],           // ['morning','evening']
-            'periods.*'   => ['in:morning,evening'],
+            'periods.*' => ['in:' . implode(',', self::PERIODS)],
         ]);
 
         $start     = Carbon::parse($data['start_date'] ?? today());

@@ -3,6 +3,7 @@ import Footer from "@/Layouts/Footer";
 import { useState, useEffect } from "react";
 import ServiceSection from "@/Components/booking-form/ServiceSection";
 import TimeDate from "@/Components/booking-form/TimeDate";
+import EventTimeDate from "@/Components/booking-form/EventTimeDate";
 import InvoiceDetails from "@/Components/booking-form/InvoiceDetails";
 import Locations from "@/Components/booking-form/Locations";
 
@@ -19,9 +20,11 @@ function usePersistedState(key, defaultValue) {
     return [state, setState];
 }
 
-export default function Index({ saunas, locations, services, addons }) {
+export default function Index({ locations, services, addons, events }) {
     const [currentStep, setCurrentStep] = usePersistedState("hh_step", 1);
     const [formData, setFormData] = usePersistedState("hh_form", {
+        event_occurrence_id: null,
+        booking_type: "sauna",
         location: {
             day: "",
             name: "",
@@ -75,12 +78,15 @@ export default function Index({ saunas, locations, services, addons }) {
         setFormData((prev) => ({ ...prev, ...newData }));
     };
 
+    const isEvent = formData.booking_type === "event";
+
     return (
         <>
             <Menu currentStep={currentStep} />
             <div>
                 {currentStep === 1 && (
                     <Locations
+                        events={events}
                         nextStep={goToNextStep}
                         updateFormData={updateFormData}
                     />
@@ -96,20 +102,33 @@ export default function Index({ saunas, locations, services, addons }) {
                         servicesData={formData.services}
                         formData={formData}
                         locations={locations}
+                        events={events}
                     />
                 )}
 
-                {currentStep === 3 && (
-                    <TimeDate
-                        addons={addons}
-                        sessionService={sessionService}
-                        servicesData={formData.services}
-                        nextStep={goToNextStep}
-                        prevStep={goToPrevStep}
-                        updateFormData={updateFormData}
-                        formData={formData}
-                    />
-                )}
+                {currentStep === 3 &&
+                    (isEvent ? (
+                        <EventTimeDate
+                            addons={addons}
+                            sessionService={sessionService}
+                            servicesData={formData.services}
+                            nextStep={goToNextStep}
+                            prevStep={goToPrevStep}
+                            updateFormData={updateFormData}
+                            events={events}
+                            formData={formData}
+                        />
+                    ) : (
+                        <TimeDate
+                            addons={addons}
+                            sessionService={sessionService}
+                            servicesData={formData.services}
+                            nextStep={goToNextStep}
+                            prevStep={goToPrevStep}
+                            updateFormData={updateFormData}
+                            formData={formData}
+                        />
+                    ))}
 
                 {currentStep === 4 && (
                     <InvoiceDetails

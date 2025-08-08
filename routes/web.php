@@ -13,6 +13,8 @@ use App\Http\Controllers\OpeningController;
 use App\Http\Controllers\BookingController;
 use App\Http\Controllers\UserDashboardController;
 use App\Http\Controllers\BookingAdminController;
+use App\Http\Controllers\EventController;
+use App\Http\Controllers\EventOccurrenceController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -25,6 +27,18 @@ Route::get('/welcome', function () {
         'laravelVersion' => Application::VERSION,
         'phpVersion' => PHP_VERSION,
     ]);
+});
+
+Route::middleware(['auth', 'verified'])->group(function () {
+    // Event templates
+    Route::resource('events', EventController::class);
+
+    // Nested occurrences
+    Route::prefix('events/{event}')->group(function () {
+        Route::resource('occurrences', EventOccurrenceController::class)
+            ->except(['show', 'create']) // handled by modal
+            ->names('events.occurrences');
+    });
 });
 
 //Payment Routes
@@ -41,6 +55,10 @@ Route::get(
     'availability',
     [AvailabilityController::class, 'index']
 )->name('availability');
+Route::get(
+    'availability/all',
+    [AvailabilityController::class, 'all']
+)->name('availability.all');
 
 Route::get('openings/all', function () {
     return \App\Models\LocationOpening::with('location:id,name')

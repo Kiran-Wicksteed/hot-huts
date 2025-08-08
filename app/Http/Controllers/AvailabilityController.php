@@ -39,4 +39,35 @@ class AvailabilityController extends Controller
 
         return response()->json($slots);
     }
+    public function all(Request $r)
+    {
+        $data = $r->validate([
+            'location_id' => ['required', 'exists:locations,id'],
+            'date' => ['required', 'date'],
+
+        ]);
+
+        $schedule = SaunaSchedule::where('location_id', $data['location_id'])
+            ->whereDate('date', $data['date'])
+            ->with(['timeslots' => function ($q) {
+                $q->orderBy('starts_at');
+            }])
+            ->first();
+
+        if (! $schedule) {
+            return response()->json([]);
+        }
+
+        $slots = $schedule->timeslots->map(function ($ts) {
+            $booked = $ts->bookings()->sum('people');
+            return [
+                'id' => $ts->id,
+                'starts_at' => $ts->starts_at->format('H:i'),
+                'ends_at' => $ts->ends_at->format('H:i'),
+                'spots_left' => $ts->capacity - $booked,
+            ];
+        });
+
+        return response()->json($slots);
+    }
 }

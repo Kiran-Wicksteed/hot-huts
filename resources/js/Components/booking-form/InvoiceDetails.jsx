@@ -1,57 +1,87 @@
-import { useState } from "react";
 import { router } from "@inertiajs/react";
 import dayjs from "dayjs";
-import {
-    UserIcon,
-    EnvelopeIcon,
-    MapPinIcon,
-    PhoneIcon,
-} from "@heroicons/react/24/outline";
 import styles from "../../../styles";
 
-// 🔄  tiny helper: pick only addons > 0
+/* ---------- helper: return only add‑ons with qty > 0 ---------- */
 const chosenAddons = (services, catalogue) =>
     catalogue
         .filter((s) => s.category === "addon" && (services[s.code] ?? 0) > 0)
-        .map((s) => ({
-            ...s,
-            qty: services[s.code],
-            line: services[s.code] * s.price,
-        }));
+        .map((s) => {
+            const priceNum = Number(s.price); // 👈 ensure numeric
+            return {
+                ...s,
+                price: priceNum,
+                qty: services[s.code],
+                line: services[s.code] * priceNum,
+            };
+        });
 
+/* ----------------------------------------------------------------
+   main component
+----------------------------------------------------------------- */
 export default function InvoiceDetails({
     nextStep,
     prevStep,
     formData,
-    services: catalogue, // 🔄 pass full catalogue from the page
+    services: catalogue, // full catalogue
 }) {
-    const { location, services, timeslot_id } = formData;
-    const people = services.people;
+    /* ---------- destructure form data ---------- */
+    const {
+        booking_type = "sauna", // "sauna" | "event"
+        location,
+        services,
+        timeslot_id,
 
-    /* 🔄  prices come from services table */
+        // event‑specific fields (undefined for sauna‑only)
+        event_occurrence_id,
+        event_name,
+        event_people = 0,
+        event_price_per_person = 0, // cents
+        event_price = 0, // cents   (event+sauna package)
+    } = formData;
+
+    console.log("Formdata", formData);
+
+    /* ---------- line‑item basics ---------- */
+    const people = booking_type === "event" ? event_people : services.people;
+    const itemName =
+        booking_type === "event"
+            ? `${event_name} + sauna`
+            : `Session @ ${location.name}`;
+
     const sessionSvc = catalogue.find((s) => s.code === "SAUNA_SESSION");
-    const baseLine = people * sessionSvc.price;
 
+    /* convert event prices from cents → rands */
+    const eventUnitRand = (event_price / 100).toFixed(2);
+    const eventLineRand = (event_price / 100).toFixed(2);
+
+    /* unit + line price for the main row */
+    const unitPrice =
+        booking_type === "event"
+            ? parseFloat(eventUnitRand)
+            : parseFloat(sessionSvc.price);
+
+    const baseLine =
+        booking_type === "event"
+            ? parseFloat(eventLineRand)
+            : people * sessionSvc.price;
+
+    /* ---------- add‑ons ---------- */
     const addonsLines = chosenAddons(services, catalogue);
     const addonsTotal = addonsLines.reduce((t, l) => t + l.line, 0);
 
+    /* ---------- grand total ---------- */
     const grandTotal = baseLine + addonsTotal;
-
     const invoiceDate = dayjs().format("D MMMM YYYY");
 
-    /* 🔄  POST booking then move to payment step */
+    /* ---------- POST booking ---------- */
     const makeBooking = () => {
-        console.log("Creating booking with data:", {
-            timeslot_id,
-            people,
-            services: Object.fromEntries(
-                addonsLines.map((l) => [l.code, l.qty])
-            ),
-        });
         router.post(
             route("bookings.store"),
             {
+                booking_type: formData.booking_type,
                 timeslot_id,
+                event_occurrence_id, // null for sauna‑only
                 people,
                 services: Object.fromEntries(
                     addonsLines.map((l) => [l.code, l.qty])
@@ -72,64 +102,64 @@ export default function InvoiceDetails({
         router.visit(route("index"));
     };
 
+    /* ----------------------------------------------------------------
+     render
+  ----------------------------------------------------------------- */
     return (
         <div
             className={`${styles.boxWidth} pb-28 pt-10 px-4 2xl:px-28 md:px-10 lg:px-16 xl:px-20`}
         >
             <div className="grid grid-cols-3 gap-x-8">
-                {/* ------------ LEFT PANEL (invoice) ------------- */}
+                {/* =========== LEFT: invoice =========== */}
                 <div className="col-span-2 border border-hh-gray rounded-md shadow bg-white p-6">
                     <h1 className={`${styles.h2} text-hh-orange font-medium`}>
-                        Single sauna session
+                        {booking_type === "event"
+                            ? event_name
+                            : "Single sauna session"}
                     </h1>
                     <p className={`${styles.h3} font-medium text-black mb-4`}>
                         {location.name}
                     </p>
 
-                    {/* HEADER BOX */}
+                    {/* invoice header */}
                     <div className="bg-[#F5F5F5] rounded-md p-6 mb-8">
-                        <div className="flex justify-between">
-                            <div>
-                                <p
-                                    className={`${styles.h3} font-medium text-black/50 mb-2`}
-                                >
-                                    Invoice Details
-                                </p>
-                                <p className={`${styles.paragraph} text-black`}>
-                                    —
-                                </p>
-                                <p
-                                    className={`${styles.paragraph} text-sm text-black/50`}
-                                >
-                                    {invoiceDate}
-                                </p>
-                            </div>
-                            {/* Replace hard-coded customer details with auth.user */}
-                            {/* … */}
-                        </div>
+                        <p
+                            className={`${styles.h3} font-medium text-black/50 mb-2`}
+                        >
+                            Invoice Details
+                        </p>
+                        <p
+                            className={`${styles.paragraph} text-sm text-black/50`}
+                        >
+                            {invoiceDate}
+                        </p>
                     </div>
 
-                    {/* ITEMS TABLE */}
+                    {/* items */}
                     <div className="grid grid-cols-8 gap-y-2">
                         <Header />
+
+                        {/* main line item */}
                         <Line
-                            item={`Session @ ${location.name}`}
+                            item={itemName}
                             qty={people}
-                            unit={sessionSvc.price}
-                            total={baseLine}
+                            unit={unitPrice.toFixed(2)}
+                            total={baseLine.toFixed(2)}
                         />
+
+                        {/* add‑ons */}
                         {addonsLines.map((l) => (
                             <Line
                                 key={l.id}
                                 item={l.name}
                                 qty={l.qty}
-                                unit={l.price}
-                                total={l.line}
+                                unit={l.price.toFixed(2)}
+                                total={l.line.toFixed(2)}
                             />
                         ))}
                     </div>
 
-                    {/* TOTAL */}
+                    {/* grand total */}
                     <div className="grid grid-cols-8 bg-[#F5F5F5] rounded py-4 mt-8">
                         <div className="col-span-5" />
                         <p
@@ -145,13 +175,11 @@ export default function InvoiceDetails({
                     </div>
                 </div>
 
-                {/* ------------- RIGHT PANEL (customer) ------------- */}
+                {/* =========== RIGHT: actions =========== */}
                 <div className="col-span-1">
-                    {/* client info … unchanged … */}
-
                     <div className="space-y-2 mt-6">
                         <button
-                            onClick={makeBooking} // 🔄 create booking
+                            onClick={makeBooking}
                             className="shadow border border-hh-orange w-full py-2 text-white bg-hh-orange rounded"
                         >
                             <span className={`${styles.paragraph} font-medium`}>
@@ -159,7 +187,7 @@ export default function InvoiceDetails({
                             </span>
                         </button>
                         <button
-                            onClick={handleBookAnother} // 🔄 handle book another
+                            onClick={handleBookAnother}
                             className="bg-black shadow w-full py-2 text-white rounded"
                         >
                             <span className={`${styles.paragraph} font-medium`}>
@@ -173,7 +201,7 @@ export default function InvoiceDetails({
     );
 }
 
-/* ---------- small sub-components ---------- */
+/* --------- small sub‑components --------- */
 const Header = () => (
     <>
         <p className={`${styles.paragraph} col-span-3 text-sm text-black/50`}>
