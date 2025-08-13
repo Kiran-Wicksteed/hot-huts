@@ -9,6 +9,8 @@ use App\Models\Timeslot;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Shaz3e\PeachPayment\Helpers\PeachPayment;
 
@@ -32,75 +34,91 @@ class BookingController extends Controller
     /* --------------------------------------------------- store */
     public function store(Request $request)
     {
-        /* 1. Validate -------------------------------------------------- */
+        /* ---------- 1. Validate ------------------------------------------------ */
         $data = $request->validate([
-            'booking_type'        => ['required', 'in:sauna,event'],
-            'timeslot_id'         => ['required', 'exists:timeslots,id'],
-            'event_occurrence_id' => ['nullable', 'exists:event_occurrences,id', 'required_if:booking_type,event'],
-            'people'              => ['required', 'integer', 'between:1,8'],
-            'services'            => ['array'],
-            'services.*'          => ['integer', 'min:0'],
+            'booking_type'        => ['required', Rule::in(['sauna', 'event'])],
+            'timeslot_id'         => ['required', 'exists:timeslots,id'], // always
+            'event_occurrence_id' => [
+                'nullable',
+                'required_if:booking_type,event',
+                'exists:event_occurrences,id',
+            ],
+            'people'       => ['required', 'integer', 'between:1,8'],
+            'services'     => ['array'],
+            'services.*'   => ['integer', 'min:0'],
         ]);
 
-        /* 2. Transaction: lock capacity & build booking ---------------- */
-        $booking = DB::transaction(function () use ($data) {
+        /* ---------- 2. Lock core records & basic capacity checks --------------- */
+        $slot = Timeslot::lockForUpdate()->findOrFail($data['timeslot_id']);
 
-            /* 2A. Lock & capacity checks ------------------------------ */
-            $slot = Timeslot::lockForUpdate()->find($data['timeslot_id']);
+        $occ = null;
+        if ($data['booking_type'] === 'event') {
+            $occ = EventOccurrence::with('event')
+                ->lockForUpdate()
+                ->findOrFail($data['event_occurrence_id']);
 
-            $slotBooked = $slot->bookings()->sum('people');
-            if ($slotBooked + $data['people'] > $slot->capacity) {
-                abort(409, 'Chosen sauna slot is already full.');
+            // Guard against missing price (accessor never returns null, but belt-and-braces)
+            if (! $occ->effective_price) {
+                abort(500, "Price missing for event occurrence #{$occ->id}");
+            }
+        }
+
+        /* slot capacity */
+        $slotBooked = $slot->bookings()->sum('people');
+        if ($slotBooked + $data['people'] > $slot->capacity) {
+            abort(409, 'Chosen sauna slot is already full.');
+        }
+
+        /* event capacity */
+        if ($occ) {
+            if (! $occ->is_active) {
+                abort(409, 'Event is no longer bookable.');
             }
 
-            if ($data['booking_type'] === 'event') {
-                $occ = EventOccurrence::lockForUpdate()->find($data['event_occurrence_id']);
+            $occBooked = $occ->bookings()->sum('people');
+            $occCap    = $occ->effective_capacity ?? 8;
 
-                if (!$occ->is_active) {
-                    abort(409, 'Event is no longer bookable.');
-                }
-
-                $occBooked = $occ->bookings()->sum('people');
-                $occCap    = $occ->effective_capacity ?? 8;
-
-                if ($occBooked + $data['people'] > $occCap) {
-                    abort(409, 'Event capacity reached.');
-                }
+            if ($occBooked + $data['people'] > $occCap) {
+                abort(409, 'Event capacity reached.');
             }
+        }
 
-            /* 2B. Create booking header ------------------------------ */
+        /* ---------- 3. Build booking inside a transaction ---------------------- */
+        $booking = DB::transaction(function () use ($data, $slot, $occ) {
+
+            /* 3A. header -------------------------------------------------------- */
             $booking = Booking::create([
                 'user_id'             => Auth::id(),
                 'timeslot_id'         => $slot->id,
-                'event_occurrence_id' => $data['booking_type'] === 'event'
-                    ? $occ->id
-                    : null,
-                'people'   => $data['people'],
-                'status'   => 'pending',
-                'amount'   => 0, // update below
+                'event_occurrence_id' => $occ?->id,
+                'people'              => $data['people'],
+                'status'              => 'pending',
+                'amount'              => 0, // updated below
             ]);
 
             $total = 0;
 
-            /* 2C. Main line item ------------------------------------- */
+            /* 3B. main line item ----------------------------------------------- */
             if ($data['booking_type'] === 'sauna') {
-                $sessionSvc = Service::where('code', 'SAUNA_SESSION')->firstOrFail();
-                $line = $data['people'] * $sessionSvc->price;
+                $sessionSvc = Service::whereCode('SAUNA_SESSION')->firstOrFail();
+                $priceEach  = $sessionSvc->price_cents;                 // cents
+                $line       = $data['people'] * $priceEach;
 
                 $booking->services()->attach($sessionSvc->id, [
                     'quantity'   => $data['people'],
-                    'price_each' => $sessionSvc->price,
+                    'price_each' => $priceEach,
                     'line_total' => $line,
                 ]);
 
                 $total += $line;
-            } else { // event package (price stored on occurrence)
-                $pkgSvc = Service::where('code', 'EVENT_PACKAGE')->firstOrFail();
-                $line   = $data['people'] * $occ->effective_price;
+            } else { // event bundle
+                $pkgSvc   = Service::whereCode('EVENT_PACKAGE')->firstOrFail();
+                $priceEach = $occ->effective_price;               // cents
+                $line      = $data['people'] * $priceEach;
 
                 $booking->services()->attach($pkgSvc->id, [
                     'quantity'   => $data['people'],
-                    'price_each' => $occ->effective_price,
+                    'price_each' => $priceEach,
                     'line_total' => $line,
                     'meta'       => json_encode(['event_occurrence_id' => $occ->id]),
                 ]);
@@ -108,12 +126,12 @@ class BookingController extends Controller
                 $total += $line;
             }
 
-            /* 2D. Add‑ons ------------------------------------------- */
+            /* 3C. add-ons ------------------------------------------------------ */
             foreach ($data['services'] ?? [] as $code => $qty) {
                 if ($qty < 1) continue;
 
-                $svc  = Service::where('code', $code)->firstOrFail();
-                $line = $qty * $svc->price;
+                $svc  = Service::whereCode($code)->firstOrFail();
+                $line = $qty * $svc->price;                       // cents
 
                 $booking->services()->attach($svc->id, [
                     'quantity'   => $qty,
@@ -124,25 +142,28 @@ class BookingController extends Controller
                 $total += $line;
             }
 
-            $booking->update(['amount' => $total]);
-
+            $booking->update(['amount' => $total]); // cents
             return $booking;
         });
 
-        /* 3. Peach Payment checkout ---------------------------------- */
+        /* ---------- 4. Initiate Peach Payment checkout ------------------------ */
         $peach   = new PeachPayment();
         $entity  = config('peach-payment.entity_id');
         $cbUrl   = 'order/callback';
 
-        $checkout = $peach->createCheckout($booking->amount, $cbUrl);
+        // Convert integer cents → "280.00"
+        $amountForGateway = number_format($booking->amount / 100, 2, '.', '');
+
+        $checkout = $peach->createCheckout($amountForGateway, $cbUrl);
 
         $booking->update(['peach_payment_checkout_id' => $checkout['checkoutId']]);
 
         return Inertia::render('Payment/RedirectToGateway', [
             'entityId'          => $entity,
             'checkoutId'        => $checkout['checkoutId'],
-            'checkoutScriptUrl' =>
-            config('peach-payment.' . config('peach-payment.environment') . '.embedded_checkout_url'),
+            'checkoutScriptUrl' => config(
+                'peach-payment.' . config('peach-payment.environment') . '.embedded_checkout_url'
+            ),
         ]);
     }
 }

@@ -29,8 +29,6 @@ export default function Locations({ nextStep, updateFormData, events }) {
     const [openings, setOpenings] = useState([]); // raw API rows
     const [schedule, setSchedule] = useState({});
 
-    console.log("events", events);
-
     dayjs.extend(isSameOrAfter);
     dayjs.extend(weekdayPlugin);
 
@@ -40,36 +38,52 @@ export default function Locations({ nextStep, updateFormData, events }) {
             .then(setOpenings);
     }, []);
 
+    /* build the visual grid whenever `openings` changes */
     useEffect(() => {
-        const tmp = {};
+        if (!openings.length) return;
 
-        // always two visual rows
+        /* 1. empty two-row matrix (AM / PM) for every weekday */
+        const tmp = {};
         weekdayNames.forEach((d) => (tmp[d] = { AM: [], PM: [] }));
 
-        // drop every opening into the right bucket
+        /* 2. drop each opening into the correct bucket */
         openings.forEach((o) => {
             const dayName = weekdayNames[o.weekday];
+            if (!dayName) return; // guard bad weekday
 
-            o.periods.forEach((p) => {
-                const meta = PERIODS[p]; // {row, time, order}
-                tmp[dayName][meta.row].push({
-                    id: o.location_id,
-                    name: o.location,
-                    period: p,
-                    time: meta.time,
-                    order: meta.order, // keep for sorting
-                });
+            const p = String(o.period).toLowerCase(); // "morning"
+            const meta = PERIODS[p]; // { row:"AM", order:1 }
+            if (!meta) return; // skip unknown label
+
+            /* nice human label from the real times, e.g. "06:00 – 11:00" */
+            const timeLabel =
+                o.start_time && o.end_time
+                    ? `${o.start_time.slice(0, 5)} – ${o.end_time.slice(0, 5)}`
+                    : "—";
+
+            tmp[dayName][meta.row].push({
+                id: o.location_id,
+                name: o.location,
+                period: p,
+                time: timeLabel,
+                order: meta.order,
+                start: o.start_time,
+                end: o.end_time,
             });
         });
 
-        // ── sort “AM” and “PM” arrays by order (and optionally by name/time) ──
+        /* 3. sort visually inside each AM / PM list */
         Object.values(tmp).forEach(({ AM, PM }) => {
-            AM.sort((a, b) => a.order - b.order);
-            PM.sort((a, b) => a.order - b.order);
+            const sortFn = (a, b) =>
+                a.order - b.order ||
+                (a.start || "").localeCompare(b.start || "");
+            AM.sort(sortFn);
+            PM.sort(sortFn);
         });
 
         setSchedule(tmp);
     }, [openings]);
+
     const handleSelect = (day, slot) => setSelected({ day, ...slot });
 
     const handleNext = () => {
@@ -180,11 +194,13 @@ export default function Locations({ nextStep, updateFormData, events }) {
                         </div>
 
                         {/* exactly two fixed rows: AM + PM */}
+                        {/* exactly two fixed rows: AM + PM */}
                         <div className="border border-hh-orange rounded-2xl divide-y divide-hh-orange">
                             {["AM", "PM"].map((row) => (
                                 <div
                                     key={row}
-                                    className="px-2 py-4 h-48 flex flex-col justify-center gap-y-4"
+                                    /*  ↓↓↓  h-48 removed, gap tightened a bit  */
+                                    className="px-2 py-4 flex flex-col gap-y-3"
                                 >
                                     {rows[row].map((slot, i) => {
                                         const isSel =
@@ -211,9 +227,9 @@ export default function Locations({ nextStep, updateFormData, events }) {
                                         );
                                     })}
 
-                                    {/* empty placeholder to keep row height if no slots */}
+                                    {/* placeholder only if the list is empty (height now auto) */}
                                     {rows[row].length === 0 && (
-                                        <div className="h-full flex items-center justify-center text-xs text-hh-gray">
+                                        <div className="text-xs text-hh-gray text-center py-6">
                                             {/* intentionally blank */}
                                         </div>
                                     )}

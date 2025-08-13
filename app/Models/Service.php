@@ -18,7 +18,7 @@ class Service extends Model
         'code'    => 'string',
         'name'    => 'string',
         'category' => 'string',
-        'price'  => 'decimal:2',
+        'price'  => 'integer',
         'active' => 'boolean',
     ];
 
@@ -30,6 +30,23 @@ class Service extends Model
         return $this->belongsToMany(Booking::class)
             ->withPivot(['quantity', 'price_each', 'line_total'])
             ->withTimestamps();
+    }
+
+    public function setPriceAttribute($value): void
+    {
+        // accept "80" or "80.00" and turn into 8000
+        $this->attributes['price'] = (int) round(((float) $value) * 100);
+    }
+
+    public function getPriceAttribute($value): float
+    {
+        // 8000  →  80.00
+        return $value / 100;
+    }
+
+    public function getPriceCentsAttribute(): int
+    {
+        return $this->attributes['price'];   // raw integer
     }
 
     /* ----------------------------------------------------------

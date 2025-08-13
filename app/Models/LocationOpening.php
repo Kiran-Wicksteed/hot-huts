@@ -6,8 +6,11 @@ use Illuminate\Database\Eloquent\Model;
 
 class LocationOpening extends Model
 {
-    protected $fillable = ['location_id', 'sauna_id', 'weekday', 'periods'];
-    protected $casts    = ['periods' => 'array'];
+    protected $fillable = ['location_id', 'sauna_id', 'weekday', 'period', 'start_time', 'end_time'];
+    protected $casts = [
+        'start_time' => 'string',
+        'end_time'   => 'string',
+    ];
 
 
     public function location()

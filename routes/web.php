@@ -60,16 +60,8 @@ Route::get(
     [AvailabilityController::class, 'all']
 )->name('availability.all');
 
-Route::get('openings/all', function () {
-    return \App\Models\LocationOpening::with('location:id,name')
-        ->get()
-        ->map(fn($row) => [
-            'location_id' => $row->location_id,
-            'location'    => $row->location->name,
-            'weekday'     => $row->weekday,         // 0 = Sun … 6 = Sat
-            'periods'     => $row->periods,         // ['morning','evening']
-        ]);
-})->name('openings.all');;
+Route::get('openings/all', [OpeningController::class, 'all'])
+    ->name('openings.all');
 Route::get('openings', [OpeningController::class, 'index'])
     ->name('openings');
 

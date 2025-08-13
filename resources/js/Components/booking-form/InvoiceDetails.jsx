@@ -76,6 +76,15 @@ export default function InvoiceDetails({
 
     /* ---------- POST booking ---------- */
     const makeBooking = () => {
+        console.log("Booking data:", {
+            booking_type: formData.booking_type,
+            timeslot_id,
+            event_occurrence_id, // null for sauna‑only
+            people,
+            services: Object.fromEntries(
+                addonsLines.map((l) => [l.code, l.qty])
+            ),
+        });
         router.post(
             route("bookings.store"),
             {

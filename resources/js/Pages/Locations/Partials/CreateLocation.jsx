@@ -2,80 +2,102 @@ import { Dialog } from "@headlessui/react";
 import { useForm } from "@inertiajs/react";
 import React from "react";
 
-export default function CreateLocation({ item, onClose, saunas }) {
+export default function CreateLocation({ item = {}, onClose, saunas = [] }) {
     const isEdit = Boolean(item.id);
 
-    /* Inertia form ---------------------- */
-    const { data, setData, post, put, processing, errors } = useForm({
-        name: item.name || "",
-        address: item.address || "",
-        timezone: item.timezone || "Africa/Johannesburg",
-        image: null,
-        sauna_id: item.sauna_id ?? "",
-        weekdays: item.weekdays ?? [], // [] of numbers 0‑6
-        periods: item.periods ?? [], // [] of strings
-    });
-
-    /* local UI state only (for custom times) */
-    const [enabledPeriods, setEnabledPeriods] = React.useState(
-        new Set(data.periods ?? [])
-    );
-    const [times, setTimes] = React.useState({
+    /* ---------- defaults ---------- */
+    const defaultRanges = {
         morning: { start: "06:00", end: "11:00" },
         afternoon: { start: "12:00", end: "16:00" },
         evening: { start: "17:00", end: "20:00" },
         night: { start: "20:00", end: "23:00" },
+    };
+
+    /* ---------- inertia form ---------- */
+    const { data, setData, post, put, processing, errors } = useForm({
+        name: item.name ?? "",
+        address: item.address ?? "",
+        timezone: item.timezone ?? "Africa/Johannesburg",
+        image: null,
+        sauna_id: item.sauna_id ?? "",
+        weekdays: item.weekdays ?? [],
+        periods: (item.periods ?? []).filter(Boolean),
+        custom_times: {
+            ...defaultRanges,
+            ...(item.times || {}),
+        },
     });
 
-    /* sync helper so Inertia always has the plain string‑array it already expects */
-    const syncPeriodsToForm = (nextSet) =>
-        setData("periods", Array.from(nextSet));
+    /* ---------- local state for UI control ---------- */
+    const [enabledPeriods, setEnabledPeriods] = React.useState(
+        new Set(data.periods)
+    );
 
-    /* toggle weekday 0–6 ---------------------------------------------------- */
+    /* ---------- helpers ---------- */
     const toggleWeekday = (i) => {
-        const w = new Set(data.weekdays ?? []);
+        const w = new Set(data.weekdays);
         w.has(i) ? w.delete(i) : w.add(i);
         setData("weekdays", [...w]);
     };
 
-    /* period helpers -------------------------------------------------------- */
     const togglePeriod = (p) => {
         const nxt = new Set(enabledPeriods);
         nxt.has(p) ? nxt.delete(p) : nxt.add(p);
-        setEnabledPeriods(nxt);
-        syncPeriodsToForm(nxt);
+        const cleaned = Array.from(nxt).filter(Boolean);
+        setEnabledPeriods(new Set(cleaned));
+        setData("periods", cleaned);
     };
 
-    const changeTime = (p, field, val) =>
-        setTimes((prev) => ({ ...prev, [p]: { ...prev[p], [field]: val } }));
+    // ✅ This now updates the nested state within useForm
+    const changeTime = (p, field, val) => {
+        setData("custom_times", {
+            ...data.custom_times,
+            [p]: {
+                ...data.custom_times[p],
+                [field]: val,
+            },
+        });
+    };
 
-    /* submit ---------------------------------------------------------------- */
+    /* ---------- submit ---------- */
     const submit = (e) => {
         e.preventDefault();
-        const opts = { onSuccess: onClose };
 
-        // 🟠  If you later want to send `times` to the backend, merge here:
-        //     post(route(...), { ...data, custom_times: times }, opts)
+        const options = {
+            onSuccess: onClose,
+            // ✅ Transform the data right before sending
+            transform: (values) => {
+                // Filter custom_times to only include keys from the 'periods' array
+                const filteredTimes = Object.fromEntries(
+                    values.periods.map((p) => [p, values.custom_times[p]])
+                );
+                return { ...values, custom_times: filteredTimes };
+            },
+        };
 
-        isEdit
-            ? put(route("locations.update", item.id), opts)
-            : post(route("locations.store"), opts);
+        if (isEdit) {
+            // `put` automatically handles POST + _method spoofing for file uploads
+            put(route("locations.update", item.id), options);
+        } else {
+            post(route("locations.store"), options);
+        }
     };
 
-    /* UI -------------------------------------------------------------------- */
+    /* ---------- ui ---------- */
     return (
         <Dialog
             open
             onClose={onClose}
-            className="fixed inset-0 flex items-center justify-center"
+            className="fixed inset-0 z-10 flex items-center justify-center"
         >
-            <Dialog.Panel className="bg-white p-6 rounded shadow w-full max-w-md space-y-3">
+            <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
+            <Dialog.Panel className="bg-white p-6 rounded shadow-lg w-full max-w-md space-y-3 z-20">
                 <Dialog.Title className="text-lg font-semibold mb-2">
                     {isEdit ? "Edit Location" : "New Location"}
                 </Dialog.Title>
 
                 <form onSubmit={submit} className="space-y-3">
-                    {/* name / address / tz ---------------------------------------- */}
+                    {/* ---- name / address / tz ---- */}
                     <input
                         value={data.name}
                         onChange={(e) => setData("name", e.target.value)}
@@ -108,10 +130,10 @@ export default function CreateLocation({ item, onClose, saunas }) {
                         </p>
                     )}
 
-                    {/* sauna ------------------------------------------------------- */}
+                    {/* ---- sauna ---- */}
                     <label className="block mb-2 font-medium">Sauna</label>
                     <select
-                        value={data.sauna_id ?? ""}
+                        value={data.sauna_id}
                         onChange={(e) => setData("sauna_id", e.target.value)}
                         className="w-full border p-2 rounded mb-4"
                     >
@@ -128,7 +150,7 @@ export default function CreateLocation({ item, onClose, saunas }) {
                         </p>
                     )}
 
-                    {/* weekdays ---------------------------------------------------- */}
+                    {/* ---- weekdays ---- */}
                     <label className="block mb-2 font-medium">Weekdays</label>
                     <div className="flex flex-wrap gap-2 mb-4">
                         {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(
@@ -139,9 +161,7 @@ export default function CreateLocation({ item, onClose, saunas }) {
                                 >
                                     <input
                                         type="checkbox"
-                                        checked={
-                                            data.weekdays?.includes(i) ?? false
-                                        }
+                                        checked={data.weekdays.includes(i)}
                                         onChange={() => toggleWeekday(i)}
                                     />
                                     {d}
@@ -155,33 +175,32 @@ export default function CreateLocation({ item, onClose, saunas }) {
                         </p>
                     )}
 
-                    {/* NEW periods UI --------------------------------------------- */}
+                    {/* ---- periods ---- */}
                     <label className="block mb-2 font-medium">Periods</label>
                     <div className="space-y-3 mb-6">
                         {["morning", "afternoon", "evening", "night"].map(
                             (p) => {
                                 const on = enabledPeriods.has(p);
-                                const lab = p[0].toUpperCase() + p.slice(1);
-                                const { start, end } = times[p];
+                                const cap = p[0].toUpperCase() + p.slice(1);
+                                // ✅ Read directly from the form state
+                                const { start, end } = data.custom_times[p];
 
                                 return (
                                     <div
                                         key={p}
                                         className="flex items-center gap-3"
                                     >
-                                        {/* enable/disable */}
                                         <label className="flex items-center gap-2">
                                             <input
                                                 type="checkbox"
                                                 checked={on}
                                                 onChange={() => togglePeriod(p)}
                                             />
-                                            <span className="capitalize">
-                                                {lab}
+                                            <span className="capitalize w-20">
+                                                {cap}
                                             </span>
                                         </label>
 
-                                        {/* custom time pickers */}
                                         {on && (
                                             <>
                                                 <input
@@ -219,8 +238,15 @@ export default function CreateLocation({ item, onClose, saunas }) {
                     {errors.periods && (
                         <p className="text-red-600 text-sm">{errors.periods}</p>
                     )}
+                    {Object.keys(errors)
+                        .filter((k) => k.startsWith("custom_times"))
+                        .map((k) => (
+                            <p key={k} className="text-red-600 text-sm">
+                                {errors[k]}
+                            </p>
+                        ))}
 
-                    {/* image upload ----------------------------------------------- */}
+                    {/* ---- image ---- */}
                     <input
                         type="file"
                         onChange={(e) => setData("image", e.target.files[0])}
@@ -230,12 +256,26 @@ export default function CreateLocation({ item, onClose, saunas }) {
                         <p className="text-red-600 text-sm">{errors.image}</p>
                     )}
 
-                    <button
-                        disabled={processing}
-                        className="w-full py-2 bg-blue-600 text-white rounded"
-                    >
-                        {isEdit ? "Update" : "Create"}
-                    </button>
+                    <div className="flex justify-end gap-2 pt-4">
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            className="py-2 px-4 bg-gray-200 text-gray-800 rounded hover:bg-gray-300"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="submit"
+                            disabled={processing}
+                            className="py-2 px-4 bg-blue-600 text-white rounded disabled:bg-blue-300"
+                        >
+                            {processing
+                                ? "Saving..."
+                                : isEdit
+                                ? "Update"
+                                : "Create"}
+                        </button>
+                    </div>
                 </form>
             </Dialog.Panel>
         </Dialog>

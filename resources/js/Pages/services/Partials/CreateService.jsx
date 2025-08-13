@@ -61,6 +61,7 @@ export default function CreateService({ item, onClose }) {
                         <option value="">Select Category</option>
                         <option value="session">Session</option>
                         <option value="addon">Addon</option>
+                        <option value="addon">Event</option>
                     </select>
                     {errors.category && (
                         <p className="text-red-600 text-sm">
