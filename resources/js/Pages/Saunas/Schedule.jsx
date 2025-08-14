@@ -94,11 +94,7 @@ export default function Schedule({ sauna, locations }) {
                                     {s.location.name}
                                     &nbsp;
                                     <span className="text-sm text-gray-500">
-                                        (
-                                        {s.period === "morning"
-                                            ? "Morning"
-                                            : "Evening"}
-                                        )
+                                        {s.period}
                                     </span>
                                 </td>
                                 <td className="text-right">

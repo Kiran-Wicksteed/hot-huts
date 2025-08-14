@@ -40,7 +40,7 @@ export default function Dashboard() {
             <div className="mx-auto ml-[256px]  ">
                 <div className="mx-auto ">
                     <div className="mt-4 grid grid-cols-1 gap-4 sm:mt-12 lg:grid-cols-10 lg:grid-rows-1">
-                        <div className="relative lg:col-span-4  h-80 border border-hh-gray rounded-md bg-white ">
+                        {/* <div className="relative lg:col-span-4  h-80 border border-hh-gray rounded-md bg-white ">
                             <div className="relative  h-full flex flex-col justify-end overflow-hidden">
                                 <div className="m-2  border border-hh-gray rounded-md h-full ">
                                     <DatePicker
@@ -52,8 +52,8 @@ export default function Dashboard() {
                                     />
                                 </div>
                             </div>
-                        </div>
-                        <div className="relative lg:col-span-6 overflow-y-scroll h-80 border border-hh-gray rounded-md  bg-white">
+                        </div> */}
+                        {/* <div className="relative lg:col-span-6 overflow-y-scroll h-80 border border-hh-gray rounded-md  bg-white">
                             <div className="relative  h-full flex flex-col ">
                                 <div className="p-6">
                                     <h4
@@ -323,7 +323,7 @@ export default function Dashboard() {
                                     </div>
                                 </div>
                             </div>
-                        </div>
+                        </div> */}
                         <div className="relative lg:col-span-6 overflow-hidden   border border-hh-gray rounded-md  bg-hh-orange">
                             <div className="relative  h-full flex flex-col  overflow-hidden">
                                 <div className="p-6">
@@ -608,7 +608,7 @@ export default function Dashboard() {
                                 </div>
                             </div>
                         </div>
-                        <div className="relative lg:col-span-full overflow-hidden border border-hh-gray rounded-md  bg-white p-6">
+                        {/* <div className="relative lg:col-span-full overflow-hidden border border-hh-gray rounded-md  bg-white p-6">
                             <h4
                                 className={`${styles.h3} !mb-4 font-medium text-black `}
                             >
@@ -710,8 +710,8 @@ export default function Dashboard() {
 
                                 <div className="w-full h-2 rounded bg-hh-gray"></div>
                             </div>
-                        </div>
-                        <div className="relative lg:col-span-full  overflow-hidden pt-6 pb-12">
+                        </div> */}
+                        {/* <div className="relative lg:col-span-full  overflow-hidden pt-6 pb-12">
                             <div className="col-span-full flex justify-between items-center mb-6">
                                 <div>
                                     {" "}
@@ -1123,7 +1123,7 @@ export default function Dashboard() {
                                     </div>
                                 </div>
                             </div>
-                        </div>
+                        </div> */}
                     </div>
                 </div>
             </div>

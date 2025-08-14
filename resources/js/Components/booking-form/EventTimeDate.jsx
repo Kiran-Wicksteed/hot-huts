@@ -28,10 +28,22 @@ export default function EventTimeDate({
     const eventPriceRand = (event_price / 100).toFixed(2);
     const pricePerPerson = (event_price_per_person / 100).toFixed(2);
 
-    const eventEndTime = useMemo(() => {
-        if (!eventTimeRange) return null;
-        return eventTimeRange.split("-")[1].trim(); // "HH:MM"
+    const [eventStartTime, eventEndTime] = useMemo(() => {
+        if (!eventTimeRange) return [null, null];
+        const [startStr, endStr] = eventTimeRange
+            .split("-")
+            .map((s) => s.trim());
+        return [startStr, endStr]; // "HH:MM", "HH:MM"
     }, [eventTimeRange]);
+
+    const parseOnDate = (dateStr, timeStr) => {
+        // Accept "HH:mm" or "HH:mm:ss" or ISO
+        if (!timeStr) return null;
+        const hhmm = /^\d{2}:\d{2}(:\d{2})?$/;
+        return hhmm.test(timeStr)
+            ? dayjs(`${dateStr} ${timeStr}`)
+            : dayjs(timeStr); // if your API returns ISO timestamps
+    };
 
     const [slots, setSlots] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -42,11 +54,12 @@ export default function EventTimeDate({
 
     // fetch only slots AFTER the event end time on the same date/location
     useEffect(() => {
-        console.log(location.id, eventDate, eventEndTime);
-        if (!location.id || !eventDate || !eventEndTime) return;
+        if (!location?.id || !eventDate || !eventStartTime || !eventEndTime)
+            return;
 
         (async () => {
             setLoading(true);
+
             const res = await fetch(
                 route("availability.all", {
                     location_id: location.id,
@@ -54,11 +67,36 @@ export default function EventTimeDate({
                 })
             );
             const json = await res.json(); // [{id, starts_at, ends_at, spots_left}, …]
-            const filtered = json.filter((s) => s.starts_at >= eventEndTime);
+
+            // Build event window on the same date
+            const eventStart = parseOnDate(eventDate, eventStartTime);
+            const eventEnd = parseOnDate(eventDate, eventEndTime);
+
+            // Keep slots that DO NOT overlap the event:
+            //   (slotEnd <= eventStart) OR (slotStart >= eventEnd)
+            const filtered = (json.data || [])
+                .filter((s) => {
+                    const slotStart = parseOnDate(eventDate, s.starts_at);
+                    const slotEnd = parseOnDate(eventDate, s.ends_at);
+                    if (!slotStart || !slotEnd || !eventStart || !eventEnd)
+                        return false;
+
+                    const endsBeforeEvent = !slotEnd.isAfter(eventStart); // slotEnd <= eventStart
+                    const startsAfterEvent = !slotStart.isBefore(eventEnd); // slotStart >= eventEnd
+
+                    return endsBeforeEvent || startsAfterEvent;
+                })
+                // Optional: sort chronologically so morning → evening
+                .sort((a, b) => {
+                    const aStart = parseOnDate(eventDate, a.starts_at);
+                    const bStart = parseOnDate(eventDate, b.starts_at);
+                    return aStart.valueOf() - bStart.valueOf();
+                });
+
             setSlots(filtered);
             setLoading(false);
         })();
-    }, [location.id, eventDate, eventEndTime]);
+    }, [location?.id, eventDate, eventStartTime, eventEndTime]);
 
     // When selecting a sauna slot
     const handleSlot = (slot) => {

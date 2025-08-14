@@ -101,167 +101,192 @@ class SaunaScheduleController extends Controller
 
     public function generate(Request $r, Sauna $sauna)
     {
-        $daysAhead = 60;
+        $daysAhead = (int)($r->input('days_ahead', 60));
 
-        // ---------- Load & sanity check ----------
-        $openings = LocationOpening::where('sauna_id', $sauna->id)->get();
+        // 1) Get all opening rules for this sauna
+        $openings = LocationOpening::where('sauna_id', $sauna->id)
+            ->get(['location_id', 'weekday', 'period', 'start_time', 'end_time']);
+
         if ($openings->isEmpty()) {
-            return back()->with('error', 'No Location Openings configured.');
+            return back()->with('error', 'No Location Openings configured for this sauna.');
         }
+        Log::debug('Fetched LocationOpening rules', ['count' => $openings->count(), 'data' => $openings->toArray()]);
 
-        // Map for quick lookups and pruning:
-        // $openingsMap[location_id][weekday][period] = ['start' => 'HH:MM[:SS]', 'end' => 'HH:MM[:SS]']
-        $openingsMap = [];
-        foreach ($openings as $o) {
-            $period = strtolower(trim($o->period));
-            $openingsMap[$o->location_id][$o->weekday][$period] = [
-                'start' => $o->start_time,   // DB is TIME so already HH:MM:SS
-                'end'   => $o->end_time,
-            ];
-        }
-
-        // Group by weekday for robust date-first generation
-        $byWeekday = $openings->groupBy('weekday')->map->values();
 
         $start = Carbon::today();
-        $end   = (clone $start)->addDays($daysAhead - 1);
+        $end = (clone $start)->addDays($daysAhead - 1);
         $range = CarbonPeriod::create($start, $end);
 
-        // ---------- A) ADD missing schedules ----------
-        $added = 0;
-        $perPeriodAdd = ['morning' => 0, 'afternoon' => 0, 'evening' => 0, 'night' => 0];
-
-        foreach ($range as $date) {
-            $w = $date->dayOfWeek; // 0..6 (Sun..Sat)
-
-            if (! isset($byWeekday[$w])) {
-                continue; // no configured openings for this weekday
-            }
-
-            foreach ($byWeekday[$w] as $o) {
-                $period = strtolower(trim($o->period));
-                if (! in_array($period, ['morning', 'afternoon', 'evening', 'night'], true)) {
-                    continue; // skip invalid period labels
-                }
-
-                $exists = SaunaSchedule::where('sauna_id', $sauna->id)
-                    ->where('location_id', $o->location_id)
-                    ->whereDate('date', $date)
-                    ->where('period', $period)
-                    ->exists();
-
-                if (! $exists) {
-                    $sauna->schedules()->create([
+        // 2) Determine the complete set of schedules that SHOULD exist based on the rules.
+        $idealSchedules = [];
+        $windows = []; // This will hold the start/end times for each period rule
+        foreach ($openings as $o) {
+            $windows[$o->location_id][$o->weekday][$o->period] = [
+                'start' => $o->start_time,
+                'end'   => $o->end_time,
+            ];
+            foreach ($range as $date) {
+                if ((int) $date->dayOfWeek === (int) $o->weekday) {
+                    $dateString = $date->toDateString();
+                    $scheduleKey = "{$o->location_id}|{$dateString}|{$o->period}";
+                    $idealSchedules[$scheduleKey] = [
+                        'sauna_id'    => $sauna->id,
                         'location_id' => $o->location_id,
-                        'date'        => $date->toDateString(),
-                        'period'      => $period,
-                    ]);
-                    ++$added;
-                    ++$perPeriodAdd[$period];
+                        'date'        => $date->copy()->startOfDay()->format('Y-m-d H:i:s'),
+                        'period'      => $o->period,
+                        'created_at'  => now(),
+                        'updated_at'  => now(),
+                    ];
                 }
             }
         }
+        Log::debug('Calculated ideal schedules based on rules', ['count' => count($idealSchedules), 'keys' => array_keys($idealSchedules)]);
 
-        // ---------- B) PRUNE schedules outside configured windows ----------
-        $prunedSchedules = 0;
+        // 3) Get the set of schedules that CURRENTLY exist in the database for the date range.
+        $existingSchedules = SaunaSchedule::where('sauna_id', $sauna->id)
+            ->whereBetween('date', [$start->copy()->startOfDay(), $end->copy()->endOfDay()])
+            ->get()
+            ->keyBy(function ($schedule) {
+                $dateString = Carbon::parse($schedule->date)->toDateString();
+                return "{$schedule->location_id}|{$dateString}|{$schedule->period}";
+            });
+        Log::debug('Found existing schedules in DB', ['count' => $existingSchedules->count(), 'keys' => $existingSchedules->keys()->all()]);
 
-        $scheduled = SaunaSchedule::where('sauna_id', $sauna->id)
-            ->whereBetween('date', [$start->toDateString(), $end->toDateString()])
+
+        // 4) Compare and sync schedules
+        $schedulesToCreate = array_diff_key($idealSchedules, $existingSchedules->all());
+        $schedulesToPrune = array_diff_key($existingSchedules->all(), $idealSchedules);
+
+        Log::debug('Schedules to be created', ['count' => count($schedulesToCreate)]);
+        Log::debug('Schedules to be pruned', ['count' => count($schedulesToPrune)]);
+
+        // 5) Batch insert the new schedules.
+        if (!empty($schedulesToCreate)) {
+            DB::table('sauna_schedules')->insert(array_values($schedulesToCreate));
+        }
+
+        // 6) Prune old schedules that have no bookings.
+        $prunedSchedulesCount = 0;
+        if (!empty($schedulesToPrune)) {
+            $pruneIds = collect($schedulesToPrune)->pluck('id')->all();
+            $schedulesWithBookings = DB::table('timeslots')
+                ->whereIn('sauna_schedule_id', $pruneIds)
+                ->whereExists(function ($query) {
+                    $query->select(DB::raw(1))
+                        ->from('booking_service')
+                        ->whereColumn('booking_service.timeslot_id', 'timeslots.id');
+                })
+                ->pluck('sauna_schedule_id')
+                ->unique();
+            $pruneIdsWithoutBookings = collect($pruneIds)->diff($schedulesWithBookings)->all();
+            if (!empty($pruneIdsWithoutBookings)) {
+                Timeslot::whereIn('sauna_schedule_id', $pruneIdsWithoutBookings)->delete();
+                $prunedSchedulesCount = SaunaSchedule::whereIn('id', $pruneIdsWithoutBookings)->delete();
+            }
+        }
+
+        // =================================================================
+        // 7) GENERATE TIMESLOTS FOR ALL VALID SCHEDULES
+        // This section creates the actual bookable timeslots.
+        // =================================================================
+        $timeslotsCreatedCount = 0;
+        // We need to get all schedules that should exist after our sync.
+        $validSchedules = SaunaSchedule::where('sauna_id', $sauna->id)
+            ->whereBetween('date', [$start->copy()->startOfDay(), $end->copy()->endOfDay()])
             ->get();
 
-        foreach ($scheduled as $s) {
-            $weekday = Carbon::parse($s->date)->dayOfWeek;
-            $period  = strtolower(trim($s->period));
+        foreach ($validSchedules as $schedule) {
+            $scheduleDate = Carbon::parse($schedule->date);
+            $weekday = $scheduleDate->dayOfWeek;
 
-            $hasWindow = $openingsMap[$s->location_id][$weekday][$period] ?? null;
+            // Find the corresponding opening rule to get the start and end times
+            $win = $windows[$schedule->location_id][$weekday][$schedule->period] ?? null;
 
-            if (! $hasWindow) {
-                // No longer a valid opening → remove schedule row
-                $s->delete();
-                ++$prunedSchedules;
+            if (!$win) {
+                Log::warning("Could not find opening window for schedule ID {$schedule->id}. Skipping timeslot generation.");
+                continue;
             }
-        }
 
-        // ---------- C) PRUNE time slots outside windows (keep ones with bookings) ----------
-        $prunedTimeslots = 0;
+            // Define the time window for timeslot generation
+            $slotStartTime = Carbon::parse($scheduleDate->toDateString() . ' ' . $win['start']);
+            $slotEndTime = Carbon::parse($scheduleDate->toDateString() . ' ' . $win['end']);
 
-        // Support either DATE+TIME columns or DATETIME columns
-        $usesDateTime = Schema::hasColumn('timeslots', 'start_at')
-            && Schema::hasColumn('timeslots', 'end_at');
+            // Define the duration of the rental and the buffer between slots.
+            $rentalDurationMinutes = 15; // The actual time the customer has the sauna.
+            $bufferMinutes = 5;          // The cleaning/turnover time between slots.
+            $totalSlotIntervalMinutes = $rentalDurationMinutes + $bufferMinutes;
 
-        // Helper to add seconds if needed
-        $ensureSeconds = static function (string $hhmmOrHhmmss): string {
-            return strlen($hhmmOrHhmmss) === 5 ? ($hhmmOrHhmmss . ':00') : $hhmmOrHhmmss;
-        };
+            // Create a period to find the start times for each slot. The interval includes the buffer.
+            $timeslotPeriods = CarbonPeriod::create($slotStartTime, $totalSlotIntervalMinutes . ' minutes', $slotEndTime);
 
-        if ($usesDateTime) {
-            $slots = Timeslot::where('sauna_id', $sauna->id)
-                ->whereBetween('start_at', [$start->copy()->startOfDay(), $end->copy()->endOfDay()])
-                ->get();
+            foreach ($timeslotPeriods as $slotStart) {
+                // The end time for the booking is based on the rental duration only.
+                $slotEnd = $slotStart->copy()->addMinutes($rentalDurationMinutes);
 
-            foreach ($slots as $t) {
-                $day     = Carbon::parse($t->start_at);
-                $weekday = $day->dayOfWeek;
-
-                $windows = array_values($openingsMap[$t->location_id][$weekday] ?? []); // 0..n windows
-
-                $slotStart = Carbon::parse($t->start_at);
-                $slotEnd   = Carbon::parse($t->end_at);
-
-                $insideAny = false;
-                foreach ($windows as $w) {
-                    $winStart = Carbon::parse($day->toDateString() . ' ' . $ensureSeconds($w['start']));
-                    $winEnd   = Carbon::parse($day->toDateString() . ' ' . $ensureSeconds($w['end']));
-                    if ($slotStart >= $winStart && $slotEnd <= $winEnd) {
-                        $insideAny = true;
-                        break;
-                    }
+                // We must ensure the calculated end time of the rental does not exceed the window's end time.
+                if ($slotEnd->gt($slotEndTime)) {
+                    continue;
                 }
 
-                if (! $insideAny && ! $t->bookings()->exists()) {
-                    $t->delete();
-                    ++$prunedTimeslots;
-                }
-            }
-        } else {
-            // DATE + TIME columns (date, start_time, end_time)
-            $slots = Timeslot::where('sauna_id', $sauna->id)
-                ->whereBetween('date', [$start->toDateString(), $end->toDateString()])
-                ->get();
+                $timeslot = Timeslot::firstOrCreate(
+                    [
+                        'sauna_schedule_id' => $schedule->id,
+                        'starts_at' => $slotStart->format('Y-m-d H:i:s'),
+                    ],
+                    [
+                        'ends_at' => $slotEnd->format('Y-m-d H:i:s'),
+                        'capacity' => $sauna->capacity, // Assuming sauna has a capacity property
+                    ]
+                );
 
-            foreach ($slots as $t) {
-                $weekday = Carbon::parse($t->date)->dayOfWeek;
-
-                $windows = array_values($openingsMap[$t->location_id][$weekday] ?? []);
-
-                $slotStart = Carbon::parse($t->date . ' ' . $ensureSeconds($t->start_time));
-                $slotEnd   = Carbon::parse($t->date . ' ' . $ensureSeconds($t->end_time));
-
-                $insideAny = false;
-                foreach ($windows as $w) {
-                    $winStart = Carbon::parse($t->date . ' ' . $ensureSeconds($w['start']));
-                    $winEnd   = Carbon::parse($t->date . ' ' . $ensureSeconds($w['end']));
-                    if ($slotStart >= $winStart && $slotEnd <= $winEnd) {
-                        $insideAny = true;
-                        break;
-                    }
-                }
-
-                if (! $insideAny && ! $t->bookings()->exists()) {
-                    $t->delete();
-                    ++$prunedTimeslots;
+                if ($timeslot->wasRecentlyCreated) {
+                    $timeslotsCreatedCount++;
                 }
             }
         }
+        Log::info("Timeslot generation complete. Created {$timeslotsCreatedCount} new timeslots.");
 
-        // ---------- Logging & response ----------
-        Log::info("Sauna {$sauna->id}: schedules added={$added} (by period=" . json_encode($perPeriodAdd) . "), schedules pruned={$prunedSchedules}, timeslots pruned={$prunedTimeslots}");
+
+        $createdCounts = collect($schedulesToCreate)->countBy('period');
+        $finalCounts = collect(['morning' => 0, 'afternoon' => 0, 'evening' => 0, 'night' => 0])->merge($createdCounts);
+
+        Log::info(
+            'Sauna ' . $sauna->id . ': schedules added=' .
+                count($schedulesToCreate) .
+                ' (by period=' . json_encode($finalCounts) . ')' .
+                ', schedules pruned=' . $prunedSchedulesCount .
+                ', timeslots created=' . $timeslotsCreatedCount
+        );
 
         return back()->with(
             'success',
-            "{$added} schedules created; {$prunedSchedules} schedules pruned; {$prunedTimeslots} timeslots pruned."
+            "Schedules Generated: " . count($schedulesToCreate) .
+                " (" . $finalCounts->map(fn($v, $k) => "$k:$v")->implode(', ') . ") · " .
+                "Timeslots Created: $timeslotsCreatedCount · " .
+                "Pruned schedules: $prunedSchedulesCount"
         );
     }
+
+    public function updateCapacity(Request $request, SaunaSchedule $schedule)
+    {
+        // You may want to add authorization here to ensure the logged-in
+        // user is allowed to modify this schedule. For example:
+        // $this->authorize('update', $schedule);
+
+        $data = $request->validate([
+            'capacity' => ['required', 'integer', 'min:1'],
+        ]);
+
+        // Find all timeslots linked to this schedule and update their capacity.
+        $updatedCount = Timeslot::where('sauna_schedule_id', $schedule->id)
+            ->update(['capacity' => $data['capacity']]);
+
+        Log::info("Updated capacity for {$updatedCount} timeslots in schedule {$schedule->id} to {$data['capacity']}.");
+
+        // Inertia will automatically pick up this flash message and pass it as a prop.
+        return back()->with('success', 'Capacity updated successfully.');
+    }
+
 
 
     /**

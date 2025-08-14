@@ -27,8 +27,6 @@ export default function TimeDate({
     const people = servicesData.people ?? 1;
     // Get current week starting from today
 
-    console.log("timeDate", formData);
-
     // Update service quantities
     const updateQuantity = (code, value) =>
         updateFormData({
@@ -36,52 +34,103 @@ export default function TimeDate({
         });
 
     useEffect(() => {
-        if (!location.id) return;
+        if (!location?.id) return;
 
-        // GET /api/openings?location_id=…
-        fetch(route("openings", { location_id: location.id }))
-            .then((res) => res.json()) // { "0":["morning"],"3":["morning","evening"] }
-            .then((rules) => {
-                const weekdays = Object.keys(rules).map(Number); // [0,3]
-                setCalendarRules(weekdays);
+        (async () => {
+            // 1) fetch weekly rules
+            const res = await fetch(
+                route("openings", { location_id: location.id })
+            );
+            const rules = await res.json(); // e.g. { "0":["morning"], "3":["evening"] } or { "7": ["evening"] } or { "sun": [...] }
 
-                // build the next six valid dates
-                const dates = [];
-                let d = dayjs();
-                while (dates.length < 6) {
-                    if (weekdays.includes(d.day())) dates.push(d);
-                    d = d.add(1, "day");
+            // 2) normalise weekday keys -> 0..6 (Sun..Sat)
+            const keys = Object.keys(rules);
+            const asNum = keys.map((k) => Number(k));
+            let allowed = [];
+
+            if (asNum.every((n) => !Number.isNaN(n))) {
+                // numeric keys
+                if (asNum.some((n) => n === 7)) {
+                    // ISO 1..7 where 7=Sunday
+                    allowed = asNum.map((n) => n % 7); // 1..6 stay 1..6, 7 -> 0
+                } else {
+                    // assume 0..6 already
+                    allowed = asNum.map((n) => ((n % 7) + 7) % 7);
                 }
-                setDisplayDays(dates);
-                // make the first date pre-selected
-                setSelectedDate(dates[0]);
-            });
-    }, [location.id]);
+            } else {
+                // string day names
+                const map = {
+                    sun: 0,
+                    mon: 1,
+                    tue: 2,
+                    wed: 3,
+                    thu: 4,
+                    fri: 5,
+                    sat: 6,
+                };
+                allowed = keys
+                    .map((k) => map[k.toLowerCase().slice(0, 3)])
+                    .filter((n) => n !== undefined);
+            }
+
+            // 3) walk forward and keep only days that BOTH match rules AND actually have slots
+            const LOOKAHEAD = 45; // days to scan ahead
+            const NEED = 6; // how many chips you want to show
+            const found = [];
+            let cursor = dayjs().startOf("day");
+
+            while (
+                found.length < NEED &&
+                cursor.diff(dayjs().startOf("day"), "day") < LOOKAHEAD
+            ) {
+                if (allowed.includes(cursor.day())) {
+                    const r = await fetch(
+                        route("availability.byPeriod", {
+                            location_id: location.id,
+                            date: cursor.format("YYYY-MM-DD"),
+                        })
+                    );
+                    const j = await r.json();
+                    const total =
+                        (j.morning?.length ?? 0) +
+                        (j.afternoon?.length ?? 0) +
+                        (j.evening?.length ?? 0) +
+                        (j.night?.length ?? 0);
+
+                    if (total > 0) found.push(cursor); // only show bookable days
+                }
+                cursor = cursor.add(1, "day");
+            }
+
+            setDisplayDays(found);
+            if (found[0]) setSelectedDate(found[0]); // preselect first bookable date
+        })();
+    }, [location?.id]);
 
     useEffect(() => {
-        if (!location.id || !selectedDate) return;
-
-        const fetchSlots = async (period) => {
-            const res = await fetch(
-                route("availability", {
-                    location_id: location.id,
-                    date: selectedDate.format("YYYY-MM-DD"),
-                    period,
-                })
-            );
-            const json = await res.json();
-            return json;
-        };
+        if (!location?.id || !selectedDate) return;
 
         (async () => {
             setLoading(true);
+            const res = await fetch(
+                route("availability.byPeriod", {
+                    location_id: location.id,
+                    date: selectedDate.format("YYYY-MM-DD"),
+                })
+            );
+            const json = await res.json();
+
+            // json = { morning:[], afternoon:[], evening:[], night:[] }
             setSlots({
-                morning: await fetchSlots("morning"),
-                evening: await fetchSlots("evening"),
+                morning: json.morning ?? [],
+                evening: json.evening ?? [],
+                // keep if you want to show them too:
+                afternoon: json.afternoon ?? [],
+                night: json.night ?? [],
             });
             setLoading(false);
         })();
-    }, [location.id, selectedDate]);
+    }, [location?.id, selectedDate]);
 
     const total = useMemo(() => {
         let sum = +sessionService.price * people;
@@ -134,7 +183,7 @@ export default function TimeDate({
                     <h3 className={`${styles.h2} text-black font-medium`}>
                         Pick a slot on a{" "}
                         <span className="text-hh-orange font-semibold">
-                            {location.day}
+                            {selectedDate.format("dddd")}
                         </span>
                     </h3>
                     <p

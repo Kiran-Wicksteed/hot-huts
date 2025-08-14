@@ -60,6 +60,9 @@ Route::get(
     [AvailabilityController::class, 'all']
 )->name('availability.all');
 
+Route::get('/availability/by-period', [\App\Http\Controllers\AvailabilityController::class, 'byPeriod'])
+    ->name('availability.byPeriod');
+
 Route::get('openings/all', [OpeningController::class, 'all'])
     ->name('openings.all');
 Route::get('openings', [OpeningController::class, 'index'])
@@ -166,6 +169,9 @@ Route::middleware(['auth', 'admin'])
             'saunas/{sauna}/schedules/generate',
             [SaunaScheduleController::class, 'generate']
         )->name('saunas.schedules.generate');
+
+        Route::post('/schedules/{schedule}/update-capacity', [SaunaScheduleController::class, 'updateCapacity'])
+            ->name('schedules.update-capacity');
 
 
         Route::delete('/services/{service}', [ServiceController::class, 'destroy'])

@@ -26,6 +26,12 @@ export default function ServiceSection({
     const people = servicesData.people;
     const [eventQty, setEventQty] = useState(1);
 
+    //create a new addons array with only those with a price greater than 0
+    const filteredAddons = useMemo(
+        () => addons.filter((svc) => svc.price > 0),
+        [addons]
+    );
+
     const currentLocation = useMemo(() => {
         if (!location.id) return null; // wizard hasn’t chosen yet
         return locations.find((l) => l.id === location.id);
@@ -95,8 +101,8 @@ export default function ServiceSection({
                 beachfront sauna at&nbsp;
                 <span className="text-hh-orange">{location.name}.</span>
             </h1>
-            <div className="flex gap-6">
-                <div className="flex-1 border border-hh-orange bg-white rounded-md shadow grid grid-cols-3 overflow-hidden items-center mt-10">
+            <div className="grid grid-cols-2 gap-6">
+                <div className="col-span-1 border border-hh-orange bg-white rounded-md shadow grid grid-cols-3 overflow-hidden items-center mt-10">
                     {/* thumbnail */}
                     <div className="col-span-full overflow-hidden h-48">
                         <img
@@ -141,7 +147,7 @@ export default function ServiceSection({
 
                         {/* ----------------- ADD-ONS LIST ----------------- */}
                         <div className="space-y-2">
-                            {addons.map((svc) => {
+                            {filteredAddons.map((svc) => {
                                 const qty = servicesData[svc.code] ?? 0;
 
                                 return (

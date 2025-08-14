@@ -52,21 +52,38 @@ class BookingAdminController extends Controller
         $today = today();
 
         $slotsToday = Timeslot::query()
-            ->with(['schedule.location'])   // MUST eager‑load location
-            ->whereDate('starts_at', today())
+            ->with(['schedule.location']) // eager-load location
+            ->whereHas('schedule', function ($q) use ($today) {
+                $q->whereDate('date', $today); // ✅ filter by the schedule's date
+            })
             ->orderBy('starts_at')
             ->get()
-            ->map(fn($t) => [
-                'id'          => $t->id,
-                'starts_at'   => $t->starts_at->format('H:i'),
-                'ends_at'     => $t->ends_at->format('H:i'),
-                'capacity'    => $t->capacity,
-                'bookings'    => $t->bookings     /* already loaded */,
-                // 🔽  add exactly ONE of the two lines below
-                'location_id' => $t->schedule->location_id,          // simplest
-                // or, if you already send the nested object:
-                // 'schedule'   => [..., 'location_id' => $t->schedule->location_id],
-            ]);
+            ->map(function ($t) {
+                // Safe formatter for TIME or DATETIME (string or Carbon)
+                $fmt = function ($v) {
+                    if ($v instanceof \Carbon\CarbonInterface) return $v->format('H:i');
+                    if (is_string($v) && preg_match('/\d{2}:\d{2}(:\d{2})?$/', $v, $m)) {
+                        return substr($m[0], 0, 5);
+                    }
+                    try {
+                        return Carbon::parse($v)->format('H:i');
+                    } catch (\Throwable $e) {
+                        return (string) $v;
+                    }
+                };
+
+                $rawStart = $t->getRawOriginal('starts_at');
+                $rawEnd   = $t->getRawOriginal('ends_at');
+
+                return [
+                    'id'          => $t->id,
+                    'starts_at'   => $fmt($rawStart),
+                    'ends_at'     => $fmt($rawEnd),
+                    'capacity'    => (int) $t->capacity,
+                    'bookings'    => $t->bookings, // or compute a count/sum if that's what you need
+                    'location_id' => $t->schedule->location_id,
+                ];
+            });
 
         // 2️⃣ all sauna bookings for today (exclude event bookings)
         $bookingsToday = Booking::with(['user', 'timeslot.schedule.location'])
