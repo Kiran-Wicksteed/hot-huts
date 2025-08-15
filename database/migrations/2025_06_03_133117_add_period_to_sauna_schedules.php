@@ -3,6 +3,7 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\DB;
 
 return new class extends Migration
 {
@@ -11,15 +12,13 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('sauna_schedules', function (Blueprint $table) {
-            $table->enum('period', ['morning', 'evening'])
-                ->default('morning')
-                ->after('date');
+        // Check if index exists before dropping
+        $indexes = DB::select("SHOW INDEXES FROM sauna_schedules");
+        $indexNames = array_column($indexes, 'Key_name');
 
-            // allow two rows (morning, evening) on the same day
-            $table->dropUnique(['sauna_id', 'date']);
-            $table->unique(['sauna_id', 'date', 'period']);
-        });
+        if (in_array('sauna_schedules_sauna_id_date_period_unique', $indexNames)) {
+            DB::statement('ALTER TABLE sauna_schedules DROP INDEX sauna_schedules_sauna_id_date_period_unique');
+        }
     }
 
     /**
