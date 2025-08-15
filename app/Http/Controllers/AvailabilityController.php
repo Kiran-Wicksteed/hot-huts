@@ -9,6 +9,7 @@ use App\Models\Timeslot;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Log; // Add this at the top of your controller file
 use Illuminate\Support\Facades\DB; // Add this to import the DB facade
+use Illuminate\Support\Facades\Schema; // Add this to import the Schema facade
 
 class AvailabilityController extends Controller
 {
@@ -159,61 +160,73 @@ class AvailabilityController extends Controller
     {
         $data = $r->validate([
             'location_id' => ['required', 'exists:locations,id'],
-            'weekday'     => ['required', 'integer', 'between:0,6'], // 0=Sun ... 6=Sat
+            'weekday'     => ['required', 'integer', 'between:0,6'], // 0=Sun..6=Sat
         ]);
 
-        // Build base query
-        $query = SaunaSchedule::query()
+        $bookingSumFilter = function ($qq) {
+            // Prefer explicit cancelled_at if present
+            if (Schema::hasColumn('bookings', 'cancelled_at')) {
+                $qq->whereNull('cancelled_at');
+                return;
+            }
+            // Common alternatives people use
+            if (Schema::hasColumn('bookings', 'is_cancelled')) {
+                $qq->where(function ($q) {
+                    $q->whereNull('is_cancelled')->orWhere('is_cancelled', false);
+                });
+                return;
+            }
+            if (Schema::hasColumn('bookings', 'status')) {
+                // Adjust statuses to your schema
+                $qq->whereNotIn('status', ['cancelled', 'refunded', 'failed']);
+                return;
+            }
+            // No known cancellation markers — leave unfiltered or add your own fallback
+            // $qq->where('status', 'paid'); // <-- uncomment if you *do* have a single "paid" status
+        };
+
+        $query = \App\Models\SaunaSchedule::query()
             ->where('location_id', $data['location_id'])
             ->whereDate('date', '>=', now()->toDateString())
-            ->with(['timeslots' => function ($q) {
+            ->with(['timeslots' => function ($q) use ($bookingSumFilter) {
                 $q->orderBy('starts_at')
-                    ->withSum(['bookings as booked_people' => function ($qq) {
-                        $qq->whereNull('cancelled_at');
-                    }], 'people');
+                    ->withSum(['bookings as booked_people' => $bookingSumFilter], 'people');
             }])
             ->orderBy('date');
 
-        // Optional DB-specific weekday filter (keeps result set small)
+        // DB-specific weekday filter
         $driver = DB::getDriverName();
         if ($driver === 'sqlite') {
-            $query->whereRaw("strftime('%w', date) = ?", [(string)$data['weekday']]); // 0=Sun..6=Sat
+            $query->whereRaw("strftime('%w', date) = ?", [(string) $data['weekday']]);
         } elseif ($driver === 'mysql') {
-            // DAYOFWEEK(): 1=Sun..7=Sat ⇒ add 1 to our 0–6 input
-            $query->whereRaw("DAYOFWEEK(`date`) = ?", [(int)$data['weekday'] + 1]);
+            // MySQL: 1=Sun..7=Sat => add 1
+            $query->whereRaw("DAYOFWEEK(`date`) = ?", [(int) $data['weekday'] + 1]);
         }
 
         $allSchedules = $query->get();
 
-
-
-        // Extra safety: filter in PHP too (works regardless of DB)
+        // Safety: filter in PHP too
         $schedulesOnCorrectDay = $allSchedules->filter(function ($schedule) use ($data) {
             $d = $schedule->date instanceof \Carbon\Carbon ? $schedule->date : \Carbon\Carbon::parse($schedule->date);
-            return $d->dayOfWeek === (int)$data['weekday']; // 0=Sun..6=Sat
+            return $d->dayOfWeek === (int) $data['weekday'];
         });
 
-
-
-        // Group by date string
+        // Group by date
         $groupedByDate = $schedulesOnCorrectDay->groupBy(function ($schedule) {
             $d = $schedule->date instanceof \Carbon\Carbon ? $schedule->date : \Carbon\Carbon::parse($schedule->date);
             return $d->toDateString();
         });
 
-
-
         $formattedData = $groupedByDate->map(function ($schedulesForOneDay, $dateString) {
-            // Flatten timeslots and ATTACH the schedule period to each slot
             $slots = $schedulesForOneDay->flatMap(function ($schedule) {
                 return $schedule->timeslots->map(function ($ts) use ($schedule) {
                     return [
                         'id'         => $ts->id,
                         'starts_at'  => \Carbon\Carbon::parse($ts->starts_at)->format('H:i'),
                         'ends_at'    => \Carbon\Carbon::parse($ts->ends_at)->format('H:i'),
-                        'spots_left' => max(0, (int)$ts->capacity - (int)($ts->booked_people ?? 0)),
+                        'spots_left' => max(0, (int) $ts->capacity - (int) ($ts->booked_people ?? 0)),
                         'capacity'   => (int) $ts->capacity,
-                        'period'     => $schedule->period, // <- critical fix
+                        'period'     => $schedule->period, // carry over parent period
                     ];
                 });
             });
@@ -231,8 +244,6 @@ class AvailabilityController extends Controller
                 ],
             ];
         })->values();
-
-
 
         return response()->json($formattedData);
     }
