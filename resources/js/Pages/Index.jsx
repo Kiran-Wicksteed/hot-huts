@@ -1,4 +1,4 @@
-import Menu from "@/Layouts/Menu";
+import Menu from "@/Layouts/menu";
 import Footer from "@/Layouts/Footer";
 import { useState, useEffect } from "react";
 import ServiceSection from "@/Components/booking-form/ServiceSection";
