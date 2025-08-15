@@ -31,7 +31,7 @@ export default function TodayBubbles({ slots, bookings, formatTime }) {
 
     /* 3 ▸ bubble grid */
     return (
-        <div className="grid grid-cols-3 gap-10">
+        <div className="grid grid-cols-2 gap-10">
             {slots.map((slot) => {
                 const list = bySlot.get(slot.id) ?? [];
                 const booked = list.reduce((t, b) => t + b.people, 0);
@@ -63,16 +63,39 @@ export default function TodayBubbles({ slots, bookings, formatTime }) {
 
                         {/* booking list (or “no bookings yet”) */}
                         {list.length > 0 ? (
-                            <ul className="space-y-1 max-h-40 overflow-y-auto pr-1 text-sm">
+                            <ul className="space-y-3 max-h-40 overflow-y-auto pr-1 text-sm">
                                 {list.map((b) => (
                                     <li
                                         key={b.id}
-                                        className="flex justify-between"
+                                        className="border-b border-gray-100 pb-2"
                                     >
-                                        <span>{b.user?.name ?? "Guest"}</span>
-                                        <span className="text-gray-500">
-                                            × {b.people}
-                                        </span>
+                                        <p className="font-medium">
+                                            Booked under:{" "}
+                                            <span className="text-gray-700">
+                                                {b.user?.name ?? "Guest"}
+                                            </span>
+                                        </p>
+                                        <p className="text-gray-500">
+                                            People booked for: {b.people}
+                                        </p>
+                                        {b.services &&
+                                            b.services.length > 0 && (
+                                                <div>
+                                                    <p className="text-gray-500">
+                                                        Services:
+                                                    </p>
+                                                    <ul className="list-disc list-inside text-gray-600">
+                                                        {b.services.map(
+                                                            (s, i) => (
+                                                                <li key={i}>
+                                                                    {s.name} ×{" "}
+                                                                    {s.quantity}
+                                                                </li>
+                                                            )
+                                                        )}
+                                                    </ul>
+                                                </div>
+                                            )}
                                     </li>
                                 ))}
                             </ul>

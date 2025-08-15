@@ -7,6 +7,8 @@ use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use App\Models\Timeslot;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Log; // Add this at the top of your controller file
+use Illuminate\Support\Facades\DB; // Add this to import the DB facade
 
 class AvailabilityController extends Controller
 {
@@ -103,6 +105,7 @@ class AvailabilityController extends Controller
         ]);
     }
 
+
     public function byPeriod(Request $r)
     {
         $data = $r->validate([
@@ -110,7 +113,10 @@ class AvailabilityController extends Controller
             'date'        => ['required', 'date'],
         ]);
 
-        $schedules = SaunaSchedule::query()
+        // --- LOG 1: Log the incoming data ---
+        Log::info('API Request Data:', $data);
+
+        $query = SaunaSchedule::query()
             ->where('location_id', $data['location_id'])
             ->whereDate('date', $data['date'])
             ->with(['timeslots' => function ($q) {
@@ -118,37 +124,116 @@ class AvailabilityController extends Controller
                     ->withSum(['bookings as booked_people' => function ($qq) {
                         $qq->whereNull('cancelled_at');
                     }], 'people');
-            }])
-            ->get();
+            }]);
 
+        // --- LOG 2: Log the raw SQL query and its bindings ---
+        Log::info('Generated SQL:', [
+            'sql' => $query->toSql(),
+            'bindings' => $query->getBindings()
+        ]);
+
+        $schedules = $query->get();
+
+        // --- LOG 3: Log the results found by the query ---
+        Log::info('Schedules found:', [
+            'count' => $schedules->count(),
+            'dates' => $schedules->pluck('date')
+        ]);
+
+
+        // ... the rest of your method is the same
         $fmt = function ($v) {
-            if ($v instanceof \Carbon\CarbonInterface) return $v->format('H:i');
-            if (is_string($v) && preg_match('/\d{2}:\d{2}(:\d{2})?$/', $v, $m)) return substr($m[0], 0, 5);
-            return (string) $v;
+            // ...
         };
+        // ...
+        return response()->json([
+            // ...
+        ]);
+    }
 
-        $slots = $schedules->flatMap->timeslots->map(function ($ts) use ($fmt) {
-            $rawStart = $ts->getRawOriginal('starts_at');
-            $rawEnd   = $ts->getRawOriginal('ends_at');
-            $booked   = (int) ($ts->booked_people ?? 0);
+    // In app/Http/Controllers/OpeningController.php
 
-            return [
-                'id'         => $ts->id,
-                'starts_at'  => $fmt($rawStart),
-                'ends_at'    => $fmt($rawEnd),
-                'spots_left' => max(0, (int)$ts->capacity - $booked),
-                'capacity'   => (int) $ts->capacity,
-                'period'     => $ts->period ?? optional($ts->schedule)->period,
-            ];
+    // Add this new method. You can keep the old 'index' method for now.
+
+    public function byDayOfWeek(Request $r)
+    {
+        $data = $r->validate([
+            'location_id' => ['required', 'exists:locations,id'],
+            'weekday'     => ['required', 'integer', 'between:0,6'], // 0=Sun ... 6=Sat
+        ]);
+
+        // Build base query
+        $query = SaunaSchedule::query()
+            ->where('location_id', $data['location_id'])
+            ->whereDate('date', '>=', now()->toDateString())
+            ->with(['timeslots' => function ($q) {
+                $q->orderBy('starts_at')
+                    ->withSum(['bookings as booked_people' => function ($qq) {
+                        $qq->whereNull('cancelled_at');
+                    }], 'people');
+            }])
+            ->orderBy('date');
+
+        // Optional DB-specific weekday filter (keeps result set small)
+        $driver = DB::getDriverName();
+        if ($driver === 'sqlite') {
+            $query->whereRaw("strftime('%w', date) = ?", [(string)$data['weekday']]); // 0=Sun..6=Sat
+        } elseif ($driver === 'mysql') {
+            // DAYOFWEEK(): 1=Sun..7=Sat ⇒ add 1 to our 0–6 input
+            $query->whereRaw("DAYOFWEEK(`date`) = ?", [(int)$data['weekday'] + 1]);
+        }
+
+        $allSchedules = $query->get();
+
+
+
+        // Extra safety: filter in PHP too (works regardless of DB)
+        $schedulesOnCorrectDay = $allSchedules->filter(function ($schedule) use ($data) {
+            $d = $schedule->date instanceof \Carbon\Carbon ? $schedule->date : \Carbon\Carbon::parse($schedule->date);
+            return $d->dayOfWeek === (int)$data['weekday']; // 0=Sun..6=Sat
         });
 
-        $grouped = $slots->groupBy('period')->map(fn($g) => $g->sortBy('starts_at')->values());
 
-        return response()->json([
-            'morning'   => $grouped->get('morning', collect())->values(),
-            'afternoon' => $grouped->get('afternoon', collect())->values(),
-            'evening'   => $grouped->get('evening', collect())->values(),
-            'night'     => $grouped->get('night', collect())->values(),
-        ]);
+
+        // Group by date string
+        $groupedByDate = $schedulesOnCorrectDay->groupBy(function ($schedule) {
+            $d = $schedule->date instanceof \Carbon\Carbon ? $schedule->date : \Carbon\Carbon::parse($schedule->date);
+            return $d->toDateString();
+        });
+
+
+
+        $formattedData = $groupedByDate->map(function ($schedulesForOneDay, $dateString) {
+            // Flatten timeslots and ATTACH the schedule period to each slot
+            $slots = $schedulesForOneDay->flatMap(function ($schedule) {
+                return $schedule->timeslots->map(function ($ts) use ($schedule) {
+                    return [
+                        'id'         => $ts->id,
+                        'starts_at'  => \Carbon\Carbon::parse($ts->starts_at)->format('H:i'),
+                        'ends_at'    => \Carbon\Carbon::parse($ts->ends_at)->format('H:i'),
+                        'spots_left' => max(0, (int)$ts->capacity - (int)($ts->booked_people ?? 0)),
+                        'capacity'   => (int) $ts->capacity,
+                        'period'     => $schedule->period, // <- critical fix
+                    ];
+                });
+            });
+
+            $groupedSlots = $slots->groupBy('period');
+
+            return [
+                'date'    => $dateString,
+                'dayName' => \Carbon\Carbon::parse($dateString)->format('l'),
+                'slots'   => [
+                    'morning'   => array_values(($groupedSlots->get('morning') ?? collect())->toArray()),
+                    'afternoon' => array_values(($groupedSlots->get('afternoon') ?? collect())->toArray()),
+                    'evening'   => array_values(($groupedSlots->get('evening') ?? collect())->toArray()),
+                    'night'     => array_values(($groupedSlots->get('night') ?? collect())->toArray()),
+                ],
+            ];
+        })->values();
+
+
+
+        return response()->json($formattedData);
     }
 }

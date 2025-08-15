@@ -9,36 +9,28 @@ import {
     ArchiveBoxXMarkIcon,
 } from "@heroicons/react/24/outline";
 import { ChevronDownIcon } from "@heroicons/react/24/solid";
+import { usePage, useForm } from "@inertiajs/react";
 
 export default function PaymentPage() {
-    const [totalInvoices, setTotalInvoices] = useState(2500);
-    const [totalRefunds, setTotalRefunds] = useState(100);
-    const [totalPaid, setTotalPaid] = useState(2500);
-    const [totalUnpaid, setTotalUnpaid] = useState(6);
+    const { payments, stats, filters, locations } = usePage().props;
     const [expandedRow, setExpandedRow] = useState(null);
 
-    const invoicesData = [
-        {
-            id: 1,
-            customerInitials: "VM",
-            customerName: "Valentino Morose",
-            date: "04 May 2025, 6:20AM",
-            service: "Single Sauna Session",
-            method: "Credit",
-            amount: "20 mins",
-            status: "Paid",
-        },
-        {
-            id: 2,
-            customerInitials: "VM",
-            customerName: "Valentino Morose",
-            date: "04 May 2025, 6:20AM",
-            service: "Single Sauna Session",
-            method: "Credit",
-            amount: "20 mins",
-            status: "Paid",
-        },
-    ];
+    const { totalInvoices, totalRefunds, totalPaid, totalUnpaid } = stats;
+
+    const { data, setData, get, processing } = useForm({
+        location_id: filters.location_id || "",
+        date_start: filters.date_start || "",
+        date_end: filters.date_end || "",
+    });
+
+    const applyFilters = (e) => {
+        e.preventDefault();
+        get(route("payments.index"), {
+            preserveScroll: true,
+            preserveState: true,
+        });
+    };
+
     return (
         <AuthenticatedLayout>
             <div className="mx-auto ml-[256px]">
@@ -91,7 +83,7 @@ export default function PaymentPage() {
                             <p
                                 className={`${styles.paragraph} text-black text-center`}
                             >
-                                Total Invoice
+                                Total Orders
                             </p>
                             <p
                                 className={`${styles.paragraph} text-black !text-2xl text-center`}
@@ -279,20 +271,65 @@ export default function PaymentPage() {
                                 Invoice List
                             </h4>
                         </div>
-                        <div className="flex gap-x-4 items-center">
-                            <div className="bg-white shadow-md flex items-center gap-x-2 border border-hh-gray p-2 rounded">
-                                <p className={`${styles.paragraph} text-black`}>
-                                    This Month
-                                </p>
-                                <ChevronDownIcon className="text-black h-6 w-6" />
-                            </div>
-                            <div className="bg-white shadow-md flex items-center gap-x-2 border border-hh-gray p-2 rounded">
-                                <p className={`${styles.paragraph} text-black`}>
-                                    All Invoice
-                                </p>
-                                <ChevronDownIcon className="text-black h-6 w-6" />
-                            </div>
-                        </div>
+                        <form
+                            onSubmit={applyFilters}
+                            className="flex gap-x-4 items-center mb-6"
+                        >
+                            {/* Location Filter */}
+                            <select
+                                value={data.location_id}
+                                onChange={(e) =>
+                                    setData("location_id", e.target.value)
+                                }
+                                className="bg-white shadow-md border border-hh-gray p-2 rounded"
+                            >
+                                <option value="">All Locations</option>
+                                {locations.map((loc) => (
+                                    <option key={loc.id} value={loc.id}>
+                                        {loc.name}
+                                    </option>
+                                ))}
+                            </select>
+
+                            {/* Date Range */}
+                            <input
+                                type="date"
+                                value={data.date_start}
+                                onChange={(e) =>
+                                    setData("date_start", e.target.value)
+                                }
+                                className="bg-white shadow-md border border-hh-gray p-2 rounded"
+                            />
+                            <input
+                                type="date"
+                                value={data.date_end}
+                                onChange={(e) =>
+                                    setData("date_end", e.target.value)
+                                }
+                                className="bg-white shadow-md border border-hh-gray p-2 rounded"
+                            />
+
+                            {/* Apply */}
+                            <button
+                                type="submit"
+                                disabled={processing}
+                                className="bg-hh-orange text-white px-4 py-2 rounded disabled:opacity-50"
+                            >
+                                Apply
+                            </button>
+
+                            {/* Export */}
+                            <a
+                                href={route("payments.export", {
+                                    location_id: data.location_id || undefined,
+                                    date_start: data.date_start || undefined,
+                                    date_end: data.date_end || undefined,
+                                })}
+                                className="bg-green-600 text-white px-4 py-2 rounded"
+                            >
+                                Export CSV
+                            </a>
+                        </form>
                     </div>
                     <div className="grid grid-cols-12 p-6 gap-x-4">
                         <div className="col-span-1">
@@ -310,12 +347,8 @@ export default function PaymentPage() {
                                 Date & Time
                             </p>
                         </div>
-                        <div className="col-span-2">
-                            <p className={`${styles.paragraph} text-black`}>
-                                Service
-                            </p>
-                        </div>
-                        <div className="col-span-1">
+
+                        <div className="col-span-3">
                             <p className={`${styles.paragraph} text-black`}>
                                 Method
                             </p>
@@ -337,56 +370,50 @@ export default function PaymentPage() {
                         </div>
                     </div>
                     <div className="col-span-full space-y-4">
-                        {invoicesData.map((invoice, index) => (
+                        {payments.map((invoice, index) => (
                             <div key={invoice.id} className="col-span-full">
-                                <div className=" bg-white shadow grid grid-cols-12  gap-x-4 items-center border border-hh-gray rounded p-6">
+                                <div className="bg-white shadow grid grid-cols-12 gap-x-4 items-center border border-hh-gray rounded p-6">
                                     <div className="col-span-1">
                                         <p
-                                            className={`${styles.paragraph} !text-[#999999] `}
+                                            className={`${styles.paragraph} !text-[#999999]`}
                                         >
-                                            01
+                                            {String(index + 1).padStart(2, "0")}
                                         </p>
                                     </div>
                                     <div className="col-span-2 flex gap-x-2 items-center -ml-6">
                                         <div className="bg-[#999999] rounded-full h-8 w-8 flex items-center justify-center shrink-0">
                                             <p
-                                                className={`${styles.paragraph} !text-white !text-sm `}
+                                                className={`${styles.paragraph} !text-white !text-sm`}
                                             >
-                                                VM
+                                                {invoice.customerInitials}
                                             </p>
                                         </div>
                                         <p
                                             className={`${styles.paragraph} !text-[#999999] !text-sm`}
                                         >
-                                            Valentino Morose
+                                            {invoice.customerName}
                                         </p>
                                     </div>
                                     <div className="col-span-2">
                                         <p
                                             className={`${styles.paragraph} !text-[#999999] !text-sm`}
                                         >
-                                            04 May 2025, 6:20AM
+                                            {invoice.date}
                                         </p>
                                     </div>
-                                    <div className="col-span-2">
+
+                                    <div className="col-span-3">
                                         <p
                                             className={`${styles.paragraph} !text-[#999999] !text-sm`}
                                         >
-                                            Single Sauna Session
-                                        </p>
-                                    </div>
-                                    <div className="col-span-1">
-                                        <p
-                                            className={`${styles.paragraph} !text-[#999999] !text-sm`}
-                                        >
-                                            Credit
+                                            {invoice.method}
                                         </p>
                                     </div>
                                     <div className="col-span-1">
                                         <p
                                             className={`${styles.paragraph} !text-[#999999] !text-sm`}
                                         >
-                                            20 mins
+                                            R{invoice.amount}
                                         </p>
                                     </div>
                                     <div className="col-span-1">
@@ -394,7 +421,7 @@ export default function PaymentPage() {
                                             <p
                                                 className={`${styles.paragraph} !text-white !text-sm text-center`}
                                             >
-                                                Paid
+                                                {invoice.status}
                                             </p>
                                         </div>
                                     </div>
@@ -409,7 +436,7 @@ export default function PaymentPage() {
                                         className="col-span-2 flex items-center gap-x-2 ml-6 cursor-pointer"
                                     >
                                         <p
-                                            className={`${styles.paragraph} !text-[#999999] `}
+                                            className={`${styles.paragraph} !text-[#999999]`}
                                         >
                                             Details
                                         </p>
@@ -422,227 +449,17 @@ export default function PaymentPage() {
                                         />
                                     </div>
                                 </div>
-                                {/* Expanded Content */}
                                 {expandedRow === index && (
-                                    <div className="bg-white p-6 border  border-hh-gray rounded mt-1 divide-y divide-hh-gray">
-                                        <div className="grid grid-cols-7 gap-4 max-w-4xl mx-auto pb-6">
-                                            <h4
-                                                className={`${styles.paragraph} text-black font-medium mb-4 col-span-full`}
-                                            >
-                                                Payment Details
-                                            </h4>
-                                            <div className="col-span-2">
-                                                <h4
-                                                    className={`${styles.paragraph} text-black !text-sm font-medium !mb-4`}
-                                                >
-                                                    Client details
-                                                </h4>
-                                                <p
-                                                    className={`${styles.paragraph} !text-[#999999] !text-xs`}
-                                                >
-                                                    Valentino Morose
-                                                </p>
-                                                <p
-                                                    className={`${styles.paragraph} !text-[#999999] !text-xs`}
-                                                >
-                                                    customer@example.com
-                                                </p>
-                                            </div>
-                                            <div>
-                                                <h4
-                                                    className={`${styles.paragraph} text-black !text-sm font-medium !mb-4`}
-                                                >
-                                                    Mode
-                                                </h4>
-                                                <p
-                                                    className={`${styles.paragraph} !text-[#999999] !text-xs`}
-                                                >
-                                                    Credit Card
-                                                </p>
-                                            </div>
-                                            <div className="col-span-2 ml-8">
-                                                <h4
-                                                    className={`${styles.paragraph} text-black !text-sm font-medium !mb-4`}
-                                                >
-                                                    Transaction ID
-                                                </h4>
-                                                <p
-                                                    className={`${styles.paragraph} !text-[#999999] !text-xs`}
-                                                >
-                                                    1248673958603
-                                                </p>
-                                            </div>
-                                            <div>
-                                                <h4
-                                                    className={`${styles.paragraph} text-black !text-sm font-medium !mb-4`}
-                                                >
-                                                    Status
-                                                </h4>
-                                                <p
-                                                    className={`${styles.paragraph} !text-[#999999] !text-xs`}
-                                                >
-                                                    Paid
-                                                </p>
-                                            </div>
-                                            <div className="flex items-end flex-col gap-y-2 -mt-6">
-                                                <div className="bg-hh-orange rounded-full px-4 py-2 block">
-                                                    <p
-                                                        className={`${styles.paragraph} !text-white !text-sm text-center`}
-                                                    >
-                                                        Refund
-                                                    </p>
-                                                </div>
-                                                <div className="bg-white rounded-full px-4 py-2 block border border-hh-orange">
-                                                    <p
-                                                        className={`${styles.paragraph} !text-hh-orange !text-sm text-center`}
-                                                    >
-                                                        Invoice
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div className=" max-w-4xl mx-auto py-6">
-                                            <h4
-                                                className={`${styles.paragraph} text-black font-medium mb-4 col-span-full`}
-                                            >
-                                                Booking
-                                            </h4>
-                                            <div className="grid grid-cols-7 px-2">
-                                                <div className="col-span-2">
-                                                    <p
-                                                        className={`${styles.paragraph} !text-black !text-sm`}
-                                                    >
-                                                        Service
-                                                    </p>
-                                                </div>
-                                                <div className="-ml-6">
-                                                    <p
-                                                        className={`${styles.paragraph} !text-black !text-sm`}
-                                                    >
-                                                        Date
-                                                    </p>
-                                                </div>
-                                                <div className="col-span-2">
-                                                    <p
-                                                        className={`${styles.paragraph} !text-black !text-sm`}
-                                                    >
-                                                        Time
-                                                    </p>
-                                                </div>
-                                                <div className="-ml-6">
-                                                    <p
-                                                        className={`${styles.paragraph} !text-black !text-sm`}
-                                                    >
-                                                        Price
-                                                    </p>
-                                                </div>
-                                                <div>
-                                                    <p
-                                                        className={`${styles.paragraph} !text-black !text-sm`}
-                                                    >
-                                                        Amount
-                                                    </p>
-                                                </div>
-                                            </div>
-                                            <div className="col-span-full rounded-lg border border-hh-gray p-2 grid grid-cols-7 mt-2">
-                                                <div className="col-span-2">
-                                                    <p
-                                                        className={`${styles.paragraph} !text-[#999999] !text-xs`}
-                                                    >
-                                                        Single Sauna Session
-                                                    </p>
-                                                </div>
-                                                <div className="col-span-1 -ml-6">
-                                                    <p
-                                                        className={`${styles.paragraph} !text-[#999999] !text-xs`}
-                                                    >
-                                                        07 May 2025
-                                                    </p>
-                                                </div>
-                                                <div className="col-span-2">
-                                                    <p
-                                                        className={`${styles.paragraph} !text-[#999999] !text-xs`}
-                                                    >
-                                                        6:20AM to 6:40AM
-                                                    </p>
-                                                </div>
-                                                <div className="col-span-1 -ml-6">
-                                                    <p
-                                                        className={`${styles.paragraph} !text-[#999999] !text-xs`}
-                                                    >
-                                                        R210
-                                                    </p>
-                                                </div>
-                                                <div className="col-span-1">
-                                                    <p
-                                                        className={`${styles.paragraph} !text-[#999999] !text-xs`}
-                                                    >
-                                                        5PAX
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div className="max-w-4xl mx-auto pt-6">
-                                            <div className="divide-y divide-hh-gray ">
-                                                <h4
-                                                    className={`${styles.paragraph} text-black font-medium mb-4 col-span-full`}
-                                                >
-                                                    Payment Summary
-                                                </h4>
-                                                <p
-                                                    className={`${styles.paragraph} !text-black py-2 mt-4`}
-                                                >
-                                                    Subtotal
-                                                </p>
-                                                <div className="py-2 flex justify-between">
-                                                    <p
-                                                        className={`${styles.paragraph} !text-black `}
-                                                    >
-                                                        Total
-                                                    </p>
-                                                    <p
-                                                        className={`${styles.paragraph} !text-black `}
-                                                    >
-                                                        R210
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        </div>
+                                    <div className="bg-white p-6 border border-hh-gray rounded mt-1">
+                                        <p className="text-sm">
+                                            Transaction ID:{" "}
+                                            {invoice.transactionId}
+                                        </p>
+                                        {/* Add more details if needed */}
                                     </div>
                                 )}
                             </div>
                         ))}
-
-                        <div className="col-span-full flex justify-end gap-x-2 ">
-                            <div className="bg-white rounded-full w-10 h-10 flex justify-center items-center shadow">
-                                <p
-                                    className={`${styles.paragraph} !text-[#999999] `}
-                                >
-                                    01
-                                </p>
-                            </div>
-                            <div className="bg-white rounded-full w-10 h-10 flex justify-center items-center shadow">
-                                <p
-                                    className={`${styles.paragraph} !text-[#999999] `}
-                                >
-                                    02
-                                </p>
-                            </div>
-                            <div className="bg-hh-orange rounded-full w-10 h-10 flex justify-center items-center shadow">
-                                <p
-                                    className={`${styles.paragraph} !text-white `}
-                                >
-                                    03
-                                </p>
-                            </div>
-                            <div className="bg-white rounded-full w-10 h-10 flex justify-center items-center shadow">
-                                <p
-                                    className={`${styles.paragraph} !text-[#999999] `}
-                                >
-                                    04
-                                </p>
-                            </div>
-                        </div>
                     </div>
                 </div>
 

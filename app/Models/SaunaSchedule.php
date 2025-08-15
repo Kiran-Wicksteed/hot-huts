@@ -37,6 +37,11 @@ class SaunaSchedule extends Model
         return $this->hasMany(Timeslot::class);
     }
 
+    public function service()
+    {
+        return $this->belongsTo(Service::class);
+    }
+
     public function bookings()      // convenience shortcut
     {
         return $this->hasManyThrough(

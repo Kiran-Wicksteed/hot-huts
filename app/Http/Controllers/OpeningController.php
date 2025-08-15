@@ -31,14 +31,22 @@ class OpeningController extends Controller
     /**
      * Keep the single-location endpoint if you still need it elsewhere.
      */
+    // In app/Http/Controllers/OpeningController.php
+
     public function index(Request $r)
     {
         $r->validate(['location_id' => ['required', 'exists:locations,id']]);
 
+        // The bug was here. You need to get data from the database first.
         $rows = LocationOpening::where('location_id', $r->location_id)
-            ->select('weekday', 'period', 'start_time', 'end_time')
-            ->get();
+            ->select('weekday', 'period')
+            ->get(); // <-- YOU WERE MISSING ->get() HERE
 
-        return response()->json($rows);
+        // This code is now running on an actual collection of data
+        $groupedByWeekday = $rows->groupBy('weekday')->map(function ($group) {
+            return $group->pluck('period')->map('strtolower')->unique()->values();
+        });
+
+        return response()->json($groupedByWeekday);
     }
 }

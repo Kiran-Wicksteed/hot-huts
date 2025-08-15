@@ -18,6 +18,7 @@ use App\Http\Controllers\EventOccurrenceController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
+use App\Http\Controllers\CustomerController;
 
 
 Route::get('/welcome', function () {
@@ -50,7 +51,7 @@ Route::get('/order/failed', [PaymentController::class, 'paymentFailed'])->name('
 
 //Public routes
 Route::get('/services', [ServiceController::class, 'index'])->name('services.index');
-Route::get('/', [BookingFormController::class, 'index'])->name('index');
+Route::get('/', [BookingFormController::class, 'index'])->middleware('auth')->name('index');
 Route::get(
     'availability',
     [AvailabilityController::class, 'index']
@@ -63,10 +64,14 @@ Route::get(
 Route::get('/availability/by-period', [\App\Http\Controllers\AvailabilityController::class, 'byPeriod'])
     ->name('availability.byPeriod');
 
+Route::get('schedules-by-day', [AvailabilityController::class, 'byDayOfWeek'])
+    ->name('schedules.byDay');
+
 Route::get('openings/all', [OpeningController::class, 'all'])
     ->name('openings.all');
 Route::get('openings', [OpeningController::class, 'index'])
     ->name('openings');
+
 
 
 
@@ -101,13 +106,14 @@ Route::middleware(['auth', 'verified', 'approved'])->group(
         Route::get('/bookings', [BookingAdminController::class, 'index'])
             ->name('bookings.index');
 
-        Route::get('/payments', function () {
-            return Inertia::render('payments/index');
-        })->name('payments.index');
+        Route::middleware(['auth', 'verified'])->get('/payments', [\App\Http\Controllers\PaymentAdminController::class, 'index'])->name('payments.index');
+        // routes/web.php
+        Route::get('/payments/export', [\App\Http\Controllers\PaymentAdminController::class, 'export'])->name('payments.export');
 
-        Route::get('/customers', function () {
-            return Inertia::render('customers/index');
-        })->name('customers.index');
+        Route::middleware(['auth', 'verified'])->group(function () {
+            Route::get('/customers', [CustomerController::class, 'index'])->name('customers.index');
+        });
+
 
         Route::get('/locations', function () {
             return Inertia::render('locations/index');

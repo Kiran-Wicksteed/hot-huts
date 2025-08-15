@@ -42,7 +42,7 @@ class BookingAdminController extends Controller
         $statsQuery = clone $query; // Clone the query to not affect pagination
         $bookingsThisMonth = (clone $statsQuery)->whereYear('created_at', Carbon::now()->year)->whereMonth('created_at', Carbon::now()->month)->count();
         $todaysBookings = (clone $statsQuery)->whereDate('created_at', Carbon::today())->count();
-        $totalRevenue = $statsQuery->sum('amount');
+        $totalRevenue = $statsQuery->sum('amount') / 100;
 
         $recentBookings = $query->with(['user', 'timeslot.schedule.location', 'services'])
             ->latest()
@@ -86,10 +86,24 @@ class BookingAdminController extends Controller
             });
 
         // 2️⃣ all sauna bookings for today (exclude event bookings)
-        $bookingsToday = Booking::with(['user', 'timeslot.schedule.location'])
+        $bookingsToday = Booking::with(['user', 'timeslot.schedule.location',  'services'])
             ->whereDate('created_at', $today)
             ->whereNull('event_occurrence_id')
-            ->get();
+            ->get()
+            ->map(function ($booking) {
+                return [
+                    'id' => $booking->id,
+                    'timeslot_id' => $booking->timeslot_id,
+                    'people' => $booking->people,
+                    'user' => ['name' => $booking->user?->name],
+                    'services' => $booking->services->map(function ($service) {
+                        return [
+                            'name' => $service->name,
+                            'quantity' => $service->pivot->quantity,
+                        ];
+                    }),
+                ];
+            });
 
         // Pass the calculated data to the Inertia component as props.
         return Inertia::render('bookings/index', [
@@ -104,6 +118,7 @@ class BookingAdminController extends Controller
             'filters' => $request->only(['period', 'location_id']),
             'slotsToday'    => $slotsToday,
             'bookingsToday' => $bookingsToday,
+
         ]);
     }
 }

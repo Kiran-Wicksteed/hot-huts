@@ -1,9 +1,8 @@
 import { MapPinIcon } from "@heroicons/react/24/outline";
 import styles from "../../../styles";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { MinusIcon, PlusIcon } from "@heroicons/react/24/solid";
 import dayjs from "dayjs";
-import { useMemo } from "react";
 
 export default function TimeDate({
     nextStep,
@@ -14,335 +13,263 @@ export default function TimeDate({
     addons,
     sessionService,
 }) {
-    const { location, services, date, time } = formData;
-    const [slots, setSlots] = useState({ morning: [], evening: [] });
-    const [loading, setLoading] = useState(false);
+    // THIS LINE IS NOW CORRECTED
+    const { location = {}, time } = formData ?? {};
+    const people = servicesData.people ?? 1;
+
+    // NEW: State to hold all schedule data from the single API call
+    const [scheduleData, setScheduleData] = useState([]);
+    const [loading, setLoading] = useState(true);
     const [agreed, setAgreed] = useState(false);
     const [selectedTime, setSelectedTime] = useState(null);
     const [slotCap, setSlotCap] = useState(8);
-    const [calendarRules, setCalendarRules] = useState([]); // e.g. [0,3]  (Sun, Wed)
-    const [displayDays, setDisplayDays] = useState([]);
-    const today = dayjs();
-    const [selectedDate, setSelectedDate] = useState(today);
-    const people = servicesData.people ?? 1;
-    // Get current week starting from today
+    const [selectedDate, setSelectedDate] = useState(null); // Initialized to null
 
-    // Update service quantities
     const updateQuantity = (code, value) =>
         updateFormData({
             services: { ...servicesData, [code]: Math.max(0, value) },
         });
 
+    // EFFECT 1: Simplified to a single API call
     useEffect(() => {
-        if (!location?.id) return;
-
-        (async () => {
-            // 1) fetch weekly rules
-            const res = await fetch(
-                route("openings", { location_id: location.id })
-            );
-            const rules = await res.json(); // e.g. { "0":["morning"], "3":["evening"] } or { "7": ["evening"] } or { "sun": [...] }
-
-            // 2) normalise weekday keys -> 0..6 (Sun..Sat)
-            const keys = Object.keys(rules);
-            const asNum = keys.map((k) => Number(k));
-            let allowed = [];
-
-            if (asNum.every((n) => !Number.isNaN(n))) {
-                // numeric keys
-                if (asNum.some((n) => n === 7)) {
-                    // ISO 1..7 where 7=Sunday
-                    allowed = asNum.map((n) => n % 7); // 1..6 stay 1..6, 7 -> 0
-                } else {
-                    // assume 0..6 already
-                    allowed = asNum.map((n) => ((n % 7) + 7) % 7);
-                }
-            } else {
-                // string day names
-                const map = {
-                    sun: 0,
-                    mon: 1,
-                    tue: 2,
-                    wed: 3,
-                    thu: 4,
-                    fri: 5,
-                    sat: 6,
-                };
-                allowed = keys
-                    .map((k) => map[k.toLowerCase().slice(0, 3)])
-                    .filter((n) => n !== undefined);
-            }
-
-            // 3) walk forward and keep only days that BOTH match rules AND actually have slots
-            const LOOKAHEAD = 45; // days to scan ahead
-            const NEED = 6; // how many chips you want to show
-            const found = [];
-            let cursor = dayjs().startOf("day");
-
-            while (
-                found.length < NEED &&
-                cursor.diff(dayjs().startOf("day"), "day") < LOOKAHEAD
-            ) {
-                if (allowed.includes(cursor.day())) {
-                    const r = await fetch(
-                        route("availability.byPeriod", {
-                            location_id: location.id,
-                            date: cursor.format("YYYY-MM-DD"),
-                        })
-                    );
-                    const j = await r.json();
-                    const total =
-                        (j.morning?.length ?? 0) +
-                        (j.afternoon?.length ?? 0) +
-                        (j.evening?.length ?? 0) +
-                        (j.night?.length ?? 0);
-
-                    if (total > 0) found.push(cursor); // only show bookable days
-                }
-                cursor = cursor.add(1, "day");
-            }
-
-            setDisplayDays(found);
-            if (found[0]) setSelectedDate(found[0]); // preselect first bookable date
-        })();
-    }, [location?.id]);
-
-    useEffect(() => {
-        if (!location?.id || !selectedDate) return;
+        if (!location?.id || !location.day) {
+            setLoading(false);
+            return;
+        }
 
         (async () => {
             setLoading(true);
+
+            const dayMap = {
+                sun: 0,
+                mon: 1,
+                tue: 2,
+                wed: 3,
+                thu: 4,
+                fri: 5,
+                sat: 6,
+            };
+            const wantedDow =
+                dayMap[String(location.day).slice(0, 3).toLowerCase()];
+
+            if (wantedDow === undefined) {
+                setLoading(false);
+                return;
+            }
+
             const res = await fetch(
-                route("availability.byPeriod", {
+                route("schedules.byDay", {
                     location_id: location.id,
-                    date: selectedDate.format("YYYY-MM-DD"),
+                    weekday: wantedDow,
                 })
             );
-            const json = await res.json();
+            const data = await res.json();
 
-            // json = { morning:[], afternoon:[], evening:[], night:[] }
-            setSlots({
-                morning: json.morning ?? [],
-                evening: json.evening ?? [],
-                // keep if you want to show them too:
-                afternoon: json.afternoon ?? [],
-                night: json.night ?? [],
-            });
+            setScheduleData(data);
+
+            // If we got results, select the first available date by default
+            if (data.length > 0) {
+                const firstDate = dayjs(data[0].date);
+                setSelectedDate(firstDate);
+                // Update parent form with the initial date
+                updateFormData({ date: firstDate.format("YYYY-MM-DD") });
+            }
             setLoading(false);
         })();
-    }, [location?.id, selectedDate]);
+    }, [location?.id, location.day]);
+
+    // DERIVED STATE: These are now calculated from state, not fetched separately
+    const displayDays = useMemo(
+        () =>
+            scheduleData
+                .slice(0, 6)
+                .filter(Boolean) // <-- ADD THIS LINE
+                .map((d) => dayjs(d.date)),
+        [scheduleData]
+    );
+    const slots = useMemo(() => {
+        if (!selectedDate || scheduleData.length === 0) {
+            return { morning: [], afternoon: [], evening: [], night: [] };
+        }
+        const dateString = selectedDate.format("YYYY-MM-DD");
+        const foundData = scheduleData.find((d) => d.date === dateString);
+        return foundData
+            ? foundData.slots
+            : { morning: [], afternoon: [], evening: [], night: [] };
+    }, [selectedDate, scheduleData]);
+
+    // Keep formData in sync with user selections
+    const handleDaySelect = (day) => {
+        setSelectedDate(day);
+        setSelectedTime(null); // Reset time selection when day changes
+        updateFormData({
+            date: day.format("YYYY-MM-DD"),
+            time: "", // Reset time in form data
+            timeslot_id: null,
+        });
+    };
+
+    const handleTimeSelect = (item) => {
+        if (item.spots_left === 0) return;
+        setSelectedTime(item.id);
+        setSlotCap(item.spots_left);
+        updateFormData({
+            time: `${item.starts_at} - ${item.ends_at}`,
+            timeslot_id: item.id,
+        });
+    };
 
     const total = useMemo(() => {
         let sum = +sessionService.price * people;
-
-        addons.forEach((svc) => {
-            const qty = servicesData[svc.code] ?? 0;
-            sum += qty * svc.price;
-        });
-
+        addons.forEach(
+            (svc) => (sum += (servicesData[svc.code] ?? 0) * svc.price)
+        );
         return sum.toFixed(2);
     }, [servicesData, addons, people, sessionService.price]);
 
-    // Update time slot selection
-    const handleTimeSelect = (item) => {
-        // ignore clicks on full slots
-        if (item.spots === 0) return;
-
-        setSelectedTime(item.id);
-        setSlotCap(item.spots); // remember capacity
-
-        updateFormData({
-            time: item.time,
-            timeslot_id: item.id, // for later POST
-        });
-    };
-    const handleDaySelect = (d) => setSelectedDate(d);
-
-    useEffect(() => {
-        if (!selectedDate) return;
-
-        updateFormData({
-            date: selectedDate.format("YYYY-MM-DD"),
-            location: { ...location, day: selectedDate.format("dddd") },
-        });
-    }, [selectedDate]);
-
+    // --- JSX (Largely the same, just simplified) ---
     return (
         <div
             className={`${styles.boxWidth} pb-28 pt-10 px-4 2xl:px-28 md:px-10 lg:px-16 xl:px-20`}
         >
-            {" "}
             <h1
                 className={`${styles.h3} !text-2xl !text-black font-normal max-w-3xl`}
             >
-                Feel the Chill, Embrace the Heat — sauna sessions by the sea.{" "}
+                Feel the Chill, Embrace the Heat — sauna sessions by the sea.
                 <span className="text-hh-orange block">{location.name}</span>
             </h1>
-            <div className=" grid grid-cols-3 gap-x-20 relative mt-10">
-                <div className="col-span-2  bg-white">
+
+            <div className="grid grid-cols-3 gap-x-20 relative mt-10">
+                {/* left: calendar + slots */}
+                <div className="col-span-2 bg-white">
                     <h3 className={`${styles.h2} text-black font-medium`}>
                         Pick a slot on a{" "}
                         <span className="text-hh-orange font-semibold">
-                            {selectedDate.format("dddd")}
+                            {selectedDate ? selectedDate.format("dddd") : "..."}
                         </span>
                     </h3>
                     <p
                         className={`!font-medium !text-xl text-black mt-2 mb-4 ${styles.paragraph}`}
                     >
-                        {selectedDate.format("MMMM YYYY")}
+                        {selectedDate
+                            ? selectedDate.format("MMMM YYYY")
+                            : "..."}
                     </p>
-                    <div className="flex gap-x-6 mb-16">
-                        {displayDays.map((day) => {
-                            const isSelected = day.isSame(selectedDate, "day");
-                            return (
-                                <div
-                                    key={day.toString()}
-                                    // onClick={() => setSelectedDate(day)}
-                                    onClick={() => handleDaySelect(day)}
-                                    className="text-center cursor-pointer"
-                                >
-                                    <div
-                                        className={`text-xl w-16 py-4 rounded-md ${
-                                            isSelected
-                                                ? "bg-hh-orange text-white font-bold border border-hh-orange"
-                                                : "bg-white text-hh-gray border border-hh-gray font-medium"
-                                        }`}
-                                    >
-                                        {day.date()}
-                                    </div>
-                                    <div
-                                        className={`${
-                                            styles.paragraph
-                                        } font-medium ${
-                                            isSelected
-                                                ? "text-hh-orange"
-                                                : "text-hh-gray"
-                                        }`}
-                                    >
-                                        {day.format("ddd")}
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
-                    <div className="space-y-10">
-                        {slots.morning.length > 0 && (
-                            <>
-                                <p
-                                    className={`${styles.paragraph} mb-6 underline !text-lg text-black font-medium`}
-                                >
-                                    Morning Slots
-                                </p>
 
-                                <div className="h-[485px] overflow-y-scroll space-y-2">
-                                    {loading && <p>Loading…</p>}
+                    {loading && (
+                        <p className={`${styles.paragraph} text-hh-gray`}>
+                            Finding available slots...
+                        </p>
+                    )}
 
-                                    {!loading &&
-                                        slots.morning.map((slot) => (
+                    {!loading && displayDays.length === 0 && (
+                        <p className={`${styles.paragraph} text-hh-gray`}>
+                            Sorry, no available slots were found for{" "}
+                            {location.day}s.
+                        </p>
+                    )}
+
+                    {!loading && displayDays.length > 0 && (
+                        <>
+                            {/* date chips */}
+                            <div className="flex gap-x-6 mb-16">
+                                {displayDays.map((day) => {
+                                    const isSelected = day.isSame(
+                                        selectedDate,
+                                        "day"
+                                    );
+                                    return (
+                                        <div
+                                            key={day.toString()}
+                                            onClick={() => handleDaySelect(day)}
+                                            className="text-center cursor-pointer"
+                                        >
                                             <div
-                                                key={slot.id}
-                                                className={`border rounded shadow p-6 flex justify-between
-                                                    ${
-                                                        slot.spots_left === 0
-                                                            ? "opacity-40 cursor-not-allowed"
-                                                            : "cursor-pointer"
-                                                    }
-                                                    ${
-                                                        selectedTime === slot.id
-                                                            ? "border-hh-orange"
-                                                            : "border-hh-gray"
-                                                    }`}
-                                                onClick={() =>
-                                                    handleTimeSelect({
-                                                        id: slot.id,
-                                                        time: `${slot.starts_at} - ${slot.ends_at}`,
-                                                        spots: slot.spots_left, // pass remaining seats
-                                                    })
-                                                }
+                                                className={`text-xl w-16 py-4 rounded-md ${
+                                                    isSelected
+                                                        ? "bg-hh-orange text-white font-bold border border-hh-orange"
+                                                        : "bg-white text-hh-gray border border-hh-gray font-medium"
+                                                }`}
                                             >
-                                                <p
-                                                    className={`${styles.paragraph} text-black font-medium`}
-                                                >
-                                                    {slot.starts_at} –{" "}
-                                                    {slot.ends_at}
-                                                </p>
-                                                <p
-                                                    className={`${styles.paragraph} uppercase text-[#999]`}
-                                                >
-                                                    {slot.spots_left} slots left
-                                                </p>
+                                                {day.date()}
                                             </div>
-                                        ))}
-                                </div>
-                            </>
-                        )}
-                        <div>
-                            {slots.evening.length > 0 && (
-                                <>
-                                    <p
-                                        className={`${styles.paragraph} mb-6 underline !text-lg text-black font-medium`}
-                                    >
-                                        Evening Slots
-                                    </p>
+                                            <div
+                                                className={`${
+                                                    styles.paragraph
+                                                } font-medium ${
+                                                    isSelected
+                                                        ? "text-hh-orange"
+                                                        : "text-hh-gray"
+                                                }`}
+                                            >
+                                                {day.format("ddd")}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
 
-                                    <div className="h-[485px] overflow-y-scroll space-y-2">
-                                        {loading && <p>Loading…</p>}
-
-                                        {!loading &&
-                                            slots.evening.map((slot) => (
-                                                <div
-                                                    key={slot.id}
-                                                    className={`border rounded shadow p-6 flex justify-between
-                                                        ${
-                                                            slot.spots_left ===
-                                                            0
-                                                                ? "opacity-40 cursor-not-allowed"
-                                                                : "cursor-pointer"
-                                                        }
-                                                        ${
-                                                            selectedTime ===
-                                                            slot.id
-                                                                ? "border-hh-orange"
-                                                                : "border-hh-gray"
-                                                        }`}
-                                                    onClick={() =>
-                                                        handleTimeSelect({
-                                                            id: slot.id,
-                                                            time: `${slot.starts_at} - ${slot.ends_at}`,
-                                                            spots: slot.spots_left, // pass remaining seats
-                                                        })
-                                                    }
+                            {/* slots */}
+                            <div className="space-y-10">
+                                {slots.morning.length > 0 ||
+                                slots.evening.length > 0 ? (
+                                    <>
+                                        {slots.morning.length > 0 && (
+                                            <div className="space-y-2">
+                                                <p
+                                                    className={`${styles.paragraph} mb-6 underline !text-lg text-black font-medium`}
                                                 >
-                                                    <p
-                                                        className={`${styles.paragraph} text-black font-medium`}
-                                                    >
-                                                        {slot.starts_at} –{" "}
-                                                        {slot.ends_at}
-                                                    </p>
-                                                    <p
-                                                        className={`${styles.paragraph} uppercase text-[#999]`}
-                                                    >
-                                                        {slot.spots_left} slots
-                                                        left
-                                                    </p>
-                                                </div>
-                                            ))}
-                                    </div>
-                                </>
-                            )}
-
-                            {!loading &&
-                                slots.morning.length === 0 &&
-                                slots.evening.length === 0 && (
+                                                    Morning Slots
+                                                </p>
+                                                {slots.morning.map((slot) => (
+                                                    <TimeSlot
+                                                        key={slot.id}
+                                                        slot={slot}
+                                                        selectedTime={
+                                                            selectedTime
+                                                        }
+                                                        handleTimeSelect={
+                                                            handleTimeSelect
+                                                        }
+                                                    />
+                                                ))}
+                                            </div>
+                                        )}
+                                        {slots.evening.length > 0 && (
+                                            <div className="space-y-2">
+                                                <p
+                                                    className={`${styles.paragraph} mb-6 underline !text-lg text-black font-medium`}
+                                                >
+                                                    Evening Slots
+                                                </p>
+                                                {slots.evening.map((slot) => (
+                                                    <TimeSlot
+                                                        key={slot.id}
+                                                        slot={slot}
+                                                        selectedTime={
+                                                            selectedTime
+                                                        }
+                                                        handleTimeSelect={
+                                                            handleTimeSelect
+                                                        }
+                                                    />
+                                                ))}
+                                            </div>
+                                        )}
+                                    </>
+                                ) : (
                                     <p
                                         className={`${styles.paragraph} text-hh-gray`}
                                     >
                                         No slots available for this date.
                                     </p>
                                 )}
-                        </div>
-                    </div>
+                            </div>
+                        </>
+                    )}
                 </div>
+
+                {/* right: summary */}
                 <div className="col-span-1 border border-hh-gray bg-white rounded-md shadow overflow-hidden h-fit sticky top-12">
                     <div className="p-8">
                         <h4
@@ -356,7 +283,9 @@ export default function TimeDate({
                                 <p
                                     className={`${styles.paragraph} uppercase !text-sm`}
                                 >
-                                    {location.day}
+                                    {selectedDate
+                                        ? selectedDate.format("dddd")
+                                        : location.day}
                                 </p>
                             </div>
                             <div className="bg-hh-orange py-1 px-4 shadow flex items-center gap-1 text-white rounded">
@@ -371,12 +300,11 @@ export default function TimeDate({
                             <div className="flex items-center gap-x-2 mt-6 mb-6 text-hh-orange">
                                 <MapPinIcon className="h-6 w-6 shrink-0" />
                                 <h3
-                                    className={`${styles.h3}  !mb-0  font-medium`}
+                                    className={`${styles.h3} !mb-0 font-medium`}
                                 >
                                     {location.name}
                                 </h3>
                             </div>
-
                             <div className="flex justify-between items-end border border-hh-gray p-2 rounded">
                                 <p
                                     className={`${styles.paragraph} text-black font-medium!mb-0`}
@@ -391,11 +319,10 @@ export default function TimeDate({
                                     update={updateQuantity}
                                 />
                             </div>
-
                             {addons
                                 .filter(
                                     (svc) => (servicesData[svc.code] ?? 0) > 0
-                                ) // only show chosen ones
+                                )
                                 .map((svc) => (
                                     <div
                                         key={svc.code}
@@ -415,21 +342,21 @@ export default function TimeDate({
                                         />
                                     </div>
                                 ))}
-
                             <div className="pt-6 flex justify-between gap-x-2 items-center">
-                                {" "}
                                 <div className="bg-white w-full py-3 shadow flex items-center justify-center gap-1 text-hh-orange rounded border border-hh-orange">
                                     <p
-                                        className={`${styles.paragraph} uppercase  !text-sm`}
+                                        className={`${styles.paragraph} uppercase !text-sm`}
                                     >
-                                        {date || "Date selected"}
+                                        {selectedDate
+                                            ? selectedDate.format("YYYY-MM-DD")
+                                            : "Date"}
                                     </p>
                                 </div>
                                 <div className="bg-white w-full py-3 shadow flex items-center justify-center gap-1 text-hh-orange rounded border border-hh-orange">
                                     <p
                                         className={`${styles.paragraph} uppercase !text-sm`}
                                     >
-                                        {time || "Time selected"}
+                                        {time || "Time"}
                                     </p>
                                 </div>
                             </div>
@@ -447,19 +374,18 @@ export default function TimeDate({
                                     onChange={(e) =>
                                         setAgreed(e.target.checked)
                                     }
-                                    className="h-4 w-4 text-hh-orange ring-white border-hh-orange  ring focus:ring-hh-orange rounded bg-white"
+                                    className="h-4 w-4 text-hh-orange ring-white border-hh-orange ring focus:ring-hh-orange rounded bg-white"
                                 />
-
                                 <label
                                     htmlFor="consent"
-                                    className={`${styles.paragraph}  text-hh-gray !text-sm`}
+                                    className={`${styles.paragraph} text-hh-gray !text-sm`}
                                 >
                                     I agree that I have read and accepted the
                                     Terms of Use and Privacy Policy
                                 </label>
                             </div>
                             <div className="flex items-center gap-x-2 pt-6">
-                                <div className="bg-white border  border-hh-orange py-1 px-4 shadow flex items-center gap-1 text-hh-orange rounded">
+                                <div className="bg-white border border-hh-orange py-1 px-4 shadow flex items-center gap-1 text-hh-orange rounded">
                                     <button
                                         onClick={prevStep}
                                         className={`${styles.paragraph} uppercase whitespace-nowrap`}
@@ -473,7 +399,7 @@ export default function TimeDate({
                                         disabled={!selectedTime || !agreed}
                                         className={`${
                                             styles.paragraph
-                                        } uppercase  ${
+                                        } uppercase ${
                                             (!selectedTime || !agreed) &&
                                             "opacity-50 cursor-not-allowed"
                                         }`}
@@ -486,6 +412,28 @@ export default function TimeDate({
                     </div>
                 </div>
             </div>
+        </div>
+    );
+}
+
+function TimeSlot({ slot, selectedTime, handleTimeSelect }) {
+    return (
+        <div
+            className={`border rounded shadow p-6 flex justify-between ${
+                slot.spots_left === 0
+                    ? "opacity-40 cursor-not-allowed"
+                    : "cursor-pointer"
+            } ${
+                selectedTime === slot.id ? "border-hh-orange" : "border-hh-gray"
+            }`}
+            onClick={() => handleTimeSelect(slot)}
+        >
+            <p className={`${styles.paragraph} text-black font-medium`}>
+                {slot.starts_at} – {slot.ends_at}
+            </p>
+            <p className={`${styles.paragraph} uppercase text-[#999]`}>
+                {slot.spots_left} slots left
+            </p>
         </div>
     );
 }
