@@ -85,7 +85,7 @@ Route::get('/bookings/{booking}', [BookingController::class, 'show'])
 
 
 
-Route::middleware('auth', 'approved')->group(function () {
+Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
@@ -96,21 +96,21 @@ Route::middleware('auth', 'approved')->group(function () {
 
 
 
-Route::middleware(['auth', 'verified', 'approved'])->group(
+Route::middleware(['auth'])->group(
     function () {
 
         Route::get('/dashboard', function () {
             return Inertia::render('Dashboard');
-        })->middleware(['auth', 'verified'])->name('dashboard');
+        })->middleware(['auth'])->name('dashboard');
 
         Route::get('/bookings', [BookingAdminController::class, 'index'])
             ->name('bookings.index');
 
-        Route::middleware(['auth', 'verified'])->get('/payments', [\App\Http\Controllers\PaymentAdminController::class, 'index'])->name('payments.index');
+        Route::middleware(['auth'])->get('/payments', [\App\Http\Controllers\PaymentAdminController::class, 'index'])->name('payments.index');
         // routes/web.php
         Route::get('/payments/export', [\App\Http\Controllers\PaymentAdminController::class, 'export'])->name('payments.export');
 
-        Route::middleware(['auth', 'verified'])->group(function () {
+        Route::middleware(['auth'])->group(function () {
             Route::get('/customers', [CustomerController::class, 'index'])->name('customers.index');
         });
 
@@ -121,11 +121,11 @@ Route::middleware(['auth', 'verified', 'approved'])->group(
 
         Route::get('/my-bookings', [UserDashboardController::class, 'index'])->name('user.dashboard');
 
-        Route::middleware(['auth', 'verified'])->group(function () {
+        Route::middleware(['auth'])->group(function () {
             Route::post('/profile/change-organization', [ProfileController::class, 'changeUserOrganization'])->name('profile.change-organization.update');
         });
 
-        Route::middleware(['auth', 'admin', 'verified'])->group(function () {
+        Route::middleware(['auth', 'admin'])->group(function () {
             Route::delete('users/{user}', [ProfileController::class, 'destroyUser'])->name('users.destroy');
         });
     }

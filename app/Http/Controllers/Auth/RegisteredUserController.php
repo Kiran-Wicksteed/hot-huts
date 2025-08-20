@@ -33,10 +33,8 @@ class RegisteredUserController extends Controller
         $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|string|lowercase|email|max:255|unique:' . User::class,
-            'title' => ['required', 'string', 'max:255'],
             'contact_number' => ['required', 'string', 'max:255'],
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
-            'organization_id' => ['required', 'exists:organizations,id'],
             'photo' => 'nullable|file|mimes:jpg,png,gif|max:3072'
         ], [
             'photo.max' => 'The photo may not be greater than 3 MB.',
@@ -55,8 +53,7 @@ class RegisteredUserController extends Controller
             'name' => $request->name,
             'email' => $request->email,
             'password' => Hash::make($request->password),
-            'organization_id' => $request->organization_id,
-            'title' => $request->title,
+            'title' => "customer",
             'contact_number' => $request->contact_number,
             'photo' => $path,
         ]);
