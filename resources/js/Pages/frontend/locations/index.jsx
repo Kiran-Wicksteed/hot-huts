@@ -1,5 +1,5 @@
-import Menu from "@/Layouts/Menu";
-import Hero from "@/Components/locations/Hero";
+import Menu from "@/Layouts/menu";
+import Hero from "@/Components/locations/hero";
 import Calendar from "@/Components/locations/Calendar";
 import SliderSection from "@/Components/locations/Slider";
 import UpcomingEvents from "@/Components/locations/UpcomingEvents";
