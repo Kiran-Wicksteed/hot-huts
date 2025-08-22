@@ -37,46 +37,36 @@ class PaymentController extends Controller
 
     public function handlePaymentCallback(Request $request)
     {
-        // Since the user is redirected via POST, we handle everything here.
-        // This method serves as BOTH the webhook handler AND the user redirect handler.
-        Log::info('Peach Payments Callback Received (POST)', $request->all());
+        Log::info('Peach Payments Callback Received', $request->all());
 
-        // --- Part 1: Handle the database update (Webhook Logic) ---
-        // This is your "source of truth". You should update your database here.
-        $orderId = $request->input('merchantTransactionId'); // Or 'peachpaymentOrder'
-        $resultCode = $request->input('result_code') ?? $request->input('result.code');
-        $resultDescription = $request->input('result_description') ?? $request->input('result.description');
-        $isSuccess = Str::startsWith($resultCode, ['000.000', '000.100', '000.110']);
+        // Check if this is the POST webhook
+        if ($request->isMethod('post')) {
+            $orderNumber = $request->input('checkoutId');
+            $resultCode = $request->input('result_code');
+            $isSuccess = $resultCode && \Illuminate\Support\Str::startsWith($resultCode, ['000.000', '000.100', '000.110']);
 
-        $orderNumber = $request->input('checkoutId');
-        $booking = Booking::where('peach_payment_checkout_id', $orderNumber)->first();
-
-
-        if ($booking) {
-            // --- Update the status and payment message ---
-            $newStatus = $isSuccess ? 'paid' : 'cancelled';
-            $paymentDescription = $request->input('result_description', 'Status unknown');
-
-            $booking->update([
-                'status' => $newStatus,
-                'payment_status' => $paymentDescription,
-            ]);
-
-            Log::info("Booking {$booking->id} status updated to '{$newStatus}'.");
-
-            // --- Redirect to the correct page ---
-            if ($isSuccess) {
-                // On success, redirect to the booking confirmation page.
-                return redirect()->route('bookings.show', $booking);
+            $booking = Booking::where('peach_payment_checkout_id', $orderNumber)->first();
+            if ($booking) {
+                $booking->update([
+                    'status' => $isSuccess ? 'paid' : 'cancelled',
+                    'payment_status' => $request->input('result_description', 'Unknown'),
+                ]);
+                if ($isSuccess) {
+                    return redirect()->route('bookings.show', $booking);
+                }
             }
-        } else {
-            Log::error("Payment callback received for a booking that was not found.", ['peachpaymentOrder' => $orderNumber]);
+            return redirect()->route('payment.failed');
         }
 
-        $errorMessage = $request->input('result_description', 'An unknown error occurred.');
-        return redirect()->route('payment.failed')
-            ->with('error', $errorMessage)
-            ->with('orderId', $orderNumber);
+        // Otherwise it's the GET redirect after payment
+        $orderNumber = $request->query('checkoutId') ?? $request->query('peachpaymentOrder');
+        $booking = Booking::where('peach_payment_checkout_id', $orderNumber)->first();
+
+        if ($booking && $booking->status === 'paid') {
+            return redirect()->route('bookings.show', $booking);
+        }
+
+        return redirect()->route('payment.failed');
     }
 
     /**
