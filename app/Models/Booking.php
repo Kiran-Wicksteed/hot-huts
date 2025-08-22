@@ -9,6 +9,8 @@ class Booking extends Model
     protected $fillable = [
         'user_id',
         'timeslot_id',
+        'guest_name',   // ✅ new
+        'guest_email',
         'people',
         'status',          // pending | paid | cancelled
         'amount',          // decimal 8,2

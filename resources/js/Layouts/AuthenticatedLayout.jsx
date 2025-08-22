@@ -104,7 +104,7 @@ export default function AuthenticatedLayout({ header, children }) {
                                     <Dropdown>
                                         <Dropdown.Trigger>
                                             <div className="flex">
-                                                {user.photo != null ? (
+                                                {user && user.photo ? (
                                                     <div className="mx-auto h-10 w-10 overflow-hidden shrink-0 rounded-full">
                                                         <img
                                                             alt=""

@@ -19,14 +19,31 @@ export default function BookingPage({
     filters, // {location_id, period}
     bookingsToday, // today’s sauna‑only bookings (already eager‑loaded in controller)
     slotsToday, // ALL sauna time‑slots for today (+ schedule/location)
+    addonServices,
 }) {
+    console.log("🔍 Inertia props:", {
+        stats,
+        bookings,
+        locations,
+        filters,
+        bookingsToday,
+        slotsToday,
+        addonServices,
+    });
     /* ────────────────────────────────────────────────────────────
      1. local state / filters
   ──────────────────────────────────────────────────────────── */
     const [locationFilter, setLocationFilter] = useState(
-        filters.location_id ? String(filters.location_id) : "" // keep as **string**
+        filters.location_id
+            ? String(filters.location_id)
+            : locations.length > 0
+            ? String(locations[0].id) // 👈 default to first
+            : ""
     );
     const [periodFilter, setPeriodFilter] = useState(filters.period || "30");
+    const [dateFilter, setDateFilter] = useState(
+        filters.date || new Date().toISOString().slice(0, 10)
+    );
 
     /* ────────────────────────────────────────────────────────────
      2. helper: format “09:20” etc.  Accepts either ISO or “HH:MM:SS”.
@@ -43,41 +60,6 @@ export default function BookingPage({
         );
     }, [slotsToday, locationFilter]);
 
-    /* ────────────────────────────────────────────────────────────
-     4. analytics‑section filter handler (unchanged)
-  ──────────────────────────────────────────────────────────── */
-    const applyAnalyticsFilter = () =>
-        router.get(
-            route("bookings.index"),
-            {
-                location_id: locationFilter,
-                period: periodFilter,
-            },
-            { preserveState: true, replace: true }
-        );
-
-    /* ────────────────────────────────────────────────────────────
-     5. tiny helpers reused further down
-  ──────────────────────────────────────────────────────────── */
-    const formatDateTime = (iso) =>
-        new Date(iso).toLocaleString("en-US", {
-            year: "numeric",
-            month: "long",
-            day: "numeric",
-            hour: "numeric",
-            minute: "2-digit",
-        });
-
-    const getInitials = (name = "") =>
-        name
-            .split(" ")
-            .map((n) => n[0])
-            .join("")
-            .toUpperCase();
-
-    /* ────────────────────────────────────────────────────────────
-     render
-  ──────────────────────────────────────────────────────────── */
     return (
         <AuthenticatedLayout>
             <div className="ml-[256px] p-6">
@@ -105,27 +87,48 @@ export default function BookingPage({
                 <section className="mt-12">
                     <div className="flex items-center justify-between mb-6">
                         <h4 className={`${styles.h3} font-medium`}>
-                            Bookings today
+                            Bookings for {dateFilter}
                         </h4>
+                        <div>
+                            <select
+                                value={locationFilter}
+                                onChange={(e) =>
+                                    setLocationFilter(e.target.value)
+                                }
+                                className="border rounded p-2 bg-white w-fit"
+                            >
+                                {locations.map((l) => (
+                                    <option key={l.id} value={l.id}>
+                                        {l.name}
+                                    </option>
+                                ))}
+                            </select>
 
-                        <select
-                            value={locationFilter}
-                            onChange={(e) => setLocationFilter(e.target.value)}
-                            className="border rounded p-2 bg-white"
-                        >
-                            <option value="">All locations</option>
-                            {locations.map((l) => (
-                                <option key={l.id} value={l.id}>
-                                    {l.name}
-                                </option>
-                            ))}
-                        </select>
+                            <input
+                                type="date"
+                                value={dateFilter}
+                                onChange={(e) => {
+                                    setDateFilter(e.target.value);
+                                    router.get(
+                                        route("bookings.index"),
+                                        {
+                                            location_id: locationFilter,
+                                            period: periodFilter,
+                                            date: e.target.value,
+                                        },
+                                        { preserveState: true, replace: true }
+                                    );
+                                }}
+                                className="border rounded p-2 bg-white ml-4"
+                            />
+                        </div>
                     </div>
 
                     <TodayBubbles
                         slots={filteredSlots}
                         bookings={bookingsToday}
                         formatTime={formatTime}
+                        addonServices={addonServices}
                     />
                 </section>
 

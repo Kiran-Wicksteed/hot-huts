@@ -324,7 +324,7 @@ export default function Dashboard() {
                                 </div>
                             </div>
                         </div> */}
-                        <div className="relative lg:col-span-6 overflow-hidden   border border-hh-gray rounded-md  bg-hh-orange">
+                        {/* <div className="relative lg:col-span-6 overflow-hidden   border border-hh-gray rounded-md  bg-hh-orange">
                             <div className="relative  h-full flex flex-col  overflow-hidden">
                                 <div className="p-6">
                                     <h4
@@ -586,8 +586,8 @@ export default function Dashboard() {
                                     </form>
                                 </div>
                             </div>
-                        </div>
-                        <div className="relative lg:col-span-4 overflow-hidden border border-hh-gray rounded-md h-[547px] bg-white">
+                        </div> */}
+                        <div className="relative lg:col-span-4 overflow-hidden border border-hh-gray rounded-md  bg-white">
                             <div className="relative  h-full flex flex-col  overflow-y-scroll">
                                 <div className="p-6">
                                     <h4

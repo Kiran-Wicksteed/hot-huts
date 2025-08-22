@@ -92,17 +92,6 @@ CREATE TABLE IF NOT EXISTS "locations"(
   "created_at" datetime,
   "updated_at" datetime
 );
-CREATE TABLE IF NOT EXISTS "sauna_schedules"(
-  "id" integer primary key autoincrement not null,
-  "sauna_id" integer not null,
-  "location_id" integer not null,
-  "date" date not null,
-  "created_at" datetime,
-  "updated_at" datetime,
-  "period" varchar check("period" in('morning', 'evening')) not null default 'morning',
-  foreign key("sauna_id") references "saunas"("id") on delete cascade,
-  foreign key("location_id") references "locations"("id") on delete cascade
-);
 CREATE TABLE IF NOT EXISTS "saunas"(
   "id" integer primary key autoincrement not null,
   "name" varchar not null,
@@ -126,22 +115,6 @@ CREATE UNIQUE INDEX "timeslots_sauna_schedule_id_starts_at_unique" on "timeslots
   "sauna_schedule_id",
   "starts_at"
 );
-CREATE TABLE IF NOT EXISTS "bookings"(
-  "id" integer primary key autoincrement not null,
-  "user_id" integer not null,
-  "timeslot_id" integer not null,
-  "people" integer not null,
-  "status" varchar check("status" in('pending', 'paid', 'cancelled')) not null default 'pending',
-  "amount" numeric not null,
-  "created_at" datetime,
-  "updated_at" datetime,
-  foreign key("user_id") references "users"("id") on delete cascade,
-  foreign key("timeslot_id") references "timeslots"("id") on delete cascade
-);
-CREATE UNIQUE INDEX "bookings_user_id_timeslot_id_unique" on "bookings"(
-  "user_id",
-  "timeslot_id"
-);
 CREATE TABLE IF NOT EXISTS "services"(
   "id" integer primary key autoincrement not null,
   "code" varchar not null,
@@ -153,19 +126,6 @@ CREATE TABLE IF NOT EXISTS "services"(
   "updated_at" datetime
 );
 CREATE UNIQUE INDEX "services_code_unique" on "services"("code");
-CREATE TABLE IF NOT EXISTS "location_openings"(
-  "id" integer primary key autoincrement not null,
-  "location_id" integer not null,
-  "weekday" integer not null,
-  "periods" text not null,
-  "created_at" datetime,
-  "updated_at" datetime,
-  foreign key("location_id") references "locations"("id") on delete cascade
-);
-CREATE UNIQUE INDEX "location_openings_location_id_weekday_unique" on "location_openings"(
-  "location_id",
-  "weekday"
-);
 CREATE TABLE IF NOT EXISTS "booking_service"(
   "id" integer primary key autoincrement not null,
   "booking_id" integer not null,
@@ -175,12 +135,116 @@ CREATE TABLE IF NOT EXISTS "booking_service"(
   "line_total" numeric not null,
   "created_at" datetime,
   "updated_at" datetime,
+  "meta" text,
   foreign key("booking_id") references "bookings"("id") on delete cascade,
   foreign key("service_id") references "services"("id") on delete cascade
 );
 CREATE UNIQUE INDEX "booking_service_booking_id_service_id_unique" on "booking_service"(
   "booking_id",
   "service_id"
+);
+CREATE TABLE IF NOT EXISTS "events"(
+  "id" integer primary key autoincrement not null,
+  "name" varchar not null,
+  "description" text,
+  "default_price" integer,
+  "default_capacity" integer,
+  "is_active" tinyint(1) not null default '1',
+  "created_at" datetime,
+  "updated_at" datetime
+);
+CREATE TABLE IF NOT EXISTS "event_occurrences"(
+  "id" integer primary key autoincrement not null,
+  "location_id" integer not null,
+  "start_time" time not null,
+  "end_time" time not null,
+  "price" integer,
+  "capacity" integer,
+  "is_active" tinyint(1) not null default('1'),
+  "created_at" datetime,
+  "updated_at" datetime,
+  "event_id" integer,
+  "occurs_on" date,
+  foreign key("location_id") references locations("id") on delete cascade on update no action,
+  foreign key("event_id") references "events"("id") on delete cascade
+);
+CREATE UNIQUE INDEX "event_occ_unique" on "event_occurrences"(
+  "event_id",
+  "occurs_on",
+  "start_time"
+);
+CREATE TABLE IF NOT EXISTS "bookings"(
+  "id" integer primary key autoincrement not null,
+  "user_id" integer not null,
+  "timeslot_id" integer,
+  "people" integer not null,
+  "status" varchar not null default('pending'),
+  "amount" numeric not null,
+  "created_at" datetime,
+  "updated_at" datetime,
+  "peach_payment_checkout_id" varchar,
+  "payment_status" varchar not null default('pending'),
+  "bookable_type" varchar,
+  "bookable_id" integer,
+  "event_occurrence_id" integer,
+  foreign key("user_id") references users("id") on delete cascade on update no action,
+  foreign key("timeslot_id") references timeslots("id") on delete cascade on update no action,
+  foreign key("event_occurrence_id") references "event_occurrences"("id") on delete cascade
+);
+CREATE INDEX "bookings_bookable_type_bookable_id_index" on "bookings"(
+  "bookable_type",
+  "bookable_id"
+);
+CREATE INDEX "bookings_user_id_timeslot_id_index" on "bookings"(
+  "user_id",
+  "timeslot_id"
+);
+CREATE TABLE IF NOT EXISTS "location_openings"(
+  "id" integer primary key autoincrement not null,
+  "location_id" integer not null,
+  "weekday" integer not null,
+  "created_at" datetime,
+  "updated_at" datetime,
+  "sauna_id" integer not null,
+  "period" varchar,
+  "start_time" time,
+  "end_time" time,
+  foreign key("location_id") references locations("id") on delete cascade on update no action,
+  foreign key("sauna_id") references saunas("id") on delete cascade on update no action
+);
+CREATE UNIQUE INDEX "location_openings_location_id_weekday_period_unique" on "location_openings"(
+  "location_id",
+  "weekday",
+  "period"
+);
+CREATE UNIQUE INDEX "loc_day_per_unique" on "location_openings"(
+  "location_id",
+  "weekday",
+  "period"
+);
+CREATE UNIQUE INDEX loc_open_unique
+ON location_openings(
+  location_id,
+  weekday,
+  sauna_id,
+  period
+);
+CREATE TABLE IF NOT EXISTS "sauna_schedules"(
+  "id" integer primary key autoincrement not null,
+  "sauna_id" integer not null,
+  "location_id" integer not null,
+  "date" date not null,
+  "period" varchar not null,
+  "created_at" datetime,
+  "updated_at" datetime,
+  foreign key("sauna_id") references "saunas"("id") on delete cascade,
+  foreign key("location_id") references "locations"("id") on delete cascade
+);
+CREATE UNIQUE INDEX "sauna_sched_unique" on "sauna_schedules"(
+  "sauna_id",
+  "location_id",
+  "date",
+  "period"
 );
 
 INSERT INTO migrations VALUES(1,'0001_01_01_000000_create_users_table',1);
@@ -227,3 +291,18 @@ INSERT INTO migrations VALUES(46,'2025_06_10_125827_create_services_table',32);
 INSERT INTO migrations VALUES(47,'2025_06_10_131512_drop_legacy_addon_tables',33);
 INSERT INTO migrations VALUES(48,'2025_06_17_100058_create_location_openings_table',34);
 INSERT INTO migrations VALUES(49,'2025_06_18_132105_create_booking_service_table',35);
+INSERT INTO migrations VALUES(50,'2025_06_19_085519_drop_unique_user_timeslot_on_bookings_table',36);
+INSERT INTO migrations VALUES(51,'2025_06_19_112044_add_sauna_id_to_location_openings_table',37);
+INSERT INTO migrations VALUES(52,'2025_07_14_130057_add_payment_fields_to_bookings_table',38);
+INSERT INTO migrations VALUES(53,'2025_07_14_145514_create_events_table',39);
+INSERT INTO migrations VALUES(54,'2025_07_14_150249_add_polymorphic_booking_to_bookings_table',40);
+INSERT INTO migrations VALUES(55,'2025_07_21_092106_reshape_events_into_templates_and_occurrences',41);
+INSERT INTO migrations VALUES(56,'2025_07_30_091700_add_event_occurrence_to_bookings_table',42);
+INSERT INTO migrations VALUES(57,'2025_08_08_085549_add_meta_to_booking_service',43);
+INSERT INTO migrations VALUES(58,'2025_08_08_123127_add_time_range_to_location_openings',44);
+INSERT INTO migrations VALUES(62,'2025_08_08_123423_fill_and_lock_times_on_location_openings_fresh',45);
+INSERT INTO migrations VALUES(63,'2025_08_08_143139_fix_unique_key_on_location_openings',46);
+INSERT INTO migrations VALUES(64,'2025_08_08_143609_update_unique_key_on_location_openings',47);
+INSERT INTO migrations VALUES(65,'2025_08_08_144050_rebuild_loc_open_unique',48);
+INSERT INTO migrations VALUES(66,'2025_08_08_144511_purge_old_unique_indexes_on_location_openings',49);
+INSERT INTO migrations VALUES(67,'2025_08_13_074931_create_sauna_schedules_table',50);

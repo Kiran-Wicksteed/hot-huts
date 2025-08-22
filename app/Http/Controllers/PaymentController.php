@@ -20,8 +20,8 @@ class PaymentController extends Controller
 
         $amount = (float) $request->amount;
 
-        $return_url = 'order/callback';
-        'after-main-domain/route/sub-route/?PeachPaymentOrder=OID123456789';
+        $return_url = config('app.url') . '/order/callback';
+
 
         $peachPayment = new  PeachPayment();
 
@@ -44,7 +44,8 @@ class PaymentController extends Controller
         // --- Part 1: Handle the database update (Webhook Logic) ---
         // This is your "source of truth". You should update your database here.
         $orderId = $request->input('merchantTransactionId'); // Or 'peachpaymentOrder'
-        $resultCode = $request->input('result_code');
+        $resultCode = $request->input('result_code') ?? $request->input('result.code');
+        $resultDescription = $request->input('result_description') ?? $request->input('result.description');
         $isSuccess = Str::startsWith($resultCode, ['000.000', '000.100', '000.110']);
 
         $orderNumber = $request->input('checkoutId');

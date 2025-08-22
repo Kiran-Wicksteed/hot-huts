@@ -79,10 +79,21 @@ Route::get('openings', [OpeningController::class, 'index'])
 Route::post('/bookings',  [BookingController::class, 'store'])
     ->name('bookings.store');
 
+//should be an admin route
+
+
 Route::get('/bookings/{booking}', [BookingController::class, 'show'])
-    ->name('bookings.show');        // <- Confirmed page
+    ->name('bookings.show');
+
+Route::post('/admin-bookings',  [BookingController::class, 'storeAdmin'])
+    ->name('admin.bookings.store');
+Route::delete('/admin/bookings/{booking}', [BookingAdminController::class, 'destroy'])
+    ->name('admin.bookings.destroy');
 
 
+
+Route::get('/events/{event}/occurrences/{occurrence}/bookings', [BookingAdminController::class, 'byOccurrence'])
+    ->name('events.occurrences.bookings');
 
 
 Route::middleware('auth')->group(function () {

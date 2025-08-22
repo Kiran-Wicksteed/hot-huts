@@ -28,8 +28,8 @@ export default function OccurrencesPage({ event, occurrences, locations }) {
                     <div className="col-span-2">Time</div>
                     <div className="col-span-3">Location</div>
                     <div className="col-span-2">Price</div>
-                    <div className="col-span-1">Capacity</div>
-                    <div className="col-span-2 text-right">Actions</div>
+
+                    <div className="col-span-3 text-right">Actions</div>
                 </div>
 
                 <div className="space-y-3">
@@ -49,16 +49,15 @@ export default function OccurrencesPage({ event, occurrences, locations }) {
                             <div className="col-span-2">
                                 R{(occ.effective_price / 100).toFixed(2)}
                             </div>
-                            <div className="col-span-1">
-                                {occ.effective_capacity}
-                            </div>
-                            <div className="col-span-2 flex justify-end gap-x-4 text-sm">
+
+                            <div className="col-span-3 flex justify-end gap-x-4 text-sm">
                                 <span
                                     onClick={() => setEditing(occ)}
                                     className="cursor-pointer hover:text-hh-orange"
                                 >
                                     Edit
                                 </span>
+
                                 <Link
                                     href={route("events.occurrences.destroy", [
                                         event.id,
@@ -70,6 +69,15 @@ export default function OccurrencesPage({ event, occurrences, locations }) {
                                     className="hover:text-hh-orange"
                                 >
                                     Delete
+                                </Link>
+                                <Link
+                                    href={route("events.occurrences.bookings", [
+                                        event.id,
+                                        occ.id,
+                                    ])}
+                                    className="hover:text-hh-orange"
+                                >
+                                    View Bookings
                                 </Link>
                             </div>
                         </div>
