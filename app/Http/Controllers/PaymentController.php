@@ -76,19 +76,23 @@ class PaymentController extends Controller
             : null;
 
         if ($booking) {
-            // ✅ THE FINAL FIX: Add a 2-second grace period before we start checking.
-            // This gives the webhook time to win the race.
+            // Grace period of 2 seconds
             sleep(2);
 
-            // Loop for up to 3 more seconds, checking the status each second.
+            // Loop for up to 3 more seconds
             for ($i = 0; $i < 3; $i++) {
-                $booking->refresh();
-                if ($booking->status === 'paid') {
-                    return redirect()->route('bookings.show', $booking);
+                // ✅ THE FINAL CHANGE: Re-query the model completely instead of refreshing.
+                $freshBooking = Booking::find($booking->id);
+
+                if ($freshBooking && $freshBooking->status === 'paid') {
+                    // Success! The webhook's changes are now visible.
+                    return redirect()->route('bookings.show', $freshBooking);
                 }
+                // Wait for 1 second before checking again
                 sleep(1);
             }
         }
+
 
         Log::warning('Browser redirect timed out waiting for webhook.', ['orderNumber' => $orderNumber]);
         return redirect()->route('payment.failed');
