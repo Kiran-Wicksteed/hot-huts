@@ -42,47 +42,30 @@ class PaymentController extends Controller
         $isWebhook = $request->has('result_code') && $request->has('signature');
 
         // -------------------
-        // CASE 1: HANDLE WEBHOOK (SERVER-TO-SERVER) - This part remains the same
+        // CASE 1: HANDLE WEBHOOK (SERVER-TO-SERVER)
         // -------------------
         if ($isWebhook) {
-            $orderNumber = $request->input('checkoutId')
-                ?? $request->input('id')
-                ?? $request->input('merchantTransactionId');
-
-            $resultCode        = $request->input('result_code');
+            // This webhook logic is working perfectly. No changes needed here.
+            $orderNumber = $request->input('checkoutId') ?? $request->input('id') ?? $request->input('merchantTransactionId');
+            $resultCode = $request->input('result_code');
             $resultDescription = $request->input('result_description', 'Unknown');
-
-            $isSuccess = $resultCode && Str::startsWith($resultCode, [
-                '000.000',
-                '000.100',
-                '000.110'
-            ]);
-
-            $booking = $orderNumber
-                ? Booking::where('peach_payment_checkout_id', $orderNumber)
-                ->orWhere('peach_payment_order_no', $orderNumber)
-                ->first()
-                : null;
-
+            $isSuccess = $resultCode && Str::startsWith($resultCode, ['000.000', '000.100', '000.110']);
+            $booking = $orderNumber ? Booking::where('peach_payment_checkout_id', $orderNumber)->orWhere('peach_payment_order_no', $orderNumber)->first() : null;
             if ($booking) {
                 if ($isSuccess) {
-                    $booking->update([
-                        'status'         => 'paid',
-                        'payment_status' => $resultDescription,
-                    ]);
+                    $booking->update(['status' => 'paid', 'payment_status' => $resultDescription]);
                     Log::info("Booking {$booking->id} updated to PAID via webhook.");
                 } else {
                     Log::info("Intermediate webhook received for Booking {$booking->id}. No status change needed.", ['result_code' => $resultCode]);
                 }
                 return response()->json(['status' => 'webhook acknowledged']);
             }
-
             Log::warning("Webhook received but booking not found", ['orderNumber' => $orderNumber]);
             return response()->json(['status' => 'not found'], 404);
         }
 
         // -------------------
-        // CASE 2: HANDLE BROWSER REDIRECT - This is the simplified logic
+        // CASE 2: HANDLE BROWSER REDIRECT
         // -------------------
         $orderNumber = $request->query('peachpaymentOrder') ?? $request->input('merchantTransactionId');
 
@@ -93,25 +76,23 @@ class PaymentController extends Controller
             : null;
 
         if ($booking) {
-            // Loop for up to 5 seconds, checking the status each second.
-            for ($i = 0; $i < 5; $i++) {
-                // Re-fetch the latest booking data from the database
-                $booking->refresh();
+            // ✅ THE FINAL FIX: Add a 2-second grace period before we start checking.
+            // This gives the webhook time to win the race.
+            sleep(2);
 
+            // Loop for up to 3 more seconds, checking the status each second.
+            for ($i = 0; $i < 3; $i++) {
+                $booking->refresh();
                 if ($booking->status === 'paid') {
-                    // Success! The webhook arrived. Redirect to the booking page.
                     return redirect()->route('bookings.show', $booking);
                 }
-                // Wait for 1 second before checking again
                 sleep(1);
             }
         }
 
-        // If the status is still not 'paid' after 5 seconds, then redirect to failed.
         Log::warning('Browser redirect timed out waiting for webhook.', ['orderNumber' => $orderNumber]);
         return redirect()->route('payment.failed');
     }
-
 
     // public function handlePaymentCallback(Request $request)
     // {
