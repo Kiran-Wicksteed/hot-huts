@@ -39,6 +39,13 @@ class PaymentController extends Controller
     {
         Log::info('Peach Payments Callback Received', $request->all());
 
+        Log::info('Callback hit', [
+            'method' => $request->method(),
+            'full_url' => $request->fullUrl(),
+            'input' => $request->all()
+        ]);
+
+
         // Check if this is the POST webhook
         if ($request->isMethod('post')) {
             $orderNumber = $request->input('checkoutId');
