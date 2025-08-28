@@ -156,7 +156,10 @@ class BookingController extends Controller
 
         $checkout = $peach->createCheckout($amountForGateway, $cbUrl);
 
-        $booking->update(['peach_payment_checkout_id' => $checkout['checkoutId']]);
+        $booking->update([
+            'peach_payment_checkout_id' => $checkout['checkoutId'],
+            'peach_payment_order_no'    => $checkout['order_number'],
+        ]);
 
         return Inertia::render('Payment/RedirectToGateway', [
             'entityId'          => $entity,
