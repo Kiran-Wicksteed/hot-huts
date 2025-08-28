@@ -42,32 +42,53 @@ class PaymentController extends Controller
         $isWebhook = $request->has('result_code') && $request->has('signature');
 
         // -------------------
-        // CASE 1: HANDLE WEBHOOK (SERVER-TO-SERVER)
+        // CASE 1: WEBHOOK (server-to-server)
         // -------------------
         if ($isWebhook) {
-            // This webhook logic is working perfectly. No changes needed here.
-            $orderNumber = $request->input('checkoutId') ?? $request->input('id') ?? $request->input('merchantTransactionId');
-            $resultCode = $request->input('result_code');
+            $orderNumber = $request->input('checkoutId')
+                ?? $request->input('id')
+                ?? $request->input('merchantTransactionId')
+                ?? $request->query('peachpaymentOrder');
+
+            $resultCode        = $request->input('result_code');
             $resultDescription = $request->input('result_description', 'Unknown');
-            $isSuccess = $resultCode && Str::startsWith($resultCode, ['000.000', '000.100', '000.110']);
-            $booking = $orderNumber ? Booking::where('peach_payment_checkout_id', $orderNumber)->orWhere('peach_payment_order_no', $orderNumber)->first() : null;
+            $isSuccess         = $resultCode && Str::startsWith($resultCode, [
+                '000.000',
+                '000.100',
+                '000.110'
+            ]);
+
+            $booking = $orderNumber
+                ? Booking::where('peach_payment_checkout_id', $orderNumber)
+                ->orWhere('peach_payment_order_no', $orderNumber)
+                ->first()
+                : null;
+
             if ($booking) {
                 if ($isSuccess) {
-                    $booking->update(['status' => 'paid', 'payment_status' => $resultDescription]);
+                    $booking->update([
+                        'status'         => 'paid',
+                        'payment_status' => $resultDescription,
+                    ]);
                     Log::info("Booking {$booking->id} updated to PAID via webhook.");
                 } else {
-                    Log::info("Intermediate webhook received for Booking {$booking->id}. No status change needed.", ['result_code' => $resultCode]);
+                    Log::info("Intermediate webhook received for Booking {$booking->id}. No status change needed.", [
+                        'result_code' => $resultCode
+                    ]);
                 }
-                return response()->json(['status' => 'webhook acknowledged']);
+                return response()->json(['status' => 'webhook acknowledged'], 200);
             }
+
             Log::warning("Webhook received but booking not found", ['orderNumber' => $orderNumber]);
             return response()->json(['status' => 'not found'], 404);
         }
 
         // -------------------
-        // CASE 2: HANDLE BROWSER REDIRECT
+        // CASE 2: BROWSER REDIRECT
         // -------------------
-        $orderNumber = $request->query('peachpaymentOrder') ?? $request->input('merchantTransactionId');
+        $orderNumber = $request->query('peachpaymentOrder')
+            ?? $request->query('checkoutId')
+            ?? $request->input('merchantTransactionId');
 
         $booking = $orderNumber
             ? Booking::where('peach_payment_order_no', $orderNumber)
@@ -76,27 +97,24 @@ class PaymentController extends Controller
             : null;
 
         if ($booking) {
-            // Grace period of 2 seconds
-            sleep(2);
-
-            // Loop for up to 3 more seconds
-            for ($i = 0; $i < 3; $i++) {
-                // ✅ THE FINAL CHANGE: Re-query the model completely instead of refreshing.
+            // wait up to 5s for webhook to complete
+            for ($i = 0; $i < 5; $i++) {
                 $freshBooking = Booking::find($booking->id);
 
                 if ($freshBooking && $freshBooking->status === 'paid') {
-                    // Success! The webhook's changes are now visible.
+                    Log::info("Browser redirect confirmed paid booking {$freshBooking->id}");
                     return redirect()->route('bookings.show', $freshBooking);
                 }
-                // Wait for 1 second before checking again
+
                 sleep(1);
             }
         }
 
-
         Log::warning('Browser redirect timed out waiting for webhook.', ['orderNumber' => $orderNumber]);
         return redirect()->route('payment.failed');
     }
+
+
 
     // public function handlePaymentCallback(Request $request)
     // {
