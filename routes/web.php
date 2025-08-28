@@ -45,7 +45,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
 //Payment Routes
 Route::get('/pay', [PaymentController::class, 'pay'])->name('pay');
 Route::get('/pay/post', [PaymentController::class, 'post'])->name('post.pay');
-Route::match(['get', 'post'], '/order/callback', [PaymentController::class, 'handlePaymentCallback'])->name('payment.callback');
+Route::match(['get', 'post'], '/order/callback{slash?}', [PaymentController::class, 'handlePaymentCallback'])
+    ->where('slash', '/?')
+    ->name('payment.callback');
 Route::get('/order/success', [PaymentController::class, 'paymentSuccess'])->name('payment.success');
 Route::get('/order/failed', [PaymentController::class, 'paymentFailed'])->name('payment.failed');
 
