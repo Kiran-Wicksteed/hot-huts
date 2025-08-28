@@ -15,7 +15,8 @@ class Booking extends Model
         'status',          // pending | paid | cancelled
         'amount',          // decimal 8,2
         'payment_intent_id',
-        'peach_payment_checkout_id', // <-- Add this line
+        'peach_payment_checkout_id',
+        'peach_payment_order_no',
         'payment_status',
     ];
 
