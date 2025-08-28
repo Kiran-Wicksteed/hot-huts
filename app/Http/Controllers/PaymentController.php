@@ -39,12 +39,10 @@ class PaymentController extends Controller
     {
         Log::info('Peach Payments Callback Received', $request->all());
 
-        // ✅ RELIABLE CHECK: A webhook always has a 'result_code'.
-        // The browser redirect does not. This is better than isMethod('post').
-        $isWebhook = $request->has('result_code');
+        $isWebhook = $request->has('result_code') && $request->has('signature');
 
         // -------------------
-        // Case 1: Handle the Webhook (if that's what it is)
+        // CASE 1: HANDLE WEBHOOK (SERVER-TO-SERVER) - This part remains the same
         // -------------------
         if ($isWebhook) {
             $orderNumber = $request->input('checkoutId')
@@ -54,8 +52,7 @@ class PaymentController extends Controller
             $resultCode        = $request->input('result_code');
             $resultDescription = $request->input('result_description', 'Unknown');
 
-            // Check if the code represents a final, successful payment
-            $isSuccess = $resultCode && \Illuminate\Support\Str::startsWith($resultCode, [
+            $isSuccess = $resultCode && Str::startsWith($resultCode, [
                 '000.000',
                 '000.100',
                 '000.110'
@@ -68,8 +65,6 @@ class PaymentController extends Controller
                 : null;
 
             if ($booking) {
-                // Only update the status if the payment was successful.
-                // Ignore intermediate webhooks like "checkout created".
                 if ($isSuccess) {
                     $booking->update([
                         'status'         => 'paid',
@@ -79,8 +74,6 @@ class PaymentController extends Controller
                 } else {
                     Log::info("Intermediate webhook received for Booking {$booking->id}. No status change needed.", ['result_code' => $resultCode]);
                 }
-
-                // IMPORTANT: Always return a 200 OK for any webhook you acknowledge.
                 return response()->json(['status' => 'webhook acknowledged']);
             }
 
@@ -89,19 +82,33 @@ class PaymentController extends Controller
         }
 
         // -------------------
-        // Case 2: Handle the Browser Redirect (if it's not a webhook)
+        // CASE 2: HANDLE BROWSER REDIRECT - This is the simplified logic
         // -------------------
-        $orderNumber = $request->query('peachpaymentOrder');
+        $orderNumber = $request->query('peachpaymentOrder') ?? $request->input('merchantTransactionId');
 
         $booking = $orderNumber
-            ? Booking::where('peach_payment_order_no', $orderNumber)->first()
+            ? Booking::where('peach_payment_order_no', $orderNumber)
+            ->orWhere('peach_payment_checkout_id', $orderNumber)
+            ->first()
             : null;
 
-        if ($booking && $booking->status === 'paid') {
-            return redirect()->route('bookings.show', $booking);
+        if ($booking) {
+            // Loop for up to 5 seconds, checking the status each second.
+            for ($i = 0; $i < 5; $i++) {
+                // Re-fetch the latest booking data from the database
+                $booking->refresh();
+
+                if ($booking->status === 'paid') {
+                    // Success! The webhook arrived. Redirect to the booking page.
+                    return redirect()->route('bookings.show', $booking);
+                }
+                // Wait for 1 second before checking again
+                sleep(1);
+            }
         }
 
-        // Fallback if the webhook hasn't processed yet, or if payment failed.
+        // If the status is still not 'paid' after 5 seconds, then redirect to failed.
+        Log::warning('Browser redirect timed out waiting for webhook.', ['orderNumber' => $orderNumber]);
         return redirect()->route('payment.failed');
     }
 
