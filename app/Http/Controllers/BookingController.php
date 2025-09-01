@@ -151,8 +151,8 @@ class BookingController extends Controller
     {
         $holdMinutes = (int) config('booking.hold_minutes', 10);
         $entity      = config('peach-payment.entity_id');
-        $cbUrl = route('payment.callback');
-        Log::info('CB URL being sent to Peach', ['cb' => $cbUrl, 'app_url' => config('app.url')]);
+        $cbUrl = '/order/callback';
+
 
         $now         = now();
 
@@ -403,6 +403,7 @@ class BookingController extends Controller
         // ---------- 3) One Peach checkout for the entire cart ----------
         $peach    = new \Shaz3e\PeachPayment\Helpers\PeachPayment();
         $amount   = number_format($grandTotalCents / 100, 2, '.', '');
+        Log::info('CB URL being sent to Peach', ['cb' => $cbUrl, 'app_url' => config('app.url')]);
         $checkout = $peach->createCheckout($amount, $cbUrl);
 
         // Tag ALL bookings with the same checkout/order
