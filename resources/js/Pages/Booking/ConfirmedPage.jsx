@@ -3,6 +3,7 @@ import ConfirmedMenu from "@/Layouts/ConfirmedMenu";
 import Footer from "@/Layouts/Footer";
 import { useEffect } from "react";
 import { useCart } from "@/context/CartContext";
+import { CartProvider } from "@/context/CartContext";
 
 export default function ConfirmedPage({
     booking,
@@ -20,7 +21,7 @@ export default function ConfirmedPage({
     }, []);
 
     return (
-        <>
+        <CartProvider>
             <ConfirmedMenu />
             <Confirmed
                 booking={booking}
@@ -28,6 +29,6 @@ export default function ConfirmedPage({
                 summary={summary}
             />
             <Footer />
-        </>
+        </CartProvider>
     );
 }
