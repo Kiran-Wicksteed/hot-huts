@@ -36,6 +36,7 @@ class HandleInertiaRequests extends Middleware
                 'user' => $user,
                 'organization' => $user ? $user->organization : null,
             ],
+            'preflight' => fn() => $request->session()->pull('preflight'),
         ]);
     }
 }

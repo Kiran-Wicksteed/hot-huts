@@ -34,83 +34,99 @@ class PaymentController extends Controller
 
         return view('peach-payment', compact('entityId', 'checkoutId'));
     }
-
     public function handlePaymentCallback(Request $request)
     {
         Log::info('Peach Payments Callback Received', $request->all());
 
         $isWebhook = $request->has('result_code') && $request->has('signature');
 
+        $orderFromRequest = function () use ($request) {
+            return $request->input('checkoutId')                 // primary
+                ?? $request->input('id')                         // sometimes present
+                ?? $request->input('merchantTransactionId')      // Peach “order number”
+                ?? $request->query('peachpaymentOrder')          // browser redirect param
+                ?? $request->query('checkoutId');                // fallback on GET
+        };
+
         // -------------------
         // CASE 1: WEBHOOK (server-to-server)
         // -------------------
         if ($isWebhook) {
-            $orderNumber = $request->input('checkoutId')
-                ?? $request->input('id')
-                ?? $request->input('merchantTransactionId')
-                ?? $request->query('peachpaymentOrder');
-
+            $orderNumber       = $orderFromRequest();
             $resultCode        = $request->input('result_code');
             $resultDescription = $request->input('result_description', 'Unknown');
-            $isSuccess         = $resultCode && Str::startsWith($resultCode, [
-                '000.000',
-                '000.100',
-                '000.110'
-            ]);
 
-            $booking = $orderNumber
-                ? Booking::where('peach_payment_checkout_id', $orderNumber)
-                ->orWhere('peach_payment_order_no', $orderNumber)
-                ->first()
-                : null;
+            $isSuccess = $resultCode && Str::startsWith($resultCode, ['000.000', '000.100', '000.110']);
 
-            if ($booking) {
-                if ($isSuccess) {
-                    $booking->update([
-                        'status'         => 'paid',
-                        'payment_status' => $resultDescription,
-                    ]);
-                    Log::info("Booking {$booking->id} updated to PAID via webhook.");
-                } else {
-                    Log::info("Intermediate webhook received for Booking {$booking->id}. No status change needed.", [
-                        'result_code' => $resultCode
-                    ]);
-                }
-                return response()->json(['status' => 'webhook acknowledged'], 200);
+            if (!$orderNumber) {
+                Log::warning('Webhook missing orderNumber/checkoutId');
+                return response()->json(['status' => 'bad request'], 400);
             }
 
-            Log::warning("Webhook received but booking not found", ['orderNumber' => $orderNumber]);
-            return response()->json(['status' => 'not found'], 404);
+            // ALL bookings tied to this checkout/order
+            $bookings = Booking::where('peach_payment_checkout_id', $orderNumber)
+                ->orWhere('peach_payment_order_no', $orderNumber)
+                ->get();
+
+            if ($bookings->isEmpty()) {
+                Log::warning("Webhook received but bookings not found", ['orderNumber' => $orderNumber]);
+                return response()->json(['status' => 'not found'], 404);
+            }
+
+            if ($isSuccess) {
+                Booking::whereIn('id', $bookings->pluck('id'))
+                    ->update([
+                        'status'          => 'paid',
+                        'payment_status'  => $resultDescription,
+                        'hold_expires_at' => null,
+                    ]);
+                Log::info("Checkout {$orderNumber}: marked PAID for {$bookings->count()} booking(s).");
+            } else {
+                Log::info("Checkout {$orderNumber}: intermediate/unsuccessful webhook.", [
+                    'result_code' => $resultCode,
+                    'desc'        => $resultDescription,
+                ]);
+            }
+
+            return response()->json(['status' => 'webhook acknowledged'], 200);
         }
 
         // -------------------
         // CASE 2: BROWSER REDIRECT
         // -------------------
-        $orderNumber = $request->query('peachpaymentOrder')
-            ?? $request->query('checkoutId')
-            ?? $request->input('merchantTransactionId');
+        $orderNumber = $orderFromRequest();
 
-        $booking = $orderNumber
-            ? Booking::where('peach_payment_order_no', $orderNumber)
-            ->orWhere('peach_payment_checkout_id', $orderNumber)
-            ->first()
-            : null;
-
-        if ($booking) {
-            // wait up to 5s for webhook to complete
-            for ($i = 0; $i < 5; $i++) {
-                $freshBooking = Booking::find($booking->id);
-
-                if ($freshBooking && $freshBooking->status === 'paid') {
-                    Log::info("Browser redirect confirmed paid booking {$freshBooking->id}");
-                    return redirect()->route('bookings.show', $freshBooking);
-                }
-
-                sleep(1);
-            }
+        if (!$orderNumber) {
+            Log::warning('Browser redirect missing orderNumber/checkoutId.');
+            return redirect()->route('payment.failed');
         }
 
-        Log::warning('Browser redirect timed out waiting for webhook.', ['orderNumber' => $orderNumber]);
+        $bookings = Booking::where('peach_payment_order_no', $orderNumber)
+            ->orWhere('peach_payment_checkout_id', $orderNumber)
+            ->orderBy('id') // deterministic "first"
+            ->get();
+
+        if ($bookings->isNotEmpty()) {
+            // wait up to 5s for webhook to complete across ALL related bookings
+            for ($i = 0; $i < 5; $i++) {
+                $paidCount = Booking::whereIn('id', $bookings->pluck('id'))
+                    ->where('status', 'paid')
+                    ->count();
+
+                if ($paidCount === $bookings->count()) {
+                    Log::info("Browser redirect confirmed all {$paidCount} booking(s) paid for checkout {$orderNumber}.");
+                    break;
+                }
+                sleep(1);
+            }
+
+            // Pick one booking to satisfy route-model binding; always pass ?order=...
+            $target = $bookings->first();
+            $url = route('bookings.show', $target) . '?order=' . urlencode($orderNumber);
+            return redirect()->to($url);
+        }
+
+        Log::warning("Browser redirect: no bookings found for orderNumber {$orderNumber}.");
         return redirect()->route('payment.failed');
     }
 

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Builder;
 
 class Booking extends Model
 {
@@ -18,6 +19,8 @@ class Booking extends Model
         'peach_payment_checkout_id',
         'peach_payment_order_no',
         'payment_status',
+        'hold_expires_at',
+        'cart_key'        // UUID to group bookings in a cart
     ];
 
     protected $casts = [
@@ -63,5 +66,19 @@ class Booking extends Model
     public function getRefAttribute(): string
     {
         return 'HH-' . str_pad($this->id, 6, '0', STR_PAD_LEFT);
+    }
+
+    public function scopeActiveHold(Builder $q): Builder
+    {
+        return $q->where('status', 'pending')->where('hold_expires_at', '>', now());
+    }
+    public function scopeCountsForTimeslot(Builder $q, int $timeslotId): Builder
+    {
+        return $q->selectRaw('
+        SUM(CASE WHEN status = "paid" THEN people ELSE 0 END)          AS paid_people,
+        SUM(CASE WHEN status = "pending" AND hold_expires_at > ? THEN people ELSE 0 END) AS held_people,
+        MIN(CASE WHEN status = "pending" AND hold_expires_at > ? THEN hold_expires_at END) AS next_release_at
+    ', [now(), now()])
+            ->where('timeslot_id', $timeslotId);
     }
 }

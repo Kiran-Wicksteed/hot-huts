@@ -1,8 +1,9 @@
 import { MapPinIcon } from "@heroicons/react/24/outline";
 import styles from "../../../styles";
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { MinusIcon, PlusIcon } from "@heroicons/react/24/solid";
 import dayjs from "dayjs";
+import { useCart } from "@/context/CartContext";
 
 export default function TimeDate({
     nextStep,
@@ -13,24 +14,25 @@ export default function TimeDate({
     addons,
     sessionService,
 }) {
-    // THIS LINE IS NOW CORRECTED
+    const { addItem } = useCart();
+
     const { location = {}, time } = formData ?? {};
     const people = servicesData.people ?? 1;
 
-    // NEW: State to hold all schedule data from the single API call
     const [scheduleData, setScheduleData] = useState([]);
     const [loading, setLoading] = useState(true);
     const [agreed, setAgreed] = useState(false);
-    const [selectedTime, setSelectedTime] = useState(null);
+
+    const [selectedDate, setSelectedDate] = useState(null);
+    const [selectedSlot, setSelectedSlot] = useState(null); // ← store the full slot
     const [slotCap, setSlotCap] = useState(8);
-    const [selectedDate, setSelectedDate] = useState(null); // Initialized to null
 
     const updateQuantity = (code, value) =>
         updateFormData({
             services: { ...servicesData, [code]: Math.max(0, value) },
         });
 
-    // EFFECT 1: Simplified to a single API call
+    // Load schedules for the chosen weekday at the chosen location
     useEffect(() => {
         if (!location?.id || !location.day) {
             setLoading(false);
@@ -51,7 +53,6 @@ export default function TimeDate({
             };
             const wantedDow =
                 dayMap[String(location.day).slice(0, 3).toLowerCase()];
-
             if (wantedDow === undefined) {
                 setLoading(false);
                 return;
@@ -65,69 +66,126 @@ export default function TimeDate({
             );
             const data = await res.json();
 
-            setScheduleData(data);
-
-            // If we got results, select the first available date by default
-            if (data.length > 0) {
+            setScheduleData(Array.isArray(data) ? data : []);
+            if (Array.isArray(data) && data.length > 0) {
                 const firstDate = dayjs(data[0].date);
                 setSelectedDate(firstDate);
-                // Update parent form with the initial date
                 updateFormData({ date: firstDate.format("YYYY-MM-DD") });
+            } else {
+                setSelectedDate(null);
             }
+            // reset selection on reload
+            setSelectedSlot(null);
+            setSlotCap(8);
             setLoading(false);
         })();
     }, [location?.id, location.day]);
 
-    // DERIVED STATE: These are now calculated from state, not fetched separately
+    // Dates row
     const displayDays = useMemo(
         () =>
             scheduleData
                 .slice(0, 6)
-                .filter(Boolean) // <-- ADD THIS LINE
+                .filter(Boolean)
                 .map((d) => dayjs(d.date)),
         [scheduleData]
     );
+
+    // Slots for the selected date
     const slots = useMemo(() => {
         if (!selectedDate || scheduleData.length === 0) {
             return { morning: [], afternoon: [], evening: [], night: [] };
         }
         const dateString = selectedDate.format("YYYY-MM-DD");
-        const foundData = scheduleData.find((d) => d.date === dateString);
-        return foundData
-            ? foundData.slots
+        const found = scheduleData.find((d) => d.date === dateString);
+        return found
+            ? found.slots
             : { morning: [], afternoon: [], evening: [], night: [] };
     }, [selectedDate, scheduleData]);
 
-    // Keep formData in sync with user selections
+    // Reset time selection when day changes
     const handleDaySelect = (day) => {
         setSelectedDate(day);
-        setSelectedTime(null); // Reset time selection when day changes
+        setSelectedSlot(null);
         updateFormData({
             date: day.format("YYYY-MM-DD"),
-            time: "", // Reset time in form data
+            time: "",
             timeslot_id: null,
         });
     };
 
+    // Select a slot (store full object)
     const handleTimeSelect = (item) => {
-        if (item.spots_left === 0) return;
-        setSelectedTime(item.id);
+        if (!item || item.spots_left === 0) return;
+        setSelectedSlot(item);
         setSlotCap(item.spots_left);
         updateFormData({
             time: `${item.starts_at} - ${item.ends_at}`,
             timeslot_id: item.id,
+            booking_type: "sauna",
         });
     };
 
+    // Pricing
     const total = useMemo(() => {
-        let sum = +sessionService.price * people;
-        addons.forEach(
-            (svc) => (sum += (servicesData[svc.code] ?? 0) * svc.price)
-        );
+        const sessionUnit = Number(sessionService.price);
+        let sum = sessionUnit * people;
+        addons.forEach((svc) => {
+            sum += (servicesData[svc.code] ?? 0) * Number(svc.price);
+        });
         return sum.toFixed(2);
     }, [servicesData, addons, people, sessionService.price]);
 
-    // --- JSX (Largely the same, just simplified) ---
+    // Add to cart + go to invoice
+    const onContinue = () => {
+        if (!selectedSlot || !agreed) return;
+
+        const pickedAddons = addons
+            .filter((a) => (servicesData[a.code] ?? 0) > 0)
+            .map((a) => ({
+                code: a.code,
+                name: a.name,
+                qty: servicesData[a.code],
+                unit: Number(a.price),
+                total: Number(a.price) * (servicesData[a.code] ?? 0),
+            }));
+
+        const sessionUnit = Number(sessionService.price);
+        const sessionLine = sessionUnit * people;
+        const lineTotal =
+            sessionLine + pickedAddons.reduce((t, x) => t + x.total, 0);
+
+        addItem({
+            kind: "sauna",
+            location_id: location.id,
+            location_name: location.name,
+            date: selectedDate ? selectedDate.format("YYYY-MM-DD") : null,
+            timeRange: `${selectedSlot.starts_at} - ${selectedSlot.ends_at}`,
+            timeslot_id: selectedSlot.id,
+            people,
+
+            lines: [
+                {
+                    label: "Single Sauna Session",
+                    qty: people,
+                    unit: sessionUnit,
+                    total: sessionLine,
+                },
+                ...pickedAddons.map((a) => ({
+                    label: a.name,
+                    qty: a.qty,
+                    unit: a.unit,
+                    total: a.total,
+                })),
+            ],
+            addons: pickedAddons,
+            lineTotal,
+        });
+
+        // advance to invoice (your step 4 renders from the cart)
+        nextStep();
+    };
+
     return (
         <div
             className={`${styles.boxWidth} pb-28 pt-10 px-4 2xl:px-28 md:px-10 lg:px-16 xl:px-20`}
@@ -226,7 +284,7 @@ export default function TimeDate({
                                                         key={slot.id}
                                                         slot={slot}
                                                         selectedTime={
-                                                            selectedTime
+                                                            selectedSlot?.id
                                                         }
                                                         handleTimeSelect={
                                                             handleTimeSelect
@@ -247,7 +305,7 @@ export default function TimeDate({
                                                         key={slot.id}
                                                         slot={slot}
                                                         selectedTime={
-                                                            selectedTime
+                                                            selectedSlot?.id
                                                         }
                                                         handleTimeSelect={
                                                             handleTimeSelect
@@ -296,6 +354,7 @@ export default function TimeDate({
                                 </p>
                             </div>
                         </div>
+
                         <div className="space-y-2">
                             <div className="flex items-center gap-x-2 mt-6 mb-6 text-hh-orange">
                                 <MapPinIcon className="h-6 w-6 shrink-0" />
@@ -305,6 +364,7 @@ export default function TimeDate({
                                     {location.name}
                                 </h3>
                             </div>
+
                             <div className="flex justify-between items-end border border-hh-gray p-2 rounded">
                                 <p
                                     className={`${styles.paragraph} text-black font-medium!mb-0`}
@@ -319,6 +379,7 @@ export default function TimeDate({
                                     update={updateQuantity}
                                 />
                             </div>
+
                             {addons
                                 .filter(
                                     (svc) => (servicesData[svc.code] ?? 0) > 0
@@ -342,6 +403,7 @@ export default function TimeDate({
                                         />
                                     </div>
                                 ))}
+
                             <div className="pt-6 flex justify-between gap-x-2 items-center">
                                 <div className="bg-white w-full py-3 shadow flex items-center justify-center gap-1 text-hh-orange rounded border border-hh-orange">
                                     <p
@@ -360,11 +422,13 @@ export default function TimeDate({
                                     </p>
                                 </div>
                             </div>
+
                             <h4
                                 className={`${styles.h3} !mb-4 font-medium text-hh-orange pt-8`}
                             >
                                 Total: R{total}
                             </h4>
+
                             <div className="flex items-center gap-x-2">
                                 <input
                                     type="checkbox"
@@ -384,6 +448,7 @@ export default function TimeDate({
                                     Terms of Use and Privacy Policy
                                 </label>
                             </div>
+
                             <div className="flex items-center gap-x-2 pt-6">
                                 <div className="bg-white border border-hh-orange py-1 px-4 shadow flex items-center gap-1 text-hh-orange rounded">
                                     <button
@@ -393,20 +458,20 @@ export default function TimeDate({
                                         go back
                                     </button>
                                 </div>
-                                <div className="bg-hh-orange py-1 w-full px-4 shadow flex items-center justify-center gap-1 text-white rounded">
-                                    <button
-                                        onClick={nextStep}
-                                        disabled={!selectedTime || !agreed}
-                                        className={`${
-                                            styles.paragraph
-                                        } uppercase ${
-                                            (!selectedTime || !agreed) &&
-                                            "opacity-50 cursor-not-allowed"
-                                        }`}
-                                    >
+                                <button
+                                    onClick={onContinue}
+                                    disabled={!selectedSlot || !agreed}
+                                    className={`${
+                                        styles.paragraph
+                                    } w-full uppercase ${
+                                        (!selectedSlot || !agreed) &&
+                                        "opacity-50 cursor-not-allowed"
+                                    }`}
+                                >
+                                    <span className="bg-hh-orange py-1 w-full px-4 shadow flex items-center justify-center gap-1 text-white rounded">
                                         Continue
-                                    </button>
-                                </div>
+                                    </span>
+                                </button>
                             </div>
                         </div>
                     </div>

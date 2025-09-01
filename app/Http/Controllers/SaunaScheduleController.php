@@ -101,71 +101,83 @@ class SaunaScheduleController extends Controller
 
     public function generate(Request $r, Sauna $sauna)
     {
-        $daysAhead = (int)($r->input('days_ahead', 60));
+        $daysAhead = (int) $r->input('days_ahead', 60);
+        $daysAhead = max(1, min($daysAhead, 365));
 
-        // 1) Get all opening rules for this sauna
         $openings = LocationOpening::where('sauna_id', $sauna->id)
             ->get(['location_id', 'weekday', 'period', 'start_time', 'end_time']);
 
         if ($openings->isEmpty()) {
             return back()->with('error', 'No Location Openings configured for this sauna.');
         }
+
         Log::debug('Fetched LocationOpening rules', ['count' => $openings->count(), 'data' => $openings->toArray()]);
 
-
         $start = Carbon::today();
-        $end = (clone $start)->addDays($daysAhead - 1);
-        $range = CarbonPeriod::create($start, $end);
+        $end   = (clone $start)->addDays($daysAhead - 1);
 
-        // 2) Determine the complete set of schedules that SHOULD exist based on the rules.
+        // 🔧 Precompute the next N dates by weekday to avoid reusing a single CarbonPeriod
+        $datesByWeekday = array_fill(0, 7, []);
+        for ($d = $start->copy(); $d->lte($end); $d->addDay()) {
+            $datesByWeekday[$d->dayOfWeek][] = $d->copy(); // keep Carbon instance
+        }
+
+        // 2) Determine schedules that SHOULD exist
         $idealSchedules = [];
-        $windows = []; // This will hold the start/end times for each period rule
+        $windows = [];
+
         foreach ($openings as $o) {
-            $windows[$o->location_id][$o->weekday][$o->period] = [
+            // normalise period key (defensive)
+            $periodKey = strtolower(trim($o->period));
+
+            // keep window map for slot generation
+            $windows[$o->location_id][$o->weekday][$periodKey] = [
                 'start' => $o->start_time,
                 'end'   => $o->end_time,
             ];
-            foreach ($range as $date) {
-                if ((int) $date->dayOfWeek === (int) $o->weekday) {
-                    $dateString = $date->toDateString();
-                    $scheduleKey = "{$o->location_id}|{$dateString}|{$o->period}";
-                    $idealSchedules[$scheduleKey] = [
-                        'sauna_id'    => $sauna->id,
-                        'location_id' => $o->location_id,
-                        'date'        => $date->copy()->startOfDay()->format('Y-m-d H:i:s'),
-                        'period'      => $o->period,
-                        'created_at'  => now(),
-                        'updated_at'  => now(),
-                    ];
-                }
+
+            // 🔧 use precomputed dates for this weekday
+            foreach ($datesByWeekday[(int) $o->weekday] as $date) {
+                $dateString = $date->toDateString(); // 🔧 date-only to match DATE columns
+                $scheduleKey = "{$o->location_id}|{$dateString}|{$periodKey}";
+
+                $idealSchedules[$scheduleKey] = [
+                    'sauna_id'    => $sauna->id,
+                    'location_id' => $o->location_id,
+                    'date'        => $dateString, // 🔧 store as DATE
+                    'period'      => $periodKey,
+                    'created_at'  => now(),
+                    'updated_at'  => now(),
+                ];
             }
         }
-        Log::debug('Calculated ideal schedules based on rules', ['count' => count($idealSchedules), 'keys' => array_keys($idealSchedules)]);
 
-        // 3) Get the set of schedules that CURRENTLY exist in the database for the date range.
+        Log::debug('Calculated ideal schedules based on rules', ['count' => count($idealSchedules)]);
+
+        // 3) What exists in DB?
         $existingSchedules = SaunaSchedule::where('sauna_id', $sauna->id)
-            ->whereBetween('date', [$start->copy()->startOfDay(), $end->copy()->endOfDay()])
+            ->whereBetween('date', [$start->toDateString(), $end->toDateString()]) // 🔧 date range
             ->get()
             ->keyBy(function ($schedule) {
                 $dateString = Carbon::parse($schedule->date)->toDateString();
-                return "{$schedule->location_id}|{$dateString}|{$schedule->period}";
+                $periodKey  = strtolower(trim($schedule->period));
+                return "{$schedule->location_id}|{$dateString}|{$periodKey}";
             });
-        Log::debug('Found existing schedules in DB', ['count' => $existingSchedules->count(), 'keys' => $existingSchedules->keys()->all()]);
 
+        Log::debug('Found existing schedules in DB', ['count' => $existingSchedules->count()]);
 
-        // 4) Compare and sync schedules
+        // 4) Diff & sync
         $schedulesToCreate = array_diff_key($idealSchedules, $existingSchedules->all());
-        $schedulesToPrune = array_diff_key($existingSchedules->all(), $idealSchedules);
+        $schedulesToPrune  = array_diff_key($existingSchedules->all(), $idealSchedules);
 
         Log::debug('Schedules to be created', ['count' => count($schedulesToCreate)]);
-        Log::debug('Schedules to be pruned', ['count' => count($schedulesToPrune)]);
+        Log::debug('Schedules to be pruned',  ['count' => count($schedulesToPrune)]);
 
-        // 5) Batch insert the new schedules.
         if (!empty($schedulesToCreate)) {
             DB::table('sauna_schedules')->insert(array_values($schedulesToCreate));
         }
 
-        // 6) Prune old schedules that have no bookings.
+        // 6) Prune old schedules (no change)
         $prunedSchedulesCount = 0;
         if (!empty($schedulesToPrune)) {
             $pruneIds = collect($schedulesToPrune)->pluck('id')->all();
@@ -185,70 +197,61 @@ class SaunaScheduleController extends Controller
             }
         }
 
-        // =================================================================
-        // 7) GENERATE TIMESLOTS FOR ALL VALID SCHEDULES
-        // This section creates the actual bookable timeslots.
-        // =================================================================
+        // 7) Generate timeslots for *all* valid schedules in the range
         $timeslotsCreatedCount = 0;
-        // We need to get all schedules that should exist after our sync.
+
         $validSchedules = SaunaSchedule::where('sauna_id', $sauna->id)
-            ->whereBetween('date', [$start->copy()->startOfDay(), $end->copy()->endOfDay()])
+            ->whereBetween('date', [$start->toDateString(), $end->toDateString()])
             ->get();
 
         foreach ($validSchedules as $schedule) {
             $scheduleDate = Carbon::parse($schedule->date);
-            $weekday = $scheduleDate->dayOfWeek;
+            $weekday      = $scheduleDate->dayOfWeek;
+            $periodKey    = strtolower(trim($schedule->period));
 
-            // Find the corresponding opening rule to get the start and end times
-            $win = $windows[$schedule->location_id][$weekday][$schedule->period] ?? null;
-
+            $win = $windows[$schedule->location_id][$weekday][$periodKey] ?? null;
             if (!$win) {
-                Log::warning("Could not find opening window for schedule ID {$schedule->id}. Skipping timeslot generation.");
+                Log::warning("No opening window for schedule {$schedule->id} ({$schedule->location_id} {$schedule->date} {$periodKey})");
                 continue;
             }
 
-            // Define the time window for timeslot generation
             $slotStartTime = Carbon::parse($scheduleDate->toDateString() . ' ' . $win['start']);
-            $slotEndTime = Carbon::parse($scheduleDate->toDateString() . ' ' . $win['end']);
+            $slotEndTime   = Carbon::parse($scheduleDate->toDateString() . ' ' . $win['end']);
 
-            // Define the duration of the rental and the buffer between slots.
-            $rentalDurationMinutes = 15; // The actual time the customer has the sauna.
-            $bufferMinutes = 5;          // The cleaning/turnover time between slots.
-            $totalSlotIntervalMinutes = $rentalDurationMinutes + $bufferMinutes;
+            $rentalDurationMinutes      = 15;
+            $bufferMinutes              = 5;
+            $totalSlotIntervalMinutes   = $rentalDurationMinutes + $bufferMinutes;
 
-            // Create a period to find the start times for each slot. The interval includes the buffer.
+            // inclusive period; we’ll guard the end
             $timeslotPeriods = CarbonPeriod::create($slotStartTime, $totalSlotIntervalMinutes . ' minutes', $slotEndTime);
 
             foreach ($timeslotPeriods as $slotStart) {
-                // The end time for the booking is based on the rental duration only.
                 $slotEnd = $slotStart->copy()->addMinutes($rentalDurationMinutes);
-
-                // We must ensure the calculated end time of the rental does not exceed the window's end time.
                 if ($slotEnd->gt($slotEndTime)) {
                     continue;
                 }
 
-                $timeslot = Timeslot::firstOrCreate(
+                $ts = Timeslot::firstOrCreate(
                     [
                         'sauna_schedule_id' => $schedule->id,
-                        'starts_at' => $slotStart->format('Y-m-d H:i:s'),
+                        'starts_at'         => $slotStart->format('Y-m-d H:i:s'),
                     ],
                     [
-                        'ends_at' => $slotEnd->format('Y-m-d H:i:s'),
-                        'capacity' => $sauna->capacity, // Assuming sauna has a capacity property
+                        'ends_at'  => $slotEnd->format('Y-m-d H:i:s'),
+                        'capacity' => $sauna->capacity,
                     ]
                 );
 
-                if ($timeslot->wasRecentlyCreated) {
+                if ($ts->wasRecentlyCreated) {
                     $timeslotsCreatedCount++;
                 }
             }
         }
+
         Log::info("Timeslot generation complete. Created {$timeslotsCreatedCount} new timeslots.");
 
-
         $createdCounts = collect($schedulesToCreate)->countBy('period');
-        $finalCounts = collect(['morning' => 0, 'afternoon' => 0, 'evening' => 0, 'night' => 0])->merge($createdCounts);
+        $finalCounts   = collect(['morning' => 0, 'afternoon' => 0, 'evening' => 0, 'night' => 0])->merge($createdCounts);
 
         Log::info(
             'Sauna ' . $sauna->id . ': schedules added=' .

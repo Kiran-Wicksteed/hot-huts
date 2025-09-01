@@ -6,6 +6,7 @@ import TimeDate from "@/Components/booking-form/TimeDate";
 import EventTimeDate from "@/Components/booking-form/EventTimeDate";
 import InvoiceDetails from "@/Components/booking-form/InvoiceDetails";
 import Locations from "@/Components/booking-form/Locations";
+import { CartProvider } from "@/context/CartContext";
 
 function usePersistedState(key, defaultValue) {
     const [state, setState] = useState(() => {
@@ -81,7 +82,7 @@ export default function Index({ locations, services, addons, events }) {
     const isEvent = formData.booking_type === "event";
 
     return (
-        <>
+        <CartProvider>
             <Menu currentStep={currentStep} />
             <div>
                 {currentStep === 1 && (
@@ -133,6 +134,7 @@ export default function Index({ locations, services, addons, events }) {
                 {currentStep === 4 && (
                     <InvoiceDetails
                         services={services}
+                        sessionService={sessionService}
                         nextStep={goToNextStep}
                         prevStep={goToPrevStep}
                         formData={formData}
@@ -140,6 +142,6 @@ export default function Index({ locations, services, addons, events }) {
                 )}
             </div>
             <Footer />
-        </>
+        </CartProvider>
     );
 }

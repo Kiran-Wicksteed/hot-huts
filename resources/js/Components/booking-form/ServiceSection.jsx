@@ -400,7 +400,7 @@ export default function ServiceSection({
                                             <span
                                                 className={`${styles.paragraph} font-medium text-black w-6 text-center`}
                                             >
-                                                {people}
+                                                {eventQty}
                                             </span>
                                             <button
                                                 onClick={() =>

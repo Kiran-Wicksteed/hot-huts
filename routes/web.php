@@ -87,6 +87,10 @@ Route::post('/bookings',  [BookingController::class, 'store'])
 Route::get('/bookings/{booking}', [BookingController::class, 'show'])
     ->name('bookings.show');
 
+// routes/web.php
+Route::post('/bookings/preflight', [BookingController::class, 'preflight'])->name('bookings.preflight');
+
+
 Route::post('/admin-bookings',  [BookingController::class, 'storeAdmin'])
     ->name('admin.bookings.store');
 Route::delete('/admin/bookings/{booking}', [BookingAdminController::class, 'destroy'])

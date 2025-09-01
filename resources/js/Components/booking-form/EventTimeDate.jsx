@@ -1,56 +1,63 @@
 import styles from "../../../styles";
 import { useState, useEffect, useMemo } from "react";
 import dayjs from "dayjs";
-import { MinusIcon, PlusIcon } from "@heroicons/react/24/solid";
 import { MapPinIcon, ClockIcon } from "@heroicons/react/24/outline";
+import { useCart } from "@/context/CartContext";
 
 export default function EventTimeDate({
     nextStep,
     prevStep,
     updateFormData,
     formData,
-    servicesData,
-    addons,
-    sessionService,
-    events,
 }) {
     const {
         location,
         event_occurrence_id,
-        event_people,
-        event_price_per_person = 0,
-        event_price = 0,
+        event_people = 1,
+        event_price_per_person = 0, // cents
+        event_price = 0, // cents (fallback)
         event_date: eventDate,
         event_time_range: eventTimeRange,
         event_name,
     } = formData;
 
-    const eventPriceRand = (event_price / 100).toFixed(2);
-    const pricePerPerson = (event_price_per_person / 100).toFixed(2);
+    const { addItem } = useCart();
 
+    // derive per-person + total in Rands (display + cart)
+    const unitRand = useMemo(() => {
+        const viaEach = Number(event_price_per_person || 0) / 100;
+        if (viaEach > 0) return viaEach;
+        // fallback if only total was given
+        const viaTotal = Number(event_price || 0) / 100;
+        return event_people ? viaTotal / Number(event_people) : viaTotal;
+    }, [event_price_per_person, event_price, event_people]);
+
+    const totalRand = useMemo(
+        () => (unitRand * Number(event_people || 1)).toFixed(2),
+        [unitRand, event_people]
+    );
+
+    // parse "HH:mm[-]HH:mm" safely
     const [eventStartTime, eventEndTime] = useMemo(() => {
         if (!eventTimeRange) return [null, null];
         const [startStr, endStr] = eventTimeRange
             .split("-")
             .map((s) => s.trim());
-        return [startStr, endStr]; // "HH:MM", "HH:MM"
+        return [startStr, endStr];
     }, [eventTimeRange]);
 
     const parseOnDate = (dateStr, timeStr) => {
-        // Accept "HH:mm" or "HH:mm:ss" or ISO
         if (!timeStr) return null;
         const hhmm = /^\d{2}:\d{2}(:\d{2})?$/;
         return hhmm.test(timeStr)
             ? dayjs(`${dateStr} ${timeStr}`)
-            : dayjs(timeStr); // if your API returns ISO timestamps
+            : dayjs(timeStr);
     };
 
     const [slots, setSlots] = useState([]);
     const [loading, setLoading] = useState(false);
-    const [selectedTime, setSelectedTime] = useState(null);
-
+    const [selectedTimeId, setSelectedTimeId] = useState(null);
     const [agreed, setAgreed] = useState(false);
-    const [slotCap, setSlotCap] = useState(8);
 
     // fetch only slots AFTER the event end time on the same date/location
     useEffect(() => {
@@ -64,29 +71,20 @@ export default function EventTimeDate({
                 route("availability.all", {
                     location_id: location.id,
                     date: eventDate,
+                    after: eventEndTime, // server will do "starts_at >= after"
                 })
             );
             const json = await res.json(); // [{id, starts_at, ends_at, spots_left}, …]
 
-            // Build event window on the same date
-            const eventStart = parseOnDate(eventDate, eventStartTime);
             const eventEnd = parseOnDate(eventDate, eventEndTime);
 
-            // Keep slots that DO NOT overlap the event:
-            //   (slotEnd <= eventStart) OR (slotStart >= eventEnd)
+            // Double-filter in UI for safety: only show slots that start AFTER the event
             const filtered = (json.data || [])
                 .filter((s) => {
                     const slotStart = parseOnDate(eventDate, s.starts_at);
-                    const slotEnd = parseOnDate(eventDate, s.ends_at);
-                    if (!slotStart || !slotEnd || !eventStart || !eventEnd)
-                        return false;
-
-                    const endsBeforeEvent = !slotEnd.isAfter(eventStart); // slotEnd <= eventStart
-                    const startsAfterEvent = !slotStart.isBefore(eventEnd); // slotStart >= eventEnd
-
-                    return endsBeforeEvent || startsAfterEvent;
+                    if (!slotStart || !eventEnd) return false;
+                    return !slotStart.isBefore(eventEnd); // slotStart >= eventEnd
                 })
-                // Optional: sort chronologically so morning → evening
                 .sort((a, b) => {
                     const aStart = parseOnDate(eventDate, a.starts_at);
                     const bStart = parseOnDate(eventDate, b.starts_at);
@@ -98,38 +96,59 @@ export default function EventTimeDate({
         })();
     }, [location?.id, eventDate, eventStartTime, eventEndTime]);
 
-    // When selecting a sauna slot
-    const handleSlot = (slot) => {
+    const prettyEventDate = useMemo(() => {
+        return eventDate && dayjs(eventDate).isValid()
+            ? dayjs(eventDate).format("D MMMM YYYY")
+            : eventDate ?? "";
+    }, [eventDate]);
+
+    const handleSelectSlot = (slot) => {
         if (slot.spots_left === 0) return;
-        setSelectedTime(slot.id);
-        setSlotCap(slot.spots_left);
-        updateFormData({
+        setSelectedTimeId(slot.id);
+        // keep wizard form in sync (optional)
+        updateFormData?.({
             timeslot_id: slot.id,
             sauna_time: `${slot.starts_at} - ${slot.ends_at}`,
         });
     };
 
-    // Sauna add‑ons & people: reuse existing structure if you still want addons
-    // (or strip them out in event mode if not needed)
-    const updateSaunaPeople = (val) =>
-        setSaunaQty(Math.max(1, Math.min(slotCap, val)));
+    const handleContinue = () => {
+        if (!selectedTimeId || !agreed) return;
 
-    const addonsSubtotal = useMemo(() => {
-        let sum = 0;
-        addons.forEach((svc) => {
-            const qty = servicesData[svc.code] ?? 0;
-            sum += qty * svc.price;
+        const chosen = slots.find((s) => s.id === selectedTimeId);
+        const timeRange = chosen
+            ? `${chosen.starts_at} - ${chosen.ends_at}`
+            : null;
+
+        // Build cart item (shape expected by InvoiceDetails & checkout)
+        addItem({
+            kind: "event",
+            // identifiers
+            event_occurrence_id,
+            timeslot_id: selectedTimeId, // post-event sauna slot
+            location_id: location.id,
+            // display/meta
+            event_name,
+            location_name: location.name,
+            date: eventDate,
+            timeRange,
+            people: Number(event_people || 1),
+            // line items for the invoice
+            lines: [
+                {
+                    label: event_name,
+                    qty: Number(event_people || 1),
+                    unit: Number(unitRand), // number in Rands
+                    total: Number(unitRand * (event_people || 1)).toFixed(2),
+                },
+            ],
+            lineTotal: Number(unitRand * (event_people || 1)).toFixed(2),
+            // (add `addons` here later if you support event add-ons)
         });
-        return sum.toFixed(2);
-    }, [addons, servicesData]);
 
-    const grandTotal = useMemo(
-        () =>
-            (parseFloat(eventPriceRand) + parseFloat(addonsSubtotal)).toFixed(
-                2
-            ),
-        [eventPriceRand, addonsSubtotal]
-    );
+        // Nudge the wizard forward to the invoice step
+        nextStep?.();
+    };
 
     return (
         <div
@@ -147,7 +166,7 @@ export default function EventTimeDate({
                 {/* LEFT: slot picker */}
                 <div className="col-span-2 bg-white">
                     <h3 className={`${styles.h2} text-black font-medium mb-2`}>
-                        Choose a sauna slot on {eventDate}
+                        Choose a sauna slot on {prettyEventDate}
                     </h3>
                     <p className={`${styles.paragraph} text-black mb-6`}>
                         After your event ({eventTimeRange}), pick a time that
@@ -162,34 +181,36 @@ export default function EventTimeDate({
                             </p>
                         )}
                         {!loading &&
-                            slots.map((slot) => (
-                                <div
-                                    key={slot.id}
-                                    className={`border rounded shadow p-6 flex justify-between
-                    ${
-                        slot.spots_left === 0
-                            ? "opacity-40 cursor-not-allowed"
-                            : "cursor-pointer"
-                    }
-                    ${
-                        selectedTime === slot.id
-                            ? "border-hh-orange"
-                            : "border-hh-gray"
-                    }`}
-                                    onClick={() => handleSlot(slot)}
-                                >
-                                    <p
-                                        className={`${styles.paragraph} text-black font-medium`}
+                            slots.map((slot) => {
+                                const selected = selectedTimeId === slot.id;
+                                const disabled = slot.spots_left === 0;
+                                return (
+                                    <button
+                                        type="button"
+                                        key={slot.id}
+                                        onClick={() => handleSelectSlot(slot)}
+                                        disabled={disabled}
+                                        className={`w-full text-left border rounded shadow p-6 flex justify-between
+                      ${
+                          disabled
+                              ? "opacity-40 cursor-not-allowed"
+                              : "cursor-pointer"
+                      }
+                      ${selected ? "border-hh-orange" : "border-hh-gray"}`}
                                     >
-                                        {slot.starts_at} – {slot.ends_at}
-                                    </p>
-                                    <p
-                                        className={`${styles.paragraph} uppercase text-[#999]`}
-                                    >
-                                        {slot.spots_left} slots left
-                                    </p>
-                                </div>
-                            ))}
+                                        <p
+                                            className={`${styles.paragraph} text-black font-medium`}
+                                        >
+                                            {slot.starts_at} – {slot.ends_at}
+                                        </p>
+                                        <p
+                                            className={`${styles.paragraph} uppercase text-[#999]`}
+                                        >
+                                            {slot.spots_left} slots left
+                                        </p>
+                                    </button>
+                                );
+                            })}
                     </div>
                 </div>
 
@@ -229,20 +250,13 @@ export default function EventTimeDate({
                                 <span
                                     className={`${styles.paragraph} text-[#666]`}
                                 >
-                                    × {event_people}
+                                    × {event_people}
                                 </span>
                             </p>
-
                             <p className={`${styles.paragraph} text-hh-orange`}>
-                                R{parseFloat(eventPriceRand).toFixed(2)}
+                                R{totalRand}
                             </p>
                         </div>
-
-                        <h4
-                            className={`${styles.h3} font-medium text-hh-orange pt-4`}
-                        >
-                            Total: R{grandTotal}
-                        </h4>
 
                         {/* Consent + buttons */}
                         <div className="flex items-center gap-x-2">
@@ -274,18 +288,10 @@ export default function EventTimeDate({
                                 </p>
                             </button>
                             <button
-                                onClick={() => {
-                                    updateFormData({
-                                        booking_type: "event",
-                                        sauna_people: event_people,
-                                        sauna_total: grandTotal,
-                                        grand_total: grandTotal,
-                                    });
-                                    nextStep(); // no callback needed
-                                }}
-                                disabled={!selectedTime || !agreed}
+                                onClick={handleContinue}
+                                disabled={!selectedTimeId || !agreed}
                                 className={`bg-hh-orange py-1 w-full px-4 shadow text-white rounded ${
-                                    (!selectedTime || !agreed) &&
+                                    (!selectedTimeId || !agreed) &&
                                     "opacity-50 cursor-not-allowed"
                                 }`}
                             >
@@ -297,25 +303,6 @@ export default function EventTimeDate({
                     </div>
                 </div>
             </div>
-        </div>
-    );
-}
-
-// simple qty picker (separate from servicesData.people)
-function QtyPicker({ code, qty, min, max, update }) {
-    return (
-        <div className="flex gap-x-1 items-center">
-            <button onClick={() => update(code, Math.max(min, qty - 1))}>
-                <MinusIcon className="h-6 w-6 text-black bg-[#E2E2E2] rounded-lg p-0.5" />
-            </button>
-            <span
-                className={`${styles.paragraph} font-medium text-black w-6 text-center`}
-            >
-                {qty}
-            </span>
-            <button onClick={() => update(code, Math.min(max, qty + 1))}>
-                <PlusIcon className="h-6 w-6 text-black bg-[#E2E2E2] rounded-lg p-0.5" />
-            </button>
         </div>
     );
 }
