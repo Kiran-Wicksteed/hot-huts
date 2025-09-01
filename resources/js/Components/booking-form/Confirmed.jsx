@@ -1,5 +1,7 @@
 import styles from "../../../styles";
 import dayjs from "dayjs";
+import { useEffect } from "react";
+import { useCart } from "@/context/CartContext";
 
 /**
  * Props:
@@ -9,6 +11,16 @@ import dayjs from "dayjs";
  */
 export default function Confirmed({ booking, bookings = [], summary = null }) {
     const hasMulti = Array.isArray(bookings) && bookings.length > 0;
+
+    const { clearCart, regenerateCartKey } = useCart();
+    useEffect(() => {
+        clearCart({ rekey: true });
+        regenerateCartKey();
+        try {
+            localStorage.removeItem("hh_step");
+            localStorage.removeItem("hh_form");
+        } catch {}
+    }, []);
 
     // Use the legacy booking's user name for the greeting (works for both cases)
     const customerName = booking?.user?.name ?? "there";
