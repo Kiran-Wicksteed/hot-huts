@@ -1,5 +1,4 @@
 import React, { useEffect, useRef } from "react";
-import { useCart } from "@/context/CartContext";
 
 // This component receives props from the Laravel controller via Inertia
 export default function RedirectToGateway({
@@ -11,17 +10,6 @@ export default function RedirectToGateway({
     const observer = useRef(null);
     // --- FIX: Create a ref for the payment form div ---
     const paymentFormRef = useRef(null);
-
-    const { clearCart, regenerateCartKey } = useCart();
-    useEffect(() => {
-        // belt & suspenders
-        clearCart({ rekey: true });
-        regenerateCartKey(); // harmless if already rekeyed
-        try {
-            localStorage.removeItem("hh_step");
-            localStorage.removeItem("hh_form");
-        } catch {}
-    }, []);
 
     // The useEffect hook runs once when the component mounts.
     useEffect(() => {
