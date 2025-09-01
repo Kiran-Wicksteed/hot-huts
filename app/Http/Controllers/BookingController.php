@@ -152,9 +152,11 @@ class BookingController extends Controller
         $holdMinutes = (int) config('booking.hold_minutes', 10);
         $entity      = config('peach-payment.entity_id');
         $cbUrl = route('payment.callback');
+        Log::info('CB URL being sent to Peach', ['cb' => $cbUrl, 'app_url' => config('app.url')]);
+
         $now         = now();
 
-        // ---------- 0) Normalise payload to a cart of items ----------
+        // ---------- 0) Normalise payload to a cart of items ---------
         $asCart = $request->has('items');
 
         if ($asCart) {
