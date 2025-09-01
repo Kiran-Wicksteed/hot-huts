@@ -11,8 +11,10 @@ const LS_KEY = "hh_cart_v1";
 
 const initialState = {
     items: [], // array of cart items (sauna|event)
-    cartKey: null, // persisted idempotency key (one per “open” cart)
+    cartKey: null, // idempotency key for this cart session
 };
+
+/* ---------------- helpers ---------------- */
 
 function genKey() {
     if (typeof crypto !== "undefined" && crypto.randomUUID) {
@@ -20,6 +22,17 @@ function genKey() {
     }
     // tiny fallback
     return "xxxx-4xxx-yxxx-xxxx".replace(/[xy]/g, (c) => {
+        const r = (Math.random() * 16) | 0;
+        const v = c === "x" ? r : (r & 0x3) | 0x8;
+        return v.toString(16);
+    });
+}
+
+function uuid() {
+    if (typeof crypto !== "undefined" && crypto.randomUUID) {
+        return crypto.randomUUID();
+    }
+    return "xxxx-4xxx-yxxx".replace(/[xy]/g, (c) => {
         const r = (Math.random() * 16) | 0;
         const v = c === "x" ? r : (r & 0x3) | 0x8;
         return v.toString(16);
@@ -35,12 +48,11 @@ function load() {
     try {
         const raw = localStorage.getItem(LS_KEY);
         const parsed = raw ? JSON.parse(raw) : initialState;
-        // Backward-compat: carts saved before cartKey existed
-        if (!parsed.cartKey) parsed.cartKey = genKey();
+        if (!parsed.cartKey) parsed.cartKey = genKey(); // back-compat
         if (!Array.isArray(parsed.items)) parsed.items = [];
         return parsed;
     } catch {
-        // SSR or storage disabled
+        // SSR or storage disabled → start fresh with a key
         return { ...initialState, cartKey: genKey() };
     }
 }
@@ -51,15 +63,7 @@ function save(state) {
     } catch {}
 }
 
-function uuid() {
-    if (typeof crypto !== "undefined" && crypto.randomUUID)
-        return crypto.randomUUID();
-    return "xxxx-4xxx-yxxx".replace(/[xy]/g, (c) => {
-        const r = (Math.random() * 16) | 0;
-        const v = c === "x" ? r : (r & 0x3) | 0x8;
-        return v.toString(16);
-    });
-}
+/* ---------------- reducer ---------------- */
 
 function reducer(state, action) {
     switch (action.type) {
@@ -83,67 +87,91 @@ function reducer(state, action) {
             };
         }
         case "CLEAR": {
-            // note: we intentionally keep the cartKey (same “shopping session”)
+            // keeps the current cartKey
             return { ...state, items: [] };
         }
         case "REGENERATE_CART_KEY": {
-            // call this after a successful checkout to prevent idempotency clashes
             return { ...state, cartKey: genKey() };
+        }
+        case "SET_STATE": {
+            // internal: replace parts of state after we've pre-saved to LS
+            return { ...state, ...action.payload };
         }
         default:
             return state;
     }
 }
 
+/* ---------------- context ---------------- */
+
 const CartContext = createContext(null);
 
 export function CartProvider({ children }) {
     const [state, dispatch] = useReducer(reducer, undefined, load);
 
+    // normal async persistence (covers typical add/remove/update flows)
     useEffect(() => save(state), [state]);
 
-    // Derived helpers
+    // derived
     const count = state.items.length;
     const grandTotal = state.items.reduce(
         (t, it) => t + safeNumber(it.lineTotal, 0),
         0
     );
 
-    // Convert current cart to the backend payload shape expected by bookings.store
-    // -> { cart_key, items: [{ kind, timeslot_id, event_occurrence_id, people, addons:[{code,qty}] }]}
+    // Build backend payload; includes client_id so preflight can echo per-item errors
     const toCheckoutPayload = () => ({
         cart_key: state.cartKey,
         items: state.items.map((it) => ({
+            client_id: it.id,
             kind: it.kind, // "sauna" | "event"
             timeslot_id: it.timeslot_id ?? null,
             event_occurrence_id: it.event_occurrence_id ?? null,
             people: it.people,
-            addons: (it.addons ?? []).map((a) => ({
-                code: a.code,
-                qty: a.qty,
-            })),
+            addons: (it.addons ?? [])
+                .filter((a) => Number(a.qty) > 0)
+                .map((a) => ({ code: a.code, qty: Number(a.qty) })),
         })),
     });
 
+    // **Synchronous** clear & rekey to avoid race when navigating away
+    const clearCart = (opts = { rekey: true }) => {
+        const next = {
+            items: [],
+            cartKey: opts.rekey ? genKey() : state.cartKey,
+        };
+        save(next); // write BEFORE dispatch/navigate
+        dispatch({ type: "SET_STATE", payload: next });
+    };
+
+    const regenerateCartKey = () => {
+        const next = { ...state, cartKey: genKey() };
+        save(next); // write BEFORE dispatch/navigate
+        dispatch({ type: "SET_STATE", payload: next });
+    };
+
     const api = useMemo(
         () => ({
-            // state
+            /* state */
             items: state.items,
             cartKey: state.cartKey,
             count,
-            grandTotal, // number (in rands, based on your item.lineTotal inputs)
+            grandTotal,
 
-            // actions
+            /* actions */
             addItem: (item) => dispatch({ type: "ADD_ITEM", payload: item }),
             updateItem: (id, patch) =>
                 dispatch({ type: "UPDATE_ITEM", payload: { id, patch } }),
             removeItem: (id) => dispatch({ type: "REMOVE_ITEM", payload: id }),
-            clearCart: () => dispatch({ type: "CLEAR" }),
 
-            // idempotency lifecycle
-            regenerateCartKey: () => dispatch({ type: "REGENERATE_CART_KEY" }),
+            // keep for non-critical flows (still persisted by effect)
+            clearCartAsync: () => dispatch({ type: "CLEAR" }),
 
-            // selectors/utilities
+            /* idempotency lifecycle */
+            clearCart, // sync + optional rekey (default true)
+            regenerateCartKey, // sync
+
+            /* helpers */
             toCheckoutPayload,
         }),
         [state.items, state.cartKey, count, grandTotal]

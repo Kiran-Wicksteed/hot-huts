@@ -122,7 +122,7 @@ export default function InvoiceDetails() {
                             { cart_key: cartKey, items: payloadItems },
                             {
                                 onSuccess: () => {
-                                    clearCart();
+                                    clearCart({ rekey: true });
                                     try {
                                         localStorage.removeItem("hh_step");
                                         localStorage.removeItem("hh_form");
