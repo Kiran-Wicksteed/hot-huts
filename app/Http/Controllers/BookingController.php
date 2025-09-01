@@ -151,7 +151,7 @@ class BookingController extends Controller
     {
         $holdMinutes = (int) config('booking.hold_minutes', 10);
         $entity      = config('peach-payment.entity_id');
-        $cbUrl       = rtrim(config('app.url'), '/') . '/order/callback';
+        $cbUrl = route('order.callback');
         $now         = now();
 
         // ---------- 0) Normalise payload to a cart of items ----------
