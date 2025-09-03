@@ -4,6 +4,8 @@ namespace App\Http\Middleware;
 
 use Illuminate\Http\Request;
 use Inertia\Middleware;
+use Inertia\Inertia;
+use App\Models\User;
 
 class HandleInertiaRequests extends Middleware
 {
@@ -37,6 +39,19 @@ class HandleInertiaRequests extends Middleware
                 'organization' => $user ? $user->organization : null,
             ],
             'preflight' => fn() => $request->session()->pull('preflight'),
+            'userResults' => Inertia::lazy(function () use ($request) {
+                $q = trim($request->get('q', ''));
+                if (strlen($q) < 2) return [];
+
+                return User::query()
+                    ->where(function ($w) use ($q) {
+                        $w->where('name', 'like', "%{$q}%")
+                            ->orWhere('email', 'like', "%{$q}%");
+                    })
+                    ->orderBy('name')
+                    ->limit(10)
+                    ->get(['id', 'name', 'email']);
+            }),
         ]);
     }
 }

@@ -44,17 +44,23 @@ class BookingAdminController extends Controller
             : today();
 
         // --- Calculate Statistics ---
-        $statsQuery = clone $query;
-        $bookingsThisMonth = (clone $statsQuery)
-            ->whereYear('created_at', Carbon::now()->year)
-            ->whereMonth('created_at', Carbon::now()->month)
+        $statsBase = clone $query;
+
+        $now = now();
+        $startOfMonth = $now->copy()->startOfMonth();
+        $endOfMonth   = $now->copy()->endOfMonth();
+
+        $bookingsThisMonth = (clone $statsBase)
+            ->whereBetween('created_at', [$startOfMonth, $endOfMonth])
             ->count();
 
-        $todaysBookings = (clone $statsQuery)
-            ->whereDate('created_at', $selectedDate)
+        $todaysBookings = (clone $statsBase)
+            ->whereDate('created_at', $now->toDateString())
             ->count();
 
-        $totalRevenue = $statsQuery->sum('amount') / 100;
+        $totalRevenue = (clone $statsBase)
+            ->whereBetween('created_at', [$startOfMonth, $endOfMonth])
+            ->sum('amount') / 100;
 
         $recentBookings = $query->with(['user', 'timeslot.schedule.location', 'services'])
             ->latest()
@@ -110,6 +116,8 @@ class BookingAdminController extends Controller
                     'people'      => $booking->people,
                     'guest_name'  => $booking->guest_name,
                     'guest_email' => $booking->guest_email,
+                    'payment_method'    => $booking->payment_method,
+                    'booking_type'    => $booking->booking_type,
                     'user'        => ['name' => $booking->user?->name],
                     'services'    => $booking->services->map(fn($s) => [
                         'id'       => $s->id,

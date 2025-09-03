@@ -20,7 +20,9 @@ class Booking extends Model
         'peach_payment_order_no',
         'payment_status',
         'hold_expires_at',
-        'cart_key'        // UUID to group bookings in a cart
+        'cart_key',
+        'booking_type',
+        'payment_method',    // UUID to group bookings in a cart
     ];
 
     protected $casts = [

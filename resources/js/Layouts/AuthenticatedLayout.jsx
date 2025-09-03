@@ -54,10 +54,6 @@ const teams = [
     { id: 2, name: "Tailwind Labs", href: "#", initial: "T", current: false },
     { id: 3, name: "Workcation", href: "#", initial: "W", current: false },
 ];
-const userNavigation = [
-    { name: "Your profile", href: "#" },
-    { name: "Sign out", href: "#" },
-];
 
 function classNames(...classes) {
     return classes.filter(Boolean).join(" ");
@@ -72,6 +68,8 @@ export default function AuthenticatedLayout({ header, children }) {
 
     const organization = auth.organization;
     const [open, setOpen] = useState(false);
+
+    const canSeePayments = Boolean(Number(user?.is_family ?? 0));
 
     const asset = (path) => {
         return `/storage/${path}`;
@@ -479,32 +477,36 @@ export default function AuthenticatedLayout({ header, children }) {
                                                 Bookings
                                             </a>
                                         </li>
-                                        <li>
-                                            <a
-                                                href={route("payments.index")}
-                                                className={classNames(
-                                                    route().current(
+                                        {canSeePayments && (
+                                            <li>
+                                                <a
+                                                    href={route(
                                                         "payments.index"
-                                                    )
-                                                        ? "bg-gray-100 text-hh-orange border-l-2 border-l-hh-orange"
-                                                        : "text-black hover:bg-gray-100 hover:",
-                                                    "group flex gap-x-3  p-1 sidebar-item !font-medium"
-                                                )}
-                                            >
-                                                <CreditCardIcon
-                                                    aria-hidden="true"
+                                                    )}
                                                     className={classNames(
                                                         route().current(
                                                             "payments.index"
                                                         )
-                                                            ? ""
-                                                            : "text-black group-hover:",
-                                                        "h-6 w-6 shrink-0"
+                                                            ? "bg-gray-100 text-hh-orange border-l-2 border-l-hh-orange"
+                                                            : "text-black hover:bg-gray-100 hover:",
+                                                        "group flex gap-x-3  p-1 sidebar-item !font-medium"
                                                     )}
-                                                />
-                                                Payments
-                                            </a>
-                                        </li>
+                                                >
+                                                    <CreditCardIcon
+                                                        aria-hidden="true"
+                                                        className={classNames(
+                                                            route().current(
+                                                                "payments.index"
+                                                            )
+                                                                ? ""
+                                                                : "text-black group-hover:",
+                                                            "h-6 w-6 shrink-0"
+                                                        )}
+                                                    />
+                                                    Payments
+                                                </a>
+                                            </li>
+                                        )}
                                         <li>
                                             <a
                                                 href={route("customers.index")}

@@ -9,7 +9,7 @@ import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
 import React, { useState, useMemo } from "react";
 import styles from "../../../styles";
 import TodayBubbles from "./Partials/TodayBubbles";
-import { router } from "@inertiajs/react";
+import { router, usePage } from "@inertiajs/react";
 import { motion } from "framer-motion";
 
 export default function BookingPage({
@@ -21,15 +21,9 @@ export default function BookingPage({
     slotsToday, // ALL sauna time‑slots for today (+ schedule/location)
     addonServices,
 }) {
-    console.log("🔍 Inertia props:", {
-        stats,
-        bookings,
-        locations,
-        filters,
-        bookingsToday,
-        slotsToday,
-        addonServices,
-    });
+    const { auth } = usePage().props;
+    const user = auth.user;
+    const canSeePayments = Boolean(Number(user?.is_family ?? 0));
     /* ────────────────────────────────────────────────────────────
      1. local state / filters
   ──────────────────────────────────────────────────────────── */
@@ -66,20 +60,22 @@ export default function BookingPage({
                 {/* ════════════════════════════════════════════════════════
             ANALYTICS (unchanged – collapse if you want)
         ════════════════════════════════════════════════════════ */}
-                <div className="grid grid-cols-3 gap-4">
-                    <AnalyticsCard
-                        label="Total bookings this month"
-                        value={stats.bookingsThisMonth}
-                    />
-                    <AnalyticsCard
-                        label="Today’s bookings"
-                        value={stats.todaysBookings}
-                    />
-                    <AnalyticsCard
-                        label="Revenue this month"
-                        value={`R ${stats.totalRevenue}`}
-                    />
-                </div>
+                {canSeePayments && (
+                    <div className="grid grid-cols-3 gap-4">
+                        <AnalyticsCard
+                            label="Total bookings this month"
+                            value={stats.bookingsThisMonth}
+                        />
+                        <AnalyticsCard
+                            label="Today’s bookings"
+                            value={stats.todaysBookings}
+                        />
+                        <AnalyticsCard
+                            label="Revenue this month"
+                            value={`R ${stats.totalRevenue}`}
+                        />
+                    </div>
+                )}
 
                 {/* ════════════════════════════════════════════════════════
             BOOKINGS TODAY – bubble grid

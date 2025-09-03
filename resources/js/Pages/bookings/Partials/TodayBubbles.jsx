@@ -1,5 +1,106 @@
-import React, { useState } from "react";
+// TodayBubbles.jsx
+import React, { useState, useMemo, useEffect } from "react";
 import { router } from "@inertiajs/react";
+
+function UserSelect({ value, onChange }) {
+    const [q, setQ] = useState("");
+    const [options, setOptions] = useState([]);
+    const [open, setOpen] = useState(false);
+    const [loading, setLoading] = useState(false);
+
+    // Debounce search
+    useEffect(() => {
+        const id = setTimeout(() => {
+            const term = q.trim();
+            if (term.length < 2) {
+                setOptions([]);
+                setOpen(false);
+                return;
+            }
+
+            // Build current URL (keeps you on the same page)
+            const url = window.location.pathname;
+
+            // Merge existing query params (optional)
+            const qp = Object.fromEntries(
+                new URLSearchParams(window.location.search).entries()
+            );
+
+            router.get(
+                url,
+                { ...qp, q: term }, // pass q
+                {
+                    only: ["userResults"], // ask server for just this prop
+                    preserveState: true, // don't blow away local state
+                    preserveScroll: true,
+                    replace: true, // don't grow history
+                    onStart: () => setLoading(true),
+                    onSuccess: (page) => {
+                        const list = page.props?.userResults ?? [];
+                        setOptions(Array.isArray(list) ? list : []);
+                        setOpen(true);
+                    },
+                    onFinish: () => setLoading(false),
+                }
+            );
+        }, 250);
+
+        return () => clearTimeout(id);
+    }, [q]);
+    const picked = options.find((o) => o.id === value);
+
+    return (
+        <div className="relative">
+            <label className="block text-xs font-medium mb-1">
+                Attach to user
+            </label>
+            <input
+                type="text"
+                value={picked ? `${picked.name} <${picked.email}>` : q}
+                onChange={(e) => {
+                    onChange(null);
+                    setQ(e.target.value);
+                }}
+                onFocus={() => setOpen(options.length > 0)}
+                placeholder="Search by name or email..."
+                className="w-full border rounded p-1"
+            />
+            {open && (
+                <div className="absolute z-10 bg-white border rounded mt-1 max-h-48 overflow-auto w-full shadow">
+                    {loading && (
+                        <div className="p-2 text-xs text-gray-500">
+                            Searching…
+                        </div>
+                    )}
+                    {!loading &&
+                        options.length === 0 &&
+                        q.trim().length >= 2 && (
+                            <div className="p-2 text-xs text-gray-500">
+                                No matches
+                            </div>
+                        )}
+                    {!loading &&
+                        options.map((u) => (
+                            <button
+                                type="button"
+                                key={u.id}
+                                onClick={() => {
+                                    onChange(u.id);
+                                    setOpen(false);
+                                }}
+                                className="w-full text-left px-2 py-1 text-sm hover:bg-gray-100"
+                            >
+                                {u.name}{" "}
+                                <span className="text-gray-500">
+                                    &lt;{u.email}&gt;
+                                </span>
+                            </button>
+                        ))}
+                </div>
+            )}
+        </div>
+    );
+}
 
 export default function TodayBubbles({
     slots,
@@ -7,7 +108,7 @@ export default function TodayBubbles({
     formatTime,
     addonServices,
 }) {
-    const bySlot = React.useMemo(() => {
+    const bySlot = useMemo(() => {
         const map = new Map();
         bookings.forEach((b) => {
             if (!map.has(b.timeslot_id)) map.set(b.timeslot_id, []);
@@ -18,61 +119,58 @@ export default function TodayBubbles({
 
     const [openFormSlot, setOpenFormSlot] = useState(null);
     const [formData, setFormData] = useState({
-        guest_name: "",
-        guest_email: "",
+        user_id: null,
         people: 1,
         services: [],
+        payment_method: "",
     });
 
     const buildServicesPayload = () => {
         const map = {};
         formData.services.forEach((s) => {
             const svc = addonServices.find((as) => as.id === s.id);
-            if (svc) {
-                map[svc.code] = s.quantity; // ✅ backend expects code => qty
-            }
+            if (svc) map[svc.code] = s.quantity; // backend expects code => qty
         });
         return map;
     };
 
     const handleSubmit = (slotId) => {
+        if (!formData.user_id) {
+            alert("Please select a user to attach this booking to.");
+            return;
+        }
+
         router.post(
             route("admin.bookings.store"),
             {
-                booking_type: "sauna", // for admin panel this is always sauna slots
+                context: "sauna", // ← renamed from booking_type to avoid collision
                 timeslot_id: slotId,
                 people: formData.people,
-                guest_name: formData.guest_name,
-                guest_email: formData.guest_email,
+                user_id: formData.user_id,
+                payment_method: formData.payment_method || null,
                 services: buildServicesPayload(),
+                // booking_type is set to "walk in" server-side; keep source of truth there
             },
             {
                 onSuccess: () => {
                     setOpenFormSlot(null);
                     setFormData({
-                        guest_name: "",
-                        guest_email: "",
+                        user_id: null,
                         people: 1,
                         services: [],
+                        payment_method: "",
                     });
                 },
             }
         );
     };
+
     const toggleService = (id) => {
         setFormData((f) => {
             const exists = f.services.find((s) => s.id === id);
-            if (exists) {
-                return {
-                    ...f,
-                    services: f.services.filter((s) => s.id !== id),
-                };
-            } else {
-                return {
-                    ...f,
-                    services: [...f.services, { id, quantity: 1 }],
-                };
-            }
+            return exists
+                ? { ...f, services: f.services.filter((s) => s.id !== id) }
+                : { ...f, services: [...f.services, { id, quantity: 1 }] };
         });
     };
 
@@ -88,12 +186,8 @@ export default function TodayBubbles({
     const handleDelete = (id) => {
         if (!confirm("Are you sure you would like to delete this booking?"))
             return;
-
         router.delete(route("admin.bookings.destroy", id), {
             preserveScroll: true,
-            onSuccess: () => {
-                // Inertia will refetch props so capacity updates automatically
-            },
         });
     };
 
@@ -149,29 +243,53 @@ export default function TodayBubbles({
                                             <p className="font-medium">
                                                 Booked under:{" "}
                                                 <span className="text-gray-700">
-                                                    {b.guest_name ||
-                                                        b.user?.name ||
+                                                    {b.user?.name ||
+                                                        b.guest_name ||
                                                         "Guest"}
                                                 </span>{" "}
                                                 x {b.people}
                                             </p>
-                                            {b.guest_email && (
+                                            {(b.user?.email ||
+                                                b.guest_email) && (
                                                 <p className="text-gray-500 text-xs">
-                                                    {b.guest_email}
+                                                    {b.user?.email ||
+                                                        b.guest_email}
                                                 </p>
                                             )}
-
-                                            {b.services &&
-                                                b.services.length > 0 && (
-                                                    <ul className="mt-1 text-xs text-gray-600 list-disc list-inside">
-                                                        {b.services.map((s) => (
-                                                            <li key={s.id}>
-                                                                {s.name} ×{" "}
-                                                                {s.quantity}
-                                                            </li>
-                                                        ))}
-                                                    </ul>
+                                            <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
+                                                {b.booking_type && (
+                                                    <span
+                                                        className={[
+                                                            "inline-flex items-center px-2 py-0.5 mb-2 rounded-full border",
+                                                            b.booking_type?.toLowerCase() ===
+                                                            "walk in"
+                                                                ? "bg-amber-50 border-amber-200 text-amber-700"
+                                                                : "bg-blue-50 border-blue-200 text-blue-700",
+                                                        ].join(" ")}
+                                                        title="Booking type"
+                                                    >
+                                                        {b.booking_type}
+                                                    </span>
                                                 )}
+                                                {b.payment_method && (
+                                                    <span
+                                                        className="inline-flex items-center px-2 py-0.5 rounded-full bg-gray-100 border border-gray-200 text-gray-700"
+                                                        title="Payment method"
+                                                    >
+                                                        {b.payment_method}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            {b.services?.length > 0 && (
+                                                <ul className="mt-1 text-xs text-gray-600 list-disc list-inside">
+                                                    {b.services.map((s) => (
+                                                        <li key={s.id}>
+                                                            {s.name} ×{" "}
+                                                            {s.quantity}
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            )}
                                         </div>
                                         <button
                                             onClick={() => handleDelete(b.id)}
@@ -198,115 +316,121 @@ export default function TodayBubbles({
                                             e.preventDefault();
                                             handleSubmit(slot.id);
                                         }}
-                                        className="space-y-2 text-sm"
+                                        className="space-y-3 text-sm"
                                     >
-                                        <input
-                                            type="text"
-                                            placeholder="Customer name"
-                                            value={formData.guest_name}
-                                            onChange={(e) =>
+                                        <UserSelect
+                                            value={formData.user_id}
+                                            onChange={(id) =>
                                                 setFormData((f) => ({
                                                     ...f,
-                                                    guest_name: e.target.value,
+                                                    user_id: id,
                                                 }))
                                             }
-                                            className="w-full border rounded p-1"
-                                            required
-                                        />
-                                        <input
-                                            type="email"
-                                            placeholder="Customer email"
-                                            value={formData.guest_email}
-                                            onChange={(e) =>
-                                                setFormData((f) => ({
-                                                    ...f,
-                                                    guest_email: e.target.value,
-                                                }))
-                                            }
-                                            className="w-full border rounded p-1"
                                         />
 
-                                        <input
-                                            type="number"
-                                            min="1"
-                                            max={slot.capacity - booked}
-                                            value={formData.people}
-                                            onChange={(e) =>
-                                                setFormData((f) => ({
-                                                    ...f,
-                                                    people: parseInt(
-                                                        e.target.value,
-                                                        10
-                                                    ),
-                                                }))
-                                            }
-                                            className="w-full border rounded p-1"
-                                            required
-                                        />
-                                        {addonServices &&
-                                            addonServices.length > 0 && (
-                                                <div className="space-y-1">
-                                                    <p className="text-xs font-medium">
-                                                        Add-on Services:
-                                                    </p>
-                                                    {addonServices.map(
-                                                        (svc) => {
-                                                            const selected =
-                                                                formData.services.find(
-                                                                    (s) =>
-                                                                        s.id ===
+                                        <div>
+                                            <label className="block text-xs font-medium mb-1">
+                                                Party size
+                                            </label>
+                                            <input
+                                                type="number"
+                                                min="1"
+                                                max={slot.capacity - booked}
+                                                value={formData.people}
+                                                onChange={(e) =>
+                                                    setFormData((f) => ({
+                                                        ...f,
+                                                        people:
+                                                            parseInt(
+                                                                e.target.value,
+                                                                10
+                                                            ) || 1,
+                                                    }))
+                                                }
+                                                className="w-full border rounded p-1"
+                                                required
+                                            />
+                                        </div>
+
+                                        {addonServices?.length > 0 && (
+                                            <div className="space-y-1">
+                                                <p className="text-xs font-medium">
+                                                    Add-on Services:
+                                                </p>
+                                                {addonServices.map((svc) => {
+                                                    const selected =
+                                                        formData.services.find(
+                                                            (s) =>
+                                                                s.id === svc.id
+                                                        );
+                                                    return (
+                                                        <div
+                                                            key={svc.id}
+                                                            className="flex items-center gap-2"
+                                                        >
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={
+                                                                    !!selected
+                                                                }
+                                                                onChange={() =>
+                                                                    toggleService(
                                                                         svc.id
-                                                                );
-                                                            return (
-                                                                <div
-                                                                    key={svc.id}
-                                                                    className="flex items-center gap-2"
-                                                                >
-                                                                    <input
-                                                                        type="checkbox"
-                                                                        checked={
-                                                                            !!selected
-                                                                        }
-                                                                        onChange={() =>
-                                                                            toggleService(
-                                                                                svc.id
-                                                                            )
-                                                                        }
-                                                                    />
-                                                                    <span>
-                                                                        {
-                                                                            svc.name
-                                                                        }
-                                                                    </span>
-                                                                    {selected && (
-                                                                        <input
-                                                                            type="number"
-                                                                            min="1"
-                                                                            value={
-                                                                                selected.quantity
-                                                                            }
-                                                                            onChange={(
+                                                                    )
+                                                                }
+                                                            />
+                                                            <span>
+                                                                {svc.name}
+                                                            </span>
+                                                            {selected && (
+                                                                <input
+                                                                    type="number"
+                                                                    min="1"
+                                                                    value={
+                                                                        selected.quantity
+                                                                    }
+                                                                    onChange={(
+                                                                        e
+                                                                    ) =>
+                                                                        updateServiceQty(
+                                                                            svc.id,
+                                                                            parseInt(
                                                                                 e
-                                                                            ) =>
-                                                                                updateServiceQty(
-                                                                                    svc.id,
-                                                                                    parseInt(
-                                                                                        e
-                                                                                            .target
-                                                                                            .value,
-                                                                                        10
-                                                                                    )
-                                                                                )
-                                                                            }
-                                                                            className="w-16 border rounded p-0.5 text-xs"
-                                                                        />
-                                                                    )}
-                                                                </div>
-                                                            );
-                                                        }
-                                                    )}
-                                                </div>
-                                            )}
+                                                                                    .target
+                                                                                    .value,
+                                                                                10
+                                                                            ) ||
+                                                                                1
+                                                                        )
+                                                                    }
+                                                                    className="w-16 border rounded p-0.5 text-xs"
+                                                                />
+                                                            )}
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
+
+                                        <div>
+                                            <label className="block text-xs font-medium mb-1">
+                                                Payment method
+                                            </label>
+                                            <input
+                                                type="text"
+                                                placeholder="e.g. Cash / Card / EFT"
+                                                value={formData.payment_method}
+                                                onChange={(e) =>
+                                                    setFormData((f) => ({
+                                                        ...f,
+                                                        payment_method:
+                                                            e.target.value,
+                                                    }))
+                                                }
+                                                className="w-full border rounded p-1"
+                                            />
+                                        </div>
+
                                         <div className="flex justify-end gap-2">
                                             <button
                                                 type="button"

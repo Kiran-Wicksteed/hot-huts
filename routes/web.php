@@ -19,7 +19,7 @@ use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use App\Http\Controllers\CustomerController;
-
+use App\Http\Controllers\Admin\AdminCustomerController;
 
 Route::get('/welcome', function () {
     return Inertia::render('Welcome', [
@@ -41,6 +41,23 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->names('events.occurrences');
     });
 });
+
+//Admin Register Route
+Route::middleware(['auth', 'verified'])->group(function () {
+    Route::post('/customers', [AdminCustomerController::class, 'store'])
+        ->name('customers.store');
+});
+Route::middleware(['auth', 'verified'])->group(function () {
+    Route::delete('/customers/{user}', [AdminCustomerController::class, 'destroy'])
+        ->name('customers.destroy');
+});
+
+//Admin Search Customers Route
+Route::middleware(['auth', 'can:manage-bookings'])
+    ->get('/admin/users/search', [\App\Http\Controllers\Admin\UserSearchController::class, 'index'])
+    ->name('admin.users.search');
+
+
 
 //Payment Routes
 Route::get('/pay', [PaymentController::class, 'pay'])->name('pay');

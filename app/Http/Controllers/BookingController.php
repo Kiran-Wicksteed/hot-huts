@@ -322,6 +322,8 @@ class BookingController extends Controller
                     'status'              => 'pending',
                     'hold_expires_at'     => $now->copy()->addMinutes($holdMinutes),
                     'amount'              => 0,
+                    'booking_type' => "online",
+                    'payment_method' => "Peach Payment"
                 ]);
 
                 $total = 0;
@@ -558,85 +560,112 @@ class BookingController extends Controller
 
     public function storeAdmin(Request $request)
     {
-        $data = $request->validate([
+        Log::info('Admin booking attempt', ['admin_id' => Auth::id(), 'payload' => $request->all()]);
+
+        if ($request->filled('context') && ! $request->filled('booking_type')) {
+            $request->merge(['booking_type' => $request->input('context')]); // sauna|event
+        }
+
+        $validated = $request->validate([
+            // Your existing “context” remains named booking_type
             'booking_type'        => ['required', Rule::in(['sauna', 'event'])],
             'timeslot_id'         => ['required', 'exists:timeslots,id'],
-            'event_occurrence_id' => [
-                'nullable',
-                'required_if:booking_type,event',
-                'exists:event_occurrences,id',
-            ],
-            'people'       => ['required', 'integer', 'between:1,8'],
-            'services'     => ['array'],   // [code => qty]
-            'guest_name'   => ['nullable', 'string', 'max:255'],
-            'guest_email'  => ['nullable', 'email', 'max:255'],
-            'user_id'      => ['nullable', 'exists:users,id'],
+            'event_occurrence_id' => ['nullable', 'required_if:booking_type,event', 'exists:event_occurrences,id'],
+            'people'              => ['required', 'integer', 'between:1,8'],
+            'services'            => ['array'], // [code => qty]
+
+            // New behaviour: admin must select a user
+            'user_id'             => ['required', 'exists:users,id'],
+
+            // New column: payment method entered on admin form
+            'payment_method'      => ['nullable', 'string', 'max:100'],
+
+            // Keeping these nullable for legacy, but no longer required/used
+            'guest_name'          => ['nullable', 'string', 'max:255'],
+            'guest_email'         => ['nullable', 'email', 'max:255'],
         ]);
 
-        $slot = Timeslot::lockForUpdate()->findOrFail($data['timeslot_id']);
+        //log $validated
+        Log::info('Admin booking payload', ['data' => $validated, 'admin_id' => Auth::id()]);
 
-        $occ = null;
-        if ($data['booking_type'] === 'event') {
-            $occ = EventOccurrence::with('event')
+        // Treat the request's booking_type as the "context" to avoid confusion
+        $context = $validated['booking_type']; // sauna | event
+
+        // One transaction so the locks actually work for capacity checks + create
+        $booking = DB::transaction(function () use ($validated, $context) {
+
+            // Lock the slot (and event occurrence if applicable) in THIS transaction
+            $slot = \App\Models\Timeslot::whereKey($validated['timeslot_id'])
                 ->lockForUpdate()
-                ->findOrFail($data['event_occurrence_id']);
+                ->firstOrFail();
 
-            if (! $occ->effective_price) {
-                abort(500, "Price missing for event occurrence #{$occ->id}");
-            }
-        }
+            $occ = null;
+            if ($context === 'event') {
+                $occ = \App\Models\EventOccurrence::with('event')
+                    ->whereKey($validated['event_occurrence_id'])
+                    ->lockForUpdate()
+                    ->firstOrFail();
 
-        // --- Capacity checks ---
-        $slotBooked = $slot->bookings()->sum('people');
-        if ($slotBooked + $data['people'] > $slot->capacity) {
-            abort(409, 'Chosen sauna slot is already full.');
-        }
-        if ($occ) {
-            if (! $occ->is_active) {
-                abort(409, 'Event is no longer bookable.');
+                if (! $occ->effective_price) {
+                    abort(500, "Price missing for event occurrence #{$occ->id}");
+                }
             }
-            $occBooked = $occ->bookings()->sum('people');
-            $occCap    = $occ->effective_capacity ?? 8;
-            if ($occBooked + $data['people'] > $occCap) {
-                abort(409, 'Event capacity reached.');
-            }
-        }
 
-        // --- Create booking (skip payment gateway) ---
-        $booking = DB::transaction(function () use ($data, $slot, $occ) {
-            $booking = Booking::create([
-                'user_id'             => $data['user_id'] ?? 1,  // fallback user (e.g. "Guest" user)
-                'guest_name'          => $data['guest_name'] ?? null,
-                'guest_email'         => $data['guest_email'] ?? null,
+            // --- Capacity checks (still inside the transaction) ---
+            $slotBooked = $slot->bookings()->sum('people');
+            if ($slotBooked + $validated['people'] > $slot->capacity) {
+                abort(409, 'Chosen sauna slot is already full.');
+            }
+
+            if ($occ) {
+                if (! $occ->is_active) {
+                    abort(409, 'Event is no longer bookable.');
+                }
+                $occBooked = $occ->bookings()->sum('people');
+                $occCap    = $occ->effective_capacity ?? 8;
+                if ($occBooked + $validated['people'] > $occCap) {
+                    abort(409, 'Event capacity reached.');
+                }
+            }
+
+            // --- Create booking (skip payment gateway) ---
+            $booking = \App\Models\Booking::create([
+                'user_id'             => $validated['user_id'],
+                'guest_name'          => $validated['guest_name'] ?? null,  // legacy
+                'guest_email'         => $validated['guest_email'] ?? null, // legacy
                 'timeslot_id'         => $slot->id,
                 'event_occurrence_id' => $occ?->id,
-                'people'              => $data['people'],
-                'status'              => 'paid',   // mark as paid since admin is bypassing checkout
+                'people'              => $validated['people'],
+                'status'              => 'paid',     // admin bypasses checkout
                 'amount'              => 0,
+
+                // NEW: persist “channel” into the DB
+                'booking_type'        => 'walk in', // per your requirements
+                'payment_method'      => $validated['payment_method'] ?? null,
             ]);
 
             $total = 0;
 
-            // --- Main line item ---
-            if ($data['booking_type'] === 'sauna') {
-                $sessionSvc = Service::whereCode('SAUNA_SESSION')->firstOrFail();
+            // --- Main line item (unchanged) ---
+            if ($context === 'sauna') {
+                $sessionSvc = \App\Models\Service::whereCode('SAUNA_SESSION')->firstOrFail();
                 $priceEach  = $sessionSvc->price_cents;
-                $line       = $data['people'] * $priceEach;
+                $line       = $validated['people'] * $priceEach;
 
                 $booking->services()->attach($sessionSvc->id, [
-                    'quantity'   => $data['people'],
+                    'quantity'   => $validated['people'],
                     'price_each' => $priceEach,
                     'line_total' => $line,
                 ]);
 
                 $total += $line;
             } else {
-                $pkgSvc   = Service::whereCode('EVENT_PACKAGE')->firstOrFail();
+                $pkgSvc    = \App\Models\Service::whereCode('EVENT_PACKAGE')->firstOrFail();
                 $priceEach = $occ->effective_price;
-                $line      = $data['people'] * $priceEach;
+                $line      = $validated['people'] * $priceEach;
 
                 $booking->services()->attach($pkgSvc->id, [
-                    'quantity'   => $data['people'],
+                    'quantity'   => $validated['people'],
                     'price_each' => $priceEach,
                     'line_total' => $line,
                     'meta'       => json_encode(['event_occurrence_id' => $occ->id]),
@@ -645,11 +674,11 @@ class BookingController extends Controller
                 $total += $line;
             }
 
-            // --- Add-ons ---
-            foreach ($data['services'] ?? [] as $code => $qty) {
+            // --- Add-ons (unchanged) ---
+            foreach ($validated['services'] ?? [] as $code => $qty) {
                 if ($qty < 1) continue;
 
-                $svc  = Service::whereCode($code)->firstOrFail();
+                $svc  = \App\Models\Service::whereCode($code)->firstOrFail();
                 $line = $qty * $svc->price_cents;
 
                 $booking->services()->attach($svc->id, [
