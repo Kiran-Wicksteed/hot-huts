@@ -20,14 +20,17 @@ class Booking extends Model
         'peach_payment_order_no',
         'payment_status',
         'hold_expires_at',
+        'event_occurrence_id', // nullable FK
         'cart_key',
         'booking_type',
+        'no_show',
         'payment_method',    // UUID to group bookings in a cart
     ];
 
     protected $casts = [
         'people' => 'integer',
         'amount' => 'decimal:2',
+        'no_show' => 'boolean',
     ];
 
     /* ----------------------------------------------------------

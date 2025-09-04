@@ -15,6 +15,8 @@ use Inertia\Inertia;
 use Shaz3e\PeachPayment\Helpers\PeachPayment;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\ValidationException;
 
 class BookingController extends Controller
 {
@@ -437,26 +439,53 @@ class BookingController extends Controller
     {
         $now = now();
 
-        $data = $request->validate([
+        Log::info('Preflight request', ['payload' => $request->all()]);
+
+        $rules = [
             'cart_key'                    => ['required', 'string', 'max:64'],
             'items'                       => ['required', 'array', 'min:1'],
-            'items.*.client_id'           => ['nullable', 'string', 'max:64'], // for per-item mapping
+            'items.*.client_id'           => ['nullable', 'string', 'max:64'],
             'items.*.kind'                => ['required', Rule::in(['sauna', 'event'])],
-            'items.*.timeslot_id'         => ['nullable', 'required_if:items.*.kind,sauna', 'integer', 'exists:timeslots,id'],
+            // timeslot is mandatory for BOTH sauna and event
+            'items.*.timeslot_id'         => ['required', 'integer', 'exists:timeslots,id'],
             'items.*.event_occurrence_id' => ['nullable', 'required_if:items.*.kind,event', 'integer', 'exists:event_occurrences,id'],
             'items.*.people'              => ['required', 'integer', 'between:1,8'],
+        ];
+
+        $validator = Validator::make($request->all(), $rules, [
+            // Optional: clearer messages while debugging
+            'items.*.timeslot_id.required' => 'Each item must include a timeslot_id.',
+            'items.*.timeslot_id.exists'   => 'timeslot_id :input does not exist.',
+            'items.*.event_occurrence_id.exists' => 'event_occurrence_id :input does not exist.',
         ]);
 
-        // Collect unique resource ids
-        $slotIds = collect($data['items'])
-            ->where('kind', 'sauna')->pluck('timeslot_id')->filter()->unique()->values();
-        $occIds  = collect($data['items'])
-            ->where('kind', 'event')->pluck('event_occurrence_id')->filter()->unique()->values();
+        try {
+            $data = $validator->validate(); // same as $request->validate but inside try/catch
+        } catch (ValidationException $e) {
+            Log::warning('Preflight validation failed', [
+                'errors' => $e->errors(),   // field => [messages...]
+                'failed' => $validator->failed(), // rule-level breakdown
+                'input'  => $request->all(),
+            ]);
+            throw $e; // let Inertia handle 422 as usual
+        }
 
-        // Load resources & compute current active usage
+        Log::info('Preflight check', ['cart_key' => $data['cart_key'], 'items' => $data['items']]);
+
+
+        // Collect unique resources
+        $slotIds = collect($data['items'])
+            ->pluck('timeslot_id')->filter()->unique()->values();
+
+        $occIds  = collect($data['items'])
+            ->where('kind', 'event')
+            ->pluck('event_occurrence_id')->filter()->unique()->values();
+
+        // Load resources
         $slots = \App\Models\Timeslot::whereIn('id', $slotIds)->get()->keyBy('id');
         $occs  = \App\Models\EventOccurrence::with('event')->whereIn('id', $occIds)->get()->keyBy('id');
 
+        // Current availability per slot
         $availBySlot = [];
         foreach ($slots as $slot) {
             $active = $slot->bookings()
@@ -466,9 +495,10 @@ class BookingController extends Controller
                 })
                 ->sum('people');
 
-            $availBySlot[$slot->id] = max(0, (int)$slot->capacity - (int)$active);
+            $availBySlot[$slot->id] = max(0, (int) $slot->capacity - (int) $active);
         }
 
+        // Current availability per event occurrence
         $availByOcc = [];
         $inactiveOcc = [];
         foreach ($occs as $occ) {
@@ -476,7 +506,6 @@ class BookingController extends Controller
                 $inactiveOcc[$occ->id] = true;
                 continue;
             }
-
             $cap = (int) ($occ->effective_capacity ?? 8);
             $active = $occ->bookings()
                 ->where(function ($q) use ($now) {
@@ -485,33 +514,31 @@ class BookingController extends Controller
                 })
                 ->sum('people');
 
-            $availByOcc[$occ->id] = max(0, $cap - (int)$active);
+            $availByOcc[$occ->id] = max(0, $cap - (int) $active);
         }
 
-        // Simulate the cart in order & attach errors to the specific item
+        // Simulate cart and attach errors per item
         $errors = [];
         foreach ($data['items'] as $it) {
             $clientId = $it['client_id'] ?? null;
             $people   = (int) $it['people'];
+            $slotId   = (int) $it['timeslot_id'];
 
-            if ($it['kind'] === 'sauna') {
-                $slotId    = (int) $it['timeslot_id'];
-                $available = $availBySlot[$slotId] ?? 0;
+            // First, validate/decrement the sauna slot (applies to BOTH kinds)
+            $availableSlot = $availBySlot[$slotId] ?? 0;
+            if ($people > $availableSlot) {
+                $errors[] = [
+                    'client_id'   => $clientId,
+                    'type'        => 'slot',
+                    'id'          => $slotId,
+                    'timeslot_id' => $slotId,
+                    'requested'   => $people,
+                    'available'   => $availableSlot,
+                ];
+                continue;
+            }
 
-                if ($people > $available) {
-                    $errors[] = [
-                        'client_id'   => $clientId,
-                        'type'        => 'slot',
-                        'id'          => $slotId,
-                        'timeslot_id' => $slotId,
-                        'requested'   => $people,
-                        'available'   => $available,
-                    ];
-                    continue;
-                }
-
-                $availBySlot[$slotId] = $available - $people;
-            } else {
+            if ($it['kind'] === 'event') {
                 $occId = (int) $it['event_occurrence_id'];
 
                 if (isset($inactiveOcc[$occId]) && $inactiveOcc[$occId] === true) {
@@ -525,21 +552,24 @@ class BookingController extends Controller
                     continue;
                 }
 
-                $available = $availByOcc[$occId] ?? 0;
-                if ($people > $available) {
+                $availableOcc = $availByOcc[$occId] ?? 0;
+                if ($people > $availableOcc) {
                     $errors[] = [
                         'client_id'           => $clientId,
                         'type'                => 'event',
                         'id'                  => $occId,
                         'event_occurrence_id' => $occId,
                         'requested'           => $people,
-                        'available'           => $available,
+                        'available'           => $availableOcc,
                     ];
                     continue;
                 }
 
-                $availByOcc[$occId] = $available - $people;
+                // both resources pass → decrement both
+                $availByOcc[$occId]  = $availableOcc - $people;
             }
+
+            $availBySlot[$slotId] = $availableSlot - $people;
         }
 
         $result = [
@@ -547,14 +577,13 @@ class BookingController extends Controller
             'errors' => $errors,
         ];
 
-        // If this is an Inertia request, redirect back with flashed payload.
-        // Otherwise, return JSON (supports plain fetch if you ever need it).
-        if ($request->header('X-Inertia')) {
-            return back()->with('preflight', $result);
-        }
+        Log::info('Preflight result', ['cart_key' => $data['cart_key'], 'result' => $result]);
 
-        return response()->json($result);
+        return $request->header('X-Inertia')
+            ? back()->with('preflight', $result)
+            : response()->json($result);
     }
+
 
 
 

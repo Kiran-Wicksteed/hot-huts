@@ -2,6 +2,208 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { router } from "@inertiajs/react";
 
+function EditBookingModal({ open, onClose, booking, slot, addonServices }) {
+    const [saving, setSaving] = useState(false);
+    const [people, setPeople] = useState(booking?.people ?? 1);
+    const [paymentMethod, setPaymentMethod] = useState(
+        booking?.payment_method ?? ""
+    );
+    const [bookingType, setBookingType] = useState(booking?.booking_type ?? "");
+    const [noShow, setNoShow] = useState(booking?.no_show ?? false);
+    const [services, setServices] = useState(() => {
+        const map = new Map();
+        booking?.services?.forEach((s) => map.set(s.id, s.quantity));
+        return map;
+    });
+
+    useEffect(() => {
+        if (open) {
+            setPeople(booking?.people ?? 1);
+            setPaymentMethod(booking?.payment_method ?? "");
+            setBookingType(booking?.booking_type ?? "");
+            setNoShow(booking?.no_show ?? false);
+            const map = new Map();
+            booking?.services?.forEach((s) => map.set(s.id, s.quantity));
+            setServices(map);
+        }
+    }, [open, booking]);
+
+    const toggleService = (id) => {
+        setServices((prev) => {
+            const m = new Map(prev);
+            if (m.has(id)) m.delete(id);
+            else m.set(id, 1);
+            return m;
+        });
+    };
+    const setQty = (id, qty) => {
+        setServices((prev) => {
+            const m = new Map(prev);
+            m.set(id, Math.max(1, qty || 1));
+            return m;
+        });
+    };
+
+    const buildServicesPayload = () => {
+        // Convert id=>qty to code=>qty for backend
+        const out = {};
+        addonServices.forEach((svc) => {
+            if (services.has(svc.id)) out[svc.code] = services.get(svc.id);
+        });
+        return out;
+    };
+
+    const handleSave = () => {
+        setSaving(true);
+        router.put(
+            route("admin.bookings.update", booking.id),
+            {
+                people,
+                payment_method: paymentMethod || null,
+                booking_type: bookingType || null,
+                no_show: !!noShow,
+                services: buildServicesPayload(),
+            },
+            {
+                preserveScroll: true,
+                onFinish: () => setSaving(false),
+                onSuccess: () => onClose(),
+            }
+        );
+    };
+
+    if (!open) return null;
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+            <div className="absolute inset-0 bg-black/30" onClick={onClose} />
+            <div className="relative bg-white rounded-lg shadow-xl w-full max-w-md p-4">
+                <div className="flex items-center justify-between mb-3">
+                    <h3 className="font-semibold text-sm">Edit booking</h3>
+                    <button onClick={onClose} className="text-gray-500">
+                        ✕
+                    </button>
+                </div>
+
+                <div className="space-y-3 text-sm">
+                    <div>
+                        <label className="block text-xs font-medium mb-1">
+                            Party size
+                        </label>
+                        <input
+                            type="number"
+                            min="1"
+                            value={people}
+                            onChange={(e) =>
+                                setPeople(parseInt(e.target.value, 10) || 1)
+                            }
+                            className="w-full border rounded p-1"
+                        />
+                    </div>
+
+                    <div>
+                        <label className="block text-xs font-medium mb-1">
+                            Payment method
+                        </label>
+                        <input
+                            type="text"
+                            value={paymentMethod}
+                            onChange={(e) => setPaymentMethod(e.target.value)}
+                            placeholder="Cash / Card / EFT …"
+                            className="w-full border rounded p-1"
+                        />
+                    </div>
+
+                    <div>
+                        <label className="block text-xs font-medium mb-1">
+                            Booking type
+                        </label>
+                        <input
+                            type="text"
+                            value={bookingType}
+                            onChange={(e) => setBookingType(e.target.value)}
+                            placeholder="e.g. Walk in"
+                            className="w-full border rounded p-1"
+                        />
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                        <input
+                            id="noShow"
+                            type="checkbox"
+                            checked={noShow}
+                            onChange={(e) => setNoShow(e.target.checked)}
+                        />
+                        <label htmlFor="noShow" className="text-sm font-medium">
+                            Tag as “No show”
+                        </label>
+                    </div>
+
+                    {addonServices?.length > 0 && (
+                        <div className="space-y-1">
+                            <p className="text-xs font-medium">
+                                Add-on Services
+                            </p>
+                            {addonServices.map((svc) => {
+                                const selected = services.has(svc.id);
+                                return (
+                                    <div
+                                        key={svc.id}
+                                        className="flex items-center gap-2"
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            checked={selected}
+                                            onChange={() =>
+                                                toggleService(svc.id)
+                                            }
+                                        />
+                                        <span className="flex-1">
+                                            {svc.name}
+                                        </span>
+                                        {selected && (
+                                            <input
+                                                type="number"
+                                                min="1"
+                                                value={services.get(svc.id)}
+                                                onChange={(e) =>
+                                                    setQty(
+                                                        svc.id,
+                                                        parseInt(
+                                                            e.target.value,
+                                                            10
+                                                        )
+                                                    )
+                                                }
+                                                className="w-16 border rounded p-0.5 text-xs"
+                                            />
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+
+                <div className="mt-4 flex justify-end gap-2">
+                    <button
+                        onClick={onClose}
+                        className="px-3 py-1 text-xs bg-gray-200 rounded"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        onClick={handleSave}
+                        disabled={saving}
+                        className="px-3 py-1 text-xs bg-hh-orange text-white rounded"
+                    >
+                        {saving ? "Saving…" : "Save changes"}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 function UserSelect({ value, onChange }) {
     const [q, setQ] = useState("");
     const [options, setOptions] = useState([]);
@@ -108,6 +310,12 @@ export default function TodayBubbles({
     formatTime,
     addonServices,
 }) {
+    const [editing, setEditing] = useState({
+        open: false,
+        booking: null,
+        slot: null,
+    });
+
     const bySlot = useMemo(() => {
         const map = new Map();
         bookings.forEach((b) => {
@@ -248,6 +456,11 @@ export default function TodayBubbles({
                                                         "Guest"}
                                                 </span>{" "}
                                                 x {b.people}
+                                                {b.no_show && (
+                                                    <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full bg-red-50 border border-red-200 text-red-700 text-[11px]">
+                                                        NO SHOW
+                                                    </span>
+                                                )}
                                             </p>
                                             {(b.user?.email ||
                                                 b.guest_email) && (
@@ -291,13 +504,29 @@ export default function TodayBubbles({
                                                 </ul>
                                             )}
                                         </div>
-                                        <button
-                                            onClick={() => handleDelete(b.id)}
-                                            className="text-red-500 hover:text-red-700 text-xs ml-2"
-                                            title="Delete booking"
-                                        >
-                                            ✕
-                                        </button>
+                                        <div className="flex items-center gap-2 ml-2">
+                                            <button
+                                                onClick={() =>
+                                                    setEditing({
+                                                        open: true,
+                                                        booking: b,
+                                                        slot,
+                                                    })
+                                                }
+                                                className="text-xs text-hh-orange hover:underline"
+                                            >
+                                                Edit
+                                            </button>
+                                            <button
+                                                onClick={() =>
+                                                    handleDelete(b.id)
+                                                }
+                                                className="text-red-500 hover:text-red-700 text-xs"
+                                                title="Delete booking"
+                                            >
+                                                ✕
+                                            </button>
+                                        </div>
                                     </li>
                                 ))}
                             </ul>
@@ -462,6 +691,15 @@ export default function TodayBubbles({
                     </div>
                 );
             })}
+            <EditBookingModal
+                open={editing.open}
+                onClose={() =>
+                    setEditing({ open: false, booking: null, slot: null })
+                }
+                booking={editing.booking}
+                slot={editing.slot}
+                addonServices={addonServices}
+            />
         </div>
     );
 }

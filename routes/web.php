@@ -52,6 +52,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('customers.destroy');
 });
 
+Route::middleware(['auth', 'verified'])
+    ->prefix('admin')
+    ->group(function () {
+        Route::get('/customers/{user}', [AdminCustomerController::class, 'show'])
+            ->name('customers.show'); // add this
+    });
+
 //Admin Search Customers Route
 Route::middleware(['auth', 'can:manage-bookings'])
     ->get('/admin/users/search', [\App\Http\Controllers\Admin\UserSearchController::class, 'index'])
@@ -110,9 +117,12 @@ Route::post('/bookings/preflight', [BookingController::class, 'preflight'])->nam
 
 Route::post('/admin-bookings',  [BookingController::class, 'storeAdmin'])
     ->name('admin.bookings.store');
+
 Route::delete('/admin/bookings/{booking}', [BookingAdminController::class, 'destroy'])
     ->name('admin.bookings.destroy');
 
+Route::put('/admin/bookings/{booking}', [\App\Http\Controllers\BookingAdminController::class, 'update'])
+    ->name('admin.bookings.update');
 
 
 Route::get('/events/{event}/occurrences/{occurrence}/bookings', [BookingAdminController::class, 'byOccurrence'])

@@ -2,12 +2,62 @@ import { router } from "@inertiajs/react";
 import dayjs from "dayjs";
 import styles from "../../../styles";
 import { useCart } from "@/context/CartContext";
-import { useMemo, useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 
 export default function InvoiceDetails() {
     const { items, removeItem, clearCart, cartKey } = useCart();
     const [itemErrors, setItemErrors] = useState({}); // { [itemId]: "message" }
     const [globalError, setGlobalError] = useState(null);
+
+    // ---------- helpers ----------
+    const toAmount = (v) => {
+        const n = Number(v);
+        return Number.isFinite(n) ? n : 0;
+    };
+
+    const money = (n) => toAmount(n).toFixed(2);
+
+    /**
+     * Normalize a single invoice line for display & totals.
+     * - For EVENTS: l.total represents the per-ticket price (e.g. 280).
+     *   We display unit = per-ticket price, and compute total = unit * qty.
+     * - For SAUNAS: keep existing meaning (unit & total already correct).
+     */
+    const normalizeLine = (kind, l) => {
+        const qty = toAmount(l.qty) || 0;
+
+        if (kind === "event") {
+            // Treat l.total as the per-ticket unit price; fallback to l.unit if needed
+            const perTicket = toAmount(l.total) || toAmount(l.unit);
+            return {
+                label: l.label,
+                qty,
+                unit: perTicket,
+                total: perTicket * qty,
+            };
+        }
+
+        // Sauna / default behaviour
+        const unit = toAmount(l.unit);
+        const total = toAmount(l.total) || unit * qty;
+        return {
+            label: l.label,
+            qty,
+            unit,
+            total,
+        };
+    };
+
+    // Prefer summing normalized line totals (always fresh). If an item has no lines, fall back.
+    const calcItemTotal = (it) => {
+        const lines = it?.lines ?? [];
+        if (lines.length) {
+            return lines
+                .map((l) => normalizeLine(it.kind, l).total)
+                .reduce((s, n) => s + toAmount(n), 0);
+        }
+        return toAmount(it?.lineTotal);
+    };
 
     // keep itemErrors in sync if user removes an item
     useEffect(() => {
@@ -19,23 +69,9 @@ export default function InvoiceDetails() {
         });
     }, [items]);
 
-    const slotIdToItemId = useMemo(() => {
-        const m = {};
-        items.forEach((it) => {
-            if (it.kind === "sauna" && it.timeslot_id)
-                m[it.timeslot_id] = it.id;
-        });
-        return m;
-    }, [items]);
-
-    const eventIdToItemId = useMemo(() => {
-        const m = {};
-        items.forEach((it) => {
-            if (it.kind === "event" && it.event_occurrence_id)
-                m[it.event_occurrence_id] = it.id;
-        });
-        return m;
-    }, [items]);
+    // ---- compute values BEFORE any early return (no hooks below) ----
+    const invoiceDate = dayjs().format("D MMMM YYYY");
+    const grandTotal = items.reduce((t, it) => t + calcItemTotal(it), 0);
 
     if (!items.length) {
         const startFreshBooking = () => {
@@ -59,12 +95,6 @@ export default function InvoiceDetails() {
         );
     }
 
-    const invoiceDate = dayjs().format("D MMMM YYYY");
-    const grandTotal = items.reduce(
-        (t, it) => t + Number(it.lineTotal || 0),
-        0
-    );
-
     const proceedToPayment = () => {
         setGlobalError(null);
         setItemErrors({});
@@ -73,7 +103,7 @@ export default function InvoiceDetails() {
         const payloadItems = items.map((it) => ({
             client_id: it.id,
             kind: it.kind, // 'sauna' | 'event'
-            timeslot_id: it.kind === "sauna" ? it.timeslot_id : null,
+            timeslot_id: it.timeslot_id, // always include for both kinds
             event_occurrence_id:
                 it.kind === "event" ? it.event_occurrence_id : null,
             people: it.people,
@@ -102,12 +132,9 @@ export default function InvoiceDetails() {
                 preserveState: true,
                 replace: true, // don't add a history entry
                 onSuccess: (page) => {
-                    // Expect controller to return an Inertia response with a `preflight` prop,
-                    // or flash it: `flash.preflight`
                     const preflight =
                         page?.props?.preflight ?? page?.props?.flash?.preflight;
 
-                    // If the endpoint still returns plain JSON, preflight will be undefined.
                     if (!preflight) {
                         setGlobalError(
                             "Could not verify availability right now. Please try again."
@@ -136,8 +163,7 @@ export default function InvoiceDetails() {
                     // Map per-item errors to UI
                     const mapped = {};
                     (preflight.errors || []).forEach((e) => {
-                        // expected shape:
-                        // { client_id?: string, type: 'slot'|'event', id: number, requested, available, reason? }
+                        // { client_id?: string, type: 'slot'|'event', id, requested, available, reason? }
                         const itemId =
                             e.client_id ??
                             (e.type === "slot"
@@ -149,6 +175,8 @@ export default function InvoiceDetails() {
                                 ? `This slot is full (need ${e.requested}, only ${e.available} left).`
                                 : e.reason === "inactive"
                                 ? `This event is no longer bookable.`
+                                : e.reason === "not_found"
+                                ? `This event no longer exists.`
                                 : `This event is full (need ${e.requested}, only ${e.available} left).`;
 
                         if (itemId) {
@@ -204,6 +232,10 @@ export default function InvoiceDetails() {
 
                     {items.map((it) => {
                         const err = itemErrors[it.id];
+                        const lines = (it.lines ?? []).map((l) =>
+                            normalizeLine(it.kind, l)
+                        );
+
                         return (
                             <div
                                 key={it.id}
@@ -245,13 +277,13 @@ export default function InvoiceDetails() {
 
                                 <div className="grid grid-cols-8 gap-y-1">
                                     <Header />
-                                    {(it.lines ?? []).map((l, idx) => (
+                                    {lines.map((l, idx) => (
                                         <Line
                                             key={idx}
                                             item={l.label}
                                             qty={l.qty}
-                                            unit={Number(l.unit).toFixed(2)}
-                                            total={Number(l.total).toFixed(2)}
+                                            unit={l.unit}
+                                            total={l.total}
                                         />
                                     ))}
                                 </div>
@@ -266,7 +298,7 @@ export default function InvoiceDetails() {
                                     <p
                                         className={`${styles.paragraph} col-span-1 text-black`}
                                     >
-                                        R{Number(it.lineTotal).toFixed(2)}
+                                        R{money(calcItemTotal(it))}
                                     </p>
                                 </div>
                             </div>
@@ -284,7 +316,7 @@ export default function InvoiceDetails() {
                         <p
                             className={`${styles.paragraph} col-span-1 text-black`}
                         >
-                            R{grandTotal.toFixed(2)}
+                            R{money(grandTotal)}
                         </p>
                     </div>
                 </div>
@@ -338,14 +370,14 @@ const Line = ({ item, qty, unit, total }) => (
         <p className={`${styles.paragraph} col-span-3 text-sm text-black`}>
             {item}
         </p>
-        <p className={`${styles.paragraph} col-span-2 text-sm text_black/50`}>
-            {qty}
+        <p className={`${styles.paragraph} col-span-2 text-sm text-black/50`}>
+            {Number(qty)}
         </p>
         <p className={`${styles.paragraph} col-span-2 text-sm text-black/50`}>
-            R{unit}
+            R{Number(unit).toFixed(2)}
         </p>
         <p className={`${styles.paragraph} col-span-1 text-sm text-black`}>
-            R{total}
+            R{Number(total).toFixed(2)}
         </p>
     </>
 );

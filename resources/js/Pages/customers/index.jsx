@@ -4,10 +4,16 @@ import styles from "../../../styles";
 import { usePage, router } from "@inertiajs/react";
 import React from "react";
 import CreateCustomer from "./Partials/CreateCustomer";
+import ViewCustomer from "./Partials/ViewCustomer"; // NEW
 
 export default function CustomerPage() {
-    const { customers, auth, flash } = usePage().props;
+    const { customers, auth, flash, customerDetail } = usePage().props;
     const [createOpen, setCreateOpen] = React.useState(false);
+    const [viewOpen, setViewOpen] = React.useState(false);
+
+    React.useEffect(() => {
+        if (customerDetail) setViewOpen(true);
+    }, [customerDetail]);
 
     const truncateEmail = (email, maxLength) =>
         email.length > maxLength
@@ -16,9 +22,33 @@ export default function CustomerPage() {
 
     const handleDelete = (id) => {
         if (!confirm("Delete this customer? This cannot be undone.")) return;
-        router.delete(route("customers.destroy", id), {
-            preserveScroll: true,
-        });
+        router.delete(route("customers.destroy", id), { preserveScroll: true });
+    };
+
+    const handleView = (id) => {
+        router.get(
+            route("customers.show", id),
+            {},
+            {
+                preserveScroll: true,
+                preserveState: true,
+                only: ["customerDetail"], // ask server for just the detail payload
+            }
+        );
+    };
+
+    const handleCloseView = () => {
+        setViewOpen(false);
+        // Optional: clean the URL & clear the detail prop
+        router.get(
+            route("customers.index"),
+            {},
+            {
+                preserveScroll: true,
+                preserveState: true,
+                only: ["customerDetail"],
+            }
+        );
     };
 
     return (
@@ -140,11 +170,18 @@ export default function CustomerPage() {
                                     </p>
                                 </div>
 
-                                <div className="col-span-1 flex justify-end">
+                                <div className="col-span-1 flex justify-end gap-3">
+                                    <button
+                                        onClick={() => handleView(c.id)}
+                                        className="text-hh-orange hover:text-hh-orange/80 text-sm font-medium"
+                                        title="View details"
+                                    >
+                                        View
+                                    </button>
                                     <button
                                         onClick={() => handleDelete(c.id)}
                                         className="text-red-600 hover:text-red-700 text-sm font-medium"
-                                        disabled={auth?.user?.id === c.id} // prevent self-delete
+                                        disabled={auth?.user?.id === c.id}
                                         title={
                                             auth?.user?.id === c.id
                                                 ? "You can't delete yourself"
@@ -163,6 +200,13 @@ export default function CustomerPage() {
             {createOpen && (
                 <CreateCustomer onClose={() => setCreateOpen(false)} />
             )}
+
+            {/* Drawer / Modal */}
+            <ViewCustomer
+                open={viewOpen}
+                onClose={handleCloseView}
+                detail={customerDetail}
+            />
         </AuthenticatedLayout>
     );
 }

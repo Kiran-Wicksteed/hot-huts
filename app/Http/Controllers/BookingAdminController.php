@@ -118,6 +118,7 @@ class BookingAdminController extends Controller
                     'guest_email' => $booking->guest_email,
                     'payment_method'    => $booking->payment_method,
                     'booking_type'    => $booking->booking_type,
+                    'no_show' => (bool) $booking->no_show,
                     'user'        => ['name' => $booking->user?->name],
                     'services'    => $booking->services->map(fn($s) => [
                         'id'       => $s->id,
@@ -151,6 +152,42 @@ class BookingAdminController extends Controller
         $booking->delete();
 
         return redirect()->back()->with('success', 'Booking deleted successfully.');
+    }
+
+    public function update(Request $request, Booking $booking)
+    {
+        $data = $request->validate([
+            'people'          => ['required', 'integer', 'min:1'],
+            'payment_method'  => ['nullable', 'string', 'max:120'],
+            'booking_type'    => ['nullable', 'string', 'max:120'],
+            'no_show'         => ['required', 'boolean'],
+            'services'        => ['array'],          // payload: code => qty
+            'services.*'      => ['integer', 'min:1'],
+        ]);
+
+        // Update main fields
+        $booking->fill([
+            'people'         => $data['people'],
+            'payment_method' => $data['payment_method'] ?? null,
+            'booking_type'   => $data['booking_type']   ?? $booking->booking_type,
+            'no_show'        => $data['no_show'],
+        ])->save();
+
+        // Sync add-ons (expects services: { CODE: qty })
+        if ($request->has('services')) {
+            $codes = array_keys($data['services']);
+            $services = Service::whereIn('code', $codes)->get(['id', 'code']);
+            $sync = [];
+            foreach ($services as $svc) {
+                $qty = (int) ($data['services'][$svc->code] ?? 0);
+                if ($qty > 0) {
+                    $sync[$svc->id] = ['quantity' => $qty];
+                }
+            }
+            $booking->services()->sync($sync);
+        }
+
+        return back()->with('success', 'Booking updated.');
     }
 
 
