@@ -51,6 +51,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::delete('/customers/{user}', [AdminCustomerController::class, 'destroy'])
         ->name('customers.destroy');
 });
+Route::middleware(['auth',  'admin'])
+    ->group(function () {
+        Route::put('/customers/{user}', [AdminCustomerController::class, 'update'])
+            ->name('customers.update');
+    });
 
 Route::middleware(['auth', 'verified'])
     ->prefix('admin')

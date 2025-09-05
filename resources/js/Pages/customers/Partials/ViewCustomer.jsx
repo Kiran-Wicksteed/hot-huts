@@ -1,9 +1,62 @@
 // resources/js/Pages/Customers/Partials/ViewCustomer.jsx
-import React from "react";
+import React, { useEffect, useState } from "react";
+import { useForm, router } from "@inertiajs/react";
 import styles from "../../../../styles";
 
 export default function ViewCustomer({ open, onClose, detail }) {
-    if (!open || !detail) return null;
+    const [editMode, setEditMode] = useState(false);
+
+    const { data, setData, processing, errors, clearErrors } = useForm({
+        name: "",
+        email: "",
+        contact_number: "",
+        is_admin: false,
+        photo: null,
+    });
+
+    // Only prefill when a DIFFERENT customer is loaded and NOT while editing
+    useEffect(() => {
+        if (!detail?.id || editMode) return;
+        setData((prev) => ({
+            ...prev,
+            name: detail.name ?? "",
+            email: detail.email ?? "",
+            contact_number: detail.contact_number ?? "",
+            is_admin: !!detail.is_admin,
+            photo: null,
+        }));
+        clearErrors();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [detail?.id, editMode]);
+
+    useEffect(() => {
+        if (!open) setEditMode(false);
+    }, [open]);
+
+    // Safe accessors
+    const detailPhoto = detail?.photo ?? null;
+    const detailName = detail?.name ?? "";
+    const detailEmail = detail?.email ?? "";
+    const detailInitials =
+        detail?.initials ??
+        (detailName
+            ? detailName
+                  .split(" ")
+                  .map((p) => p.slice(0, 1))
+                  .slice(0, 2)
+                  .join("")
+            : "CU");
+
+    // Avatar preview
+    const [previewUrl, setPreviewUrl] = useState(detailPhoto);
+    useEffect(() => {
+        if (data.photo instanceof File) {
+            const url = URL.createObjectURL(data.photo);
+            setPreviewUrl(url);
+            return () => URL.revokeObjectURL(url);
+        }
+        setPreviewUrl(detailPhoto);
+    }, [data.photo, detailPhoto]);
 
     const fmtMoney = (v) => {
         const n = Number(v);
@@ -14,8 +67,86 @@ export default function ViewCustomer({ open, onClose, detail }) {
               }).format(n)
             : "—";
     };
-
     const fmtDT = (v) => (v ? new Date(v).toLocaleString() : "—");
+
+    const onSubmit = (e) => {
+        e.preventDefault();
+        if (!detail) return;
+
+        router.post(
+            `/customers/${detail.id}`,
+            { ...data, _method: "put" },
+            {
+                forceFormData: true,
+                preserveScroll: true,
+                onSuccess: () => {
+                    // 1) Refresh the drawer data
+                    router.get(
+                        route("customers.show", detail.id),
+                        {},
+                        {
+                            preserveScroll: true,
+                            preserveState: true,
+                            only: ["customerDetail"],
+                            replace: true,
+                        }
+                    );
+
+                    // 2) Refresh the list in the background (keeps drawer open)
+                    router.get(
+                        route("customers.index"),
+                        {},
+                        {
+                            preserveScroll: true,
+                            preserveState: true,
+                            only: ["customers"],
+                            replace: true,
+                        }
+                    );
+
+                    setEditMode(false);
+                },
+            }
+        );
+    };
+
+    // ----- Render guards -----
+    if (!open) return null;
+
+    // IMPORTANT: require a *real* record before rendering the full drawer
+    if (!detail?.id) {
+        return (
+            <div className="fixed inset-0 z-50">
+                <div
+                    className="absolute inset-0 bg-black/30"
+                    onClick={onClose}
+                    aria-hidden="true"
+                />
+                <div className="absolute right-0 top-0 h-full w-full max-w-6xl bg-white shadow-xl border-l border-hh-gray rounded-l-xl overflow-y-auto">
+                    <div className="p-6 border-b flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <div className="h-10 w-10 rounded-full bg-gray-200 animate-pulse" />
+                            <div className="h-4 w-40 bg-gray-200 rounded animate-pulse" />
+                        </div>
+                        <button
+                            onClick={onClose}
+                            className="rounded-lg px-3 py-1.5 text-sm border hover:bg-gray-50"
+                        >
+                            Close
+                        </button>
+                    </div>
+                    <div className="p-6 space-y-6">
+                        <div className="grid grid-cols-3 gap-4">
+                            <SkeletonBox />
+                            <SkeletonBox />
+                            <SkeletonBox />
+                        </div>
+                        <div className="h-48 bg-gray-50 rounded-xl border animate-pulse" />
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="fixed inset-0 z-50">
@@ -30,41 +161,108 @@ export default function ViewCustomer({ open, onClose, detail }) {
                 aria-modal="true"
                 aria-label="Customer details"
             >
+                {/* Header */}
                 <div className="flex items-center justify-between p-6 border-b">
                     <div className="flex items-center gap-3">
-                        {detail.photo ? (
+                        {previewUrl ? (
                             <img
-                                src={detail.photo}
-                                alt={detail.name}
+                                src={previewUrl}
+                                alt={detailName}
                                 className="h-10 w-10 rounded-full object-cover"
                             />
                         ) : (
                             <div className="bg-hh-orange/90 text-white h-10 w-10 rounded-full flex items-center justify-center">
                                 <span className="font-semibold">
-                                    {detail.initials}
+                                    {detailInitials}
                                 </span>
                             </div>
                         )}
                         <div>
                             <h3 className={`${styles.h4} !mb-0`}>
-                                {detail.name}
+                                {detailName}
                             </h3>
                             <p className="text-sm text-gray-500">
-                                {detail.email}
+                                {detailEmail}
                             </p>
+                            <div className="mt-1">
+                                <span
+                                    className={
+                                        (detail?.is_admin
+                                            ? "bg-green-100 text-green-800"
+                                            : "bg-gray-100 text-gray-800") +
+                                        " inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
+                                    }
+                                >
+                                    {detail?.is_admin ? "Admin" : "Customer"}
+                                </span>
+                            </div>
                         </div>
                     </div>
-                    <button
-                        onClick={onClose}
-                        className="rounded-lg px-3 py-1.5 text-sm border hover:bg-gray-50"
-                    >
-                        Close
-                    </button>
+
+                    <div className="flex items-center gap-2">
+                        {!editMode ? (
+                            <button
+                                onClick={() => {
+                                    setEditMode(true);
+                                    setData((prev) => ({
+                                        ...prev,
+                                        name: detail.name ?? "",
+                                        email: detail.email ?? "",
+                                        contact_number:
+                                            detail.contact_number ?? "",
+                                        is_admin: !!detail.is_admin,
+                                        photo: null,
+                                    }));
+                                    clearErrors();
+                                }}
+                                className="rounded-lg px-3 py-1.5 text-sm border hover:bg-gray-50"
+                            >
+                                Edit
+                            </button>
+                        ) : (
+                            <>
+                                <button
+                                    form="customer-edit-form"
+                                    type="submit"
+                                    disabled={processing}
+                                    className="rounded-lg px-3 py-1.5 text-sm border bg-black text-white hover:opacity-90 disabled:opacity-50"
+                                >
+                                    {processing ? "Saving..." : "Save"}
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        setData((prev) => ({
+                                            ...prev,
+                                            name: detail.name ?? "",
+                                            email: detail.email ?? "",
+                                            contact_number:
+                                                detail.contact_number ?? "",
+                                            is_admin: !!detail.is_admin,
+                                            photo: null,
+                                        }));
+                                        clearErrors();
+                                        setEditMode(false);
+                                    }}
+                                    className="rounded-lg px-3 py-1.5 text-sm border hover:bg-gray-50"
+                                >
+                                    Cancel
+                                </button>
+                            </>
+                        )}
+
+                        <button
+                            onClick={onClose}
+                            className="rounded-lg px-3 py-1.5 text-sm border hover:bg-gray-50"
+                        >
+                            Close
+                        </button>
+                    </div>
                 </div>
 
+                {/* Body */}
                 <div className="p-6 space-y-8">
                     {/* Overview */}
-                    <div className="grid grid-cols-3 gap-4">
+                    <div className="grid grid-cols-4 gap-4">
                         <StatBox
                             label="Bookings"
                             value={detail.stats?.bookings_count ?? 0}
@@ -78,6 +276,10 @@ export default function ViewCustomer({ open, onClose, detail }) {
                             }
                         />
                         <StatBox
+                            label="No Shows"
+                            value={detail.stats?.no_show_count ?? 0}
+                        />
+                        <StatBox
                             label="Account Created"
                             value={
                                 <span className="text-sm">
@@ -87,15 +289,116 @@ export default function ViewCustomer({ open, onClose, detail }) {
                         />
                     </div>
 
-                    {/* Contact */}
+                    {/* Contact / Quick Edit */}
                     <div className="grid grid-cols-2 gap-6">
                         <div className="space-y-2">
                             <h4 className={`${styles.h5} !mb-2`}>Contact</h4>
-                            <Line label="Email" value={detail.email} />
-                            <Line
-                                label="Phone"
-                                value={detail.contact_number || "—"}
-                            />
+
+                            {!editMode ? (
+                                <>
+                                    <Line label="Name" value={detail.name} />
+                                    <Line label="Email" value={detail.email} />
+                                    <Line
+                                        label="Phone"
+                                        value={detail.contact_number || "—"}
+                                    />
+                                    <Line
+                                        label="Role"
+                                        value={
+                                            detail.is_admin
+                                                ? "Admin"
+                                                : "Customer"
+                                        }
+                                    />
+                                </>
+                            ) : (
+                                <form
+                                    id="customer-edit-form"
+                                    onSubmit={onSubmit}
+                                    className="space-y-4"
+                                >
+                                    <Field label="Name" error={errors.name}>
+                                        <input
+                                            type="text"
+                                            value={data.name}
+                                            onChange={(e) =>
+                                                setData("name", e.target.value)
+                                            }
+                                            className="w-full rounded-lg border px-3 py-2 text-sm"
+                                            required
+                                        />
+                                    </Field>
+                                    <Field label="Email" error={errors.email}>
+                                        <input
+                                            type="email"
+                                            value={data.email}
+                                            onChange={(e) =>
+                                                setData("email", e.target.value)
+                                            }
+                                            className="w-full rounded-lg border px-3 py-2 text-sm"
+                                            required
+                                        />
+                                    </Field>
+                                    <Field
+                                        label="Phone"
+                                        error={errors.contact_number}
+                                    >
+                                        <input
+                                            type="text"
+                                            value={data.contact_number ?? ""}
+                                            onChange={(e) =>
+                                                setData(
+                                                    "contact_number",
+                                                    e.target.value
+                                                )
+                                            }
+                                            className="w-full rounded-lg border px-3 py-2 text-sm"
+                                            placeholder="Optional"
+                                        />
+                                    </Field>
+                                    <Field label="Avatar" error={errors.photo}>
+                                        <input
+                                            type="file"
+                                            accept="image/*"
+                                            onChange={(e) =>
+                                                setData(
+                                                    "photo",
+                                                    e.target.files?.[0] ?? null
+                                                )
+                                            }
+                                            className="block w-full text-sm"
+                                        />
+                                    </Field>
+
+                                    <Field label="Role">
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-sm">
+                                                Admin access
+                                            </span>
+                                            <label className="inline-flex items-center gap-2">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={!!data.is_admin}
+                                                    onChange={(e) =>
+                                                        setData(
+                                                            "is_admin",
+                                                            e.target.checked
+                                                        )
+                                                    }
+                                                    className="h-4 w-4"
+                                                />
+                                                <span className="text-sm text-gray-700">
+                                                    Make this user an admin
+                                                </span>
+                                            </label>
+                                        </div>
+                                        <p className="text-xs text-gray-500 mt-1">
+                                            Admins can access the dashboard and
+                                            manage other users.
+                                        </p>
+                                    </Field>
+                                </form>
+                            )}
                         </div>
                     </div>
 
@@ -173,6 +476,7 @@ export default function ViewCustomer({ open, onClose, detail }) {
     );
 }
 
+/* Small UI helpers */
 function StatBox({ label, value }) {
     return (
         <div className="rounded-xl border p-4">
@@ -198,4 +502,18 @@ function Th({ children }) {
 }
 function Td({ children, className = "" }) {
     return <td className={`p-3 ${className}`}>{children}</td>;
+}
+function Field({ label, error, children }) {
+    return (
+        <label className="block">
+            <span className="text-xs text-gray-500">{label}</span>
+            <div className="mt-1">{children}</div>
+            {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
+        </label>
+    );
+}
+function SkeletonBox() {
+    return (
+        <div className="rounded-xl border p-4 bg-gray-50 animate-pulse h-[72px]" />
+    );
 }

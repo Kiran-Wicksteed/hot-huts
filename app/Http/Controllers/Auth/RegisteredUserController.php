@@ -12,6 +12,8 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules;
 use Inertia\Inertia;
 use Inertia\Response;
+use Illuminate\Support\Facades\Mail;
+use App\Mail\WelcomeMail;
 
 class RegisteredUserController extends Controller
 {
@@ -35,6 +37,9 @@ class RegisteredUserController extends Controller
             'email' => 'required|string|lowercase|email|max:255|unique:' . User::class,
             'contact_number' => ['required', 'string', 'max:255'],
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
+            'indemnity_agreed'   => ['accepted'],
+            'indemnity_name'     => ['required', 'string', 'max:255'],
+            'indemnity_version'  => ['required', 'string', 'max:32'],
             'photo' => 'nullable|file|mimes:jpg,png,gif|max:3072'
         ], [
             'photo.max' => 'The photo may not be greater than 3 MB.',
@@ -56,12 +61,15 @@ class RegisteredUserController extends Controller
             'title' => "customer",
             'contact_number' => $request->contact_number,
             'photo' => $path,
+            'indemnity_consented_at' => now(),
+            'indemnity_name'         => $request->indemnity_name,
+            'indemnity_version'      => $request->indemnity_version,
         ]);
 
-        event(new Registered($user));
+        Mail::to($user->email)->send(new WelcomeMail($user));
 
         Auth::login($user);
 
-        return redirect(route('dashboard', absolute: false));
+        return redirect(route('index', absolute: false));
     }
 }

@@ -27,10 +27,15 @@ class User extends Authenticatable implements MustVerifyEmail
         'password',
         'photo',
         'organization_id',
+        'indemnity_consented_at',
+        'indemnity_name',
+        'indemnity_version',
     ];
 
     protected $casts = [
         'is_approved' => 'boolean',
+        'email_verified_at' => 'datetime',
+        'indemnity_consented_at' => 'datetime',
     ];
 
     /**

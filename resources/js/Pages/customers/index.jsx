@@ -4,16 +4,23 @@ import styles from "../../../styles";
 import { usePage, router } from "@inertiajs/react";
 import React from "react";
 import CreateCustomer from "./Partials/CreateCustomer";
-import ViewCustomer from "./Partials/ViewCustomer"; // NEW
+import ViewCustomer from "./Partials/ViewCustomer";
 
 export default function CustomerPage() {
-    const { customers, auth, flash, customerDetail } = usePage().props;
+    const page = usePage();
+    const {
+        customers = [], // <-- safe default
+        auth = {},
+        flash = {},
+        customerDetail = null, // <-- safe default
+    } = page.props ?? {};
+
     const [createOpen, setCreateOpen] = React.useState(false);
     const [viewOpen, setViewOpen] = React.useState(false);
 
     React.useEffect(() => {
-        if (customerDetail) setViewOpen(true);
-    }, [customerDetail]);
+        if (customerDetail?.id) setViewOpen(true); // only open for real records
+    }, [customerDetail?.id]);
 
     const truncateEmail = (email, maxLength) =>
         email.length > maxLength
@@ -32,21 +39,22 @@ export default function CustomerPage() {
             {
                 preserveScroll: true,
                 preserveState: true,
-                only: ["customerDetail"], // ask server for just the detail payload
+                only: ["customerDetail"], // fetch just the drawer payload
             }
         );
     };
 
     const handleCloseView = () => {
         setViewOpen(false);
-        // Optional: clean the URL & clear the detail prop
         router.get(
             route("customers.index"),
             {},
             {
                 preserveScroll: true,
                 preserveState: true,
-                only: ["customerDetail"],
+                // refresh the list and clear the drawer payload in one go
+                only: ["customers", "customerDetail"],
+                replace: true,
             }
         );
     };
@@ -102,7 +110,7 @@ export default function CustomerPage() {
 
                     {/* Rows */}
                     <div className="col-span-full space-y-4">
-                        {customers.map((c, index) => (
+                        {(customers ?? []).map((c, index) => (
                             <div
                                 key={c.id}
                                 className="col-span-full bg-white shadow grid grid-cols-12 gap-x-4 items-center border border-hh-gray rounded p-6"

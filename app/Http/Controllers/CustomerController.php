@@ -31,7 +31,8 @@ class CustomerController extends Controller
             });
 
         return Inertia::render('customers/index', [
-            'customers' => $users
+            'customers' => $users,
+            'customerDetail' => null,
         ]);
     }
 }

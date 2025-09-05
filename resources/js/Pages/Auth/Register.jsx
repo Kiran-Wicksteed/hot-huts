@@ -3,9 +3,8 @@ import InputLabel from "@/Components/InputLabel";
 import PrimaryButton from "@/Components/PrimaryButton";
 import TextInput from "@/Components/TextInput";
 import GuestLayout from "@/Layouts/GuestLayout";
-import ProfileImageUpload from "@/Components/ProfileImageUpload";
 import { Head, Link, useForm } from "@inertiajs/react";
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import styles from "../../../styles";
 
 export default function Register() {
@@ -15,18 +14,161 @@ export default function Register() {
         email: "",
         password: "",
         password_confirmation: "",
-        photo: "",
+        photo: null, // file or null
         organization_id: "",
         title: "",
         contact_number: "",
+        indemnity_agreed: false,
+        indemnity_name: "",
+        indemnity_version: "2025-09-05",
     });
 
-    const [organizations, setOrganizations] = useState([]);
+    const [step, setStep] = useState(1);
+    const [stepError, setStepError] = useState("");
+    const [photoPreview, setPhotoPreview] = useState(null);
+    const [photoError, setPhotoError] = useState("");
+    const errorRef = useRef(null);
+
+    const fullName = useMemo(() => {
+        const n = (data.name || "").trim();
+        const s = (data.surname || "").trim();
+        return [n, s].filter(Boolean).join(" ");
+    }, [data.name, data.surname]);
+
+    // -------- step ↔ error sync --------
+    const STEP1_KEYS = [
+        "name",
+        "surname",
+        "email",
+        "contact_number",
+        "photo",
+        "password",
+        "password_confirmation",
+    ];
+    const STEP2_KEYS = [
+        "indemnity_agreed",
+        "indemnity_name",
+        "indemnity_version",
+    ];
+    const hasAny = (obj, keys) => keys.some((k) => Boolean(obj?.[k]));
+
+    useEffect(() => {
+        if (!errors || Object.keys(errors).length === 0) return;
+        if (hasAny(errors, STEP1_KEYS)) setStep(1);
+        else if (hasAny(errors, STEP2_KEYS)) setStep(2);
+    }, [errors]);
+
+    useEffect(() => {
+        if (Object.keys(errors || {}).length && errorRef.current) {
+            errorRef.current.scrollIntoView({
+                behavior: "smooth",
+                block: "start",
+            });
+        }
+    }, [errors, step]);
+
+    // Prefill typed signature when entering Step 2 (if empty)
+    useEffect(() => {
+        if (step === 2 && !data.indemnity_name?.trim() && fullName) {
+            setData("indemnity_name", fullName);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [step, fullName]);
+
+    // Revoke object URL when preview changes/unmounts
+    useEffect(() => {
+        return () => {
+            if (photoPreview) URL.revokeObjectURL(photoPreview);
+        };
+    }, [photoPreview]);
+
+    // ---- Photo handlers ----
+    const handlePhotoChange = (e) => {
+        const file = e.target.files?.[0];
+        if (!file) {
+            setData("photo", null);
+            setPhotoPreview(null);
+            setPhotoError("");
+            return;
+        }
+
+        const allowed = ["image/jpeg", "image/png", "image/gif"];
+        if (!allowed.includes(file.type)) {
+            setPhotoError("Please select a JPG, PNG, or GIF image.");
+            e.target.value = "";
+            setData("photo", null);
+            setPhotoPreview(null);
+            return;
+        }
+
+        if (file.size > 3 * 1024 * 1024) {
+            setPhotoError("The photo may not be greater than 3 MB.");
+            e.target.value = "";
+            setData("photo", null);
+            setPhotoPreview(null);
+            return;
+        }
+
+        setPhotoError("");
+        setData("photo", file);
+        setPhotoPreview(URL.createObjectURL(file));
+    };
+
+    const clearPhoto = () => {
+        setData("photo", null);
+        setPhotoPreview(null);
+        setPhotoError("");
+    };
+
+    // ---- Step switching ----
+    const goToStep2 = () => {
+        // lightweight client checks for step 1
+        const required = [
+            ["name", data.name],
+            ["surname", data.surname],
+            ["email", data.email],
+            ["password", data.password],
+            ["password_confirmation", data.password_confirmation],
+            ["contact_number", data.contact_number],
+        ];
+        const missing = required.find(([, v]) => !String(v || "").trim());
+        if (missing) {
+            setStepError(
+                "Please complete all required fields before continuing."
+            );
+            return;
+        }
+        if (data.password !== data.password_confirmation) {
+            setStepError("Passwords do not match.");
+            return;
+        }
+        setStepError("");
+        setStep(2);
+    };
+
+    const backToStep1 = () => setStep(1);
+
+    // ---- Submit ----
+    const canSubmit =
+        data.indemnity_agreed &&
+        data.indemnity_name.trim() === fullName &&
+        !processing;
 
     const submit = (e) => {
         e.preventDefault();
+        if (step !== 2) {
+            goToStep2();
+            return;
+        }
+        if (!canSubmit) return;
 
         post(route("register"), {
+            forceFormData: true,
+            preserveScroll: true,
+            onError: (errs) => {
+                if (hasAny(errs, STEP1_KEYS)) setStep(1);
+                else if (hasAny(errs, STEP2_KEYS)) setStep(2);
+            },
             onFinish: () => reset("password", "password_confirmation"),
         });
     };
@@ -38,13 +180,13 @@ export default function Register() {
             <div className="col-span-1 relative">
                 <img
                     src="/storage/images/login-bg.png"
-                    alt="Picturee of beach"
+                    alt="Picture of beach"
                     className="h-full w-full absolute top-0 object-cover"
                 />
                 <div className="relative pt-28 px-12">
                     <img
                         src="/storage/images/logo.png"
-                        alt="Picturee of beach"
+                        alt="Logo"
                         className="h-24 w-auto"
                     />
                     <h1
@@ -54,9 +196,10 @@ export default function Register() {
                     </h1>
                 </div>
             </div>
+
             <div className="col-span-2">
-                {" "}
                 <div className="flex flex-col h-full justify-between p-14">
+                    {/* top-right login link */}
                     <div className="flex justify-end">
                         <p className={`${styles.paragraph}  !text-[#2C2C2C]`}>
                             Already have an account?{" "}
@@ -68,182 +211,471 @@ export default function Register() {
                             </Link>
                         </p>
                     </div>
-                    <div className="flex justify-center flex-col items-center">
+
+                    {/* center card */}
+                    <div className="flex justify-center flex-col items-center w-full">
                         <h1
-                            className={`${styles.h3} !mb-0 font-medium !text-[#2C2C2C]`}
+                            className={`${styles.h3} !mb-2 font-medium !text-[#2C2C2C]`}
                         >
                             Sign Up
                         </h1>
-                        <div className=" w-full overflow-hidden bg-white px-6 py-4 sm:max-w-md  ">
+
+                        {/* stepper */}
+                        <div className="flex items-center gap-3 text-sm mb-4">
+                            <span
+                                className={`rounded-full w-6 h-6 flex items-center justify-center ${
+                                    step >= 1
+                                        ? "bg-hh-orange text-white"
+                                        : "bg-gray-200 text-gray-600"
+                                }`}
+                            >
+                                1
+                            </span>
+                            <span
+                                className={`${
+                                    step === 1
+                                        ? "text-hh-orange font-medium"
+                                        : "text-gray-600"
+                                }`}
+                            >
+                                Your Details
+                            </span>
+                            <div className="w-10 h-px bg-gray-300" />
+                            <span
+                                className={`rounded-full w-6 h-6 flex items-center justify-center ${
+                                    step >= 2
+                                        ? "bg-hh-orange text-white"
+                                        : "bg-gray-200 text-gray-600"
+                                }`}
+                            >
+                                2
+                            </span>
+                            <span
+                                className={`${
+                                    step === 2
+                                        ? "text-hh-orange font-medium"
+                                        : "text-gray-600"
+                                }`}
+                            >
+                                Indemnity
+                            </span>
+                        </div>
+
+                        <div className="w-full overflow-hidden bg-white px-6 py-4 sm:max-w-md">
                             <form
                                 onSubmit={submit}
                                 encType="multipart/form-data"
                                 className="grid grid-cols-2 gap-x-4"
                             >
-                                <div className="mt-4">
-                                    <InputLabel htmlFor="name" value="Name" />
+                                {/* ---------- STEP 1 ---------- */}
+                                {step === 1 && (
+                                    <>
+                                        {(stepError ||
+                                            hasAny(errors, STEP1_KEYS)) && (
+                                            <div
+                                                ref={errorRef}
+                                                className="col-span-2 mb-2 text-sm text-red-600"
+                                            >
+                                                {stepError ||
+                                                    "Please fix the highlighted fields below."}
+                                            </div>
+                                        )}
 
-                                    <TextInput
-                                        id="name"
-                                        name="name"
-                                        value={data.name}
-                                        className="mt-1 block w-full"
-                                        autoComplete="name"
-                                        placeholder="First name"
-                                        isFocused={true}
-                                        onChange={(e) =>
-                                            setData("name", e.target.value)
-                                        }
-                                        required
-                                    />
+                                        <div className="mt-2">
+                                            <InputLabel
+                                                htmlFor="name"
+                                                value="Name"
+                                            />
+                                            <TextInput
+                                                id="name"
+                                                name="name"
+                                                value={data.name}
+                                                className="mt-1 block w-full"
+                                                autoComplete="given-name"
+                                                placeholder="First name"
+                                                isFocused={true}
+                                                onChange={(e) =>
+                                                    setData(
+                                                        "name",
+                                                        e.target.value
+                                                    )
+                                                }
+                                                required
+                                            />
+                                            <InputError
+                                                message={errors.name}
+                                                className="mt-2"
+                                            />
+                                        </div>
 
-                                    <InputError
-                                        message={errors.name}
-                                        className="mt-2"
-                                    />
-                                </div>
-                                <div className="mt-4">
-                                    <InputLabel
-                                        htmlFor="surname"
-                                        value="Surname"
-                                    />
+                                        <div className="mt-2">
+                                            <InputLabel
+                                                htmlFor="surname"
+                                                value="Surname"
+                                            />
+                                            <TextInput
+                                                id="surname"
+                                                name="surname"
+                                                value={data.surname}
+                                                className="mt-1 block w-full"
+                                                autoComplete="family-name"
+                                                placeholder="Last name"
+                                                onChange={(e) =>
+                                                    setData(
+                                                        "surname",
+                                                        e.target.value
+                                                    )
+                                                }
+                                                required
+                                            />
+                                            <InputError
+                                                message={errors.surname}
+                                                className="mt-2"
+                                            />
+                                        </div>
 
-                                    <TextInput
-                                        id="surname"
-                                        name="surname"
-                                        value={data.surname}
-                                        className="mt-1 block w-full"
-                                        autoComplete="surname"
-                                        placeholder="Last name"
-                                        isFocused={true}
-                                        onChange={(e) =>
-                                            setData("surname", e.target.value)
-                                        }
-                                        required
-                                    />
+                                        <div className="mt-2">
+                                            <InputLabel
+                                                htmlFor="email"
+                                                value="Email"
+                                            />
+                                            <TextInput
+                                                id="email"
+                                                type="email"
+                                                name="email"
+                                                value={data.email}
+                                                className="mt-1 block w-full"
+                                                autoComplete="username"
+                                                placeholder="Email address"
+                                                onChange={(e) =>
+                                                    setData(
+                                                        "email",
+                                                        e.target.value
+                                                    )
+                                                }
+                                                required
+                                            />
+                                            <InputError
+                                                message={errors.email}
+                                                className="mt-2"
+                                            />
+                                        </div>
 
-                                    <InputError
-                                        message={errors.name}
-                                        className="mt-2"
-                                    />
-                                </div>
+                                        <div className="mt-2">
+                                            <InputLabel
+                                                htmlFor="contact_number"
+                                                value="Contact Number"
+                                            />
+                                            <TextInput
+                                                id="contact_number"
+                                                type="text"
+                                                name="contact_number"
+                                                value={data.contact_number}
+                                                className="mt-1 block w-full"
+                                                autoComplete="tel"
+                                                placeholder="Contact number"
+                                                onChange={(e) =>
+                                                    setData(
+                                                        "contact_number",
+                                                        e.target.value
+                                                    )
+                                                }
+                                                required
+                                            />
+                                            <InputError
+                                                message={errors.contact_number}
+                                                className="mt-2"
+                                            />
+                                        </div>
 
-                                <div className="mt-4">
-                                    <InputLabel htmlFor="email" value="Email" />
+                                        {/* Profile Photo (optional) */}
+                                        <div className="mt-2 col-span-2">
+                                            <InputLabel
+                                                htmlFor="photo"
+                                                value="Profile Photo (optional)"
+                                            />
+                                            <div className="mt-1 flex items-center gap-4">
+                                                {photoPreview ? (
+                                                    <img
+                                                        src={photoPreview}
+                                                        alt="Selected profile preview"
+                                                        className="h-16 w-16 rounded-full object-cover ring-1 ring-gray-200"
+                                                    />
+                                                ) : (
+                                                    <div className="h-16 w-16 rounded-full bg-gray-100 flex items-center justify-center text-[10px] text-gray-500">
+                                                        No Photo
+                                                    </div>
+                                                )}
+                                                <div className="flex flex-col">
+                                                    <input
+                                                        id="photo"
+                                                        name="photo"
+                                                        type="file"
+                                                        accept="image/png,image/jpeg,image/gif"
+                                                        onChange={
+                                                            handlePhotoChange
+                                                        }
+                                                        className="block text-sm text-gray-700 file:mr-4 file:py-2 file:px-3 file:rounded-md file:border-0 file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200"
+                                                    />
+                                                    <p className="mt-1 text-xs text-gray-500">
+                                                        JPG, PNG or GIF. Max
+                                                        3&nbsp;MB.
+                                                    </p>
+                                                    {data.photo && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={clearPhoto}
+                                                            className="mt-1 self-start text-xs underline text-gray-600"
+                                                        >
+                                                            Remove photo
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <InputError
+                                                message={
+                                                    photoError || errors.photo
+                                                }
+                                                className="mt-2"
+                                            />
+                                        </div>
 
-                                    <TextInput
-                                        id="email"
-                                        type="email"
-                                        name="email"
-                                        value={data.email}
-                                        className="mt-1 block w-full"
-                                        autoComplete="username"
-                                        placeholder="Email address"
-                                        onChange={(e) =>
-                                            setData("email", e.target.value)
-                                        }
-                                        required
-                                    />
+                                        <div className="mt-2 col-span-2">
+                                            <InputLabel
+                                                htmlFor="password"
+                                                value="Password"
+                                            />
+                                            <TextInput
+                                                id="password"
+                                                type="password"
+                                                name="password"
+                                                value={data.password}
+                                                className="mt-1 block w-full"
+                                                autoComplete="new-password"
+                                                placeholder="Password"
+                                                onChange={(e) =>
+                                                    setData(
+                                                        "password",
+                                                        e.target.value
+                                                    )
+                                                }
+                                                required
+                                            />
+                                            <InputError
+                                                message={errors.password}
+                                                className="mt-2"
+                                            />
+                                        </div>
 
-                                    <InputError
-                                        message={errors.email}
-                                        className="mt-2"
-                                    />
-                                </div>
+                                        <div className="mt-2 col-span-2">
+                                            <InputLabel
+                                                htmlFor="password_confirmation"
+                                                value="Confirm Password"
+                                            />
+                                            <TextInput
+                                                id="password_confirmation"
+                                                type="password"
+                                                name="password_confirmation"
+                                                value={
+                                                    data.password_confirmation
+                                                }
+                                                className="mt-1 block w-full"
+                                                autoComplete="new-password"
+                                                placeholder="Confirm password"
+                                                onChange={(e) =>
+                                                    setData(
+                                                        "password_confirmation",
+                                                        e.target.value
+                                                    )
+                                                }
+                                                required
+                                            />
+                                            <InputError
+                                                message={
+                                                    errors.password_confirmation
+                                                }
+                                                className="mt-2"
+                                            />
+                                        </div>
 
-                                <div className="mt-4">
-                                    <InputLabel
-                                        htmlFor="contact_number"
-                                        value="Contact Number"
-                                    />
-                                    <TextInput
-                                        id="contact_number"
-                                        type="text"
-                                        name="contact_number"
-                                        value={data.contact_number}
-                                        className="mt-1 block w-full"
-                                        autoComplete="contact_number"
-                                        placeholder="Contact number"
-                                        onChange={(e) =>
-                                            setData(
-                                                "contact_number",
-                                                e.target.value
-                                            )
-                                        }
-                                        required
-                                    />
-                                    <InputError
-                                        message={errors.contact_number}
-                                        className="mt-2"
-                                    />
-                                </div>
+                                        <div className="mt-4 col-span-2">
+                                            <PrimaryButton
+                                                type="button"
+                                                onClick={goToStep2}
+                                                className="w-full flex justify-center"
+                                                disabled={processing}
+                                            >
+                                                Continue
+                                            </PrimaryButton>
+                                        </div>
+                                    </>
+                                )}
 
-                                <div className="mt-4 col-span-2">
-                                    <InputLabel
-                                        htmlFor="password"
-                                        value="Password"
-                                    />
+                                {/* ---------- STEP 2 ---------- */}
+                                {step === 2 && (
+                                    <>
+                                        {hasAny(errors, STEP2_KEYS) && (
+                                            <div
+                                                ref={errorRef}
+                                                className="col-span-2 mb-2 text-sm text-red-600"
+                                            >
+                                                Please fix the highlighted
+                                                fields below.
+                                            </div>
+                                        )}
 
-                                    <TextInput
-                                        id="password"
-                                        type="password"
-                                        name="password"
-                                        value={data.password}
-                                        className="mt-1 block w-full"
-                                        autoComplete="new-password"
-                                        placeholder="Password"
-                                        onChange={(e) =>
-                                            setData("password", e.target.value)
-                                        }
-                                        required
-                                    />
+                                        <div className="col-span-2">
+                                            <h2
+                                                className={`${styles.h5} font-medium text-[#2C2C2C]`}
+                                            >
+                                                Indemnity & Risk Notice
+                                            </h2>
+                                            <p className="text-sm text-gray-600 mt-1">
+                                                Please review the notice below
+                                                and confirm to proceed.
+                                            </p>
 
-                                    <InputError
-                                        message={errors.password}
-                                        className="mt-2"
-                                    />
-                                </div>
+                                            <div className="mt-3 h-40 overflow-y-auto rounded border border-gray-200 p-3 text-sm leading-6 text-gray-700 space-y-2">
+                                                <p>
+                                                    <strong>
+                                                        Key Risks (summary):
+                                                    </strong>
+                                                </p>
+                                                <ul className="list-disc pl-5 space-y-1">
+                                                    <li>
+                                                        Use of sauna and related
+                                                        facilities is at your
+                                                        own risk.
+                                                    </li>
+                                                    <li>
+                                                        Heat exposure may be
+                                                        unsafe for certain
+                                                        medical conditions.
+                                                    </li>
+                                                    <li>
+                                                        You confirm you are
+                                                        medically fit to
+                                                        participate.
+                                                    </li>
+                                                    <li>
+                                                        You waive and indemnify
+                                                        HotHuts for ordinary
+                                                        negligence to the extent
+                                                        permitted by law.
+                                                    </li>
+                                                </ul>
+                                                <p className="mt-2">
+                                                    <strong>Full Terms:</strong>{" "}
+                                                    By continuing, you
+                                                    acknowledge you have read
+                                                    and accept the full
+                                                    Indemnity &amp; Risk Terms.
+                                                </p>
+                                            </div>
 
-                                <div className="mt-4 col-span-2">
-                                    <InputLabel
-                                        htmlFor="password_confirmation"
-                                        value="Confirm Password"
-                                    />
+                                            {/* Inline sentence with checkbox + name input */}
+                                            <div className="mt-4">
+                                                <div className="flex items-start gap-3">
+                                                    <input
+                                                        id="indemnity_agreed"
+                                                        type="checkbox"
+                                                        className="mt-1 h-4 w-4"
+                                                        checked={
+                                                            data.indemnity_agreed
+                                                        }
+                                                        onChange={(e) =>
+                                                            setData(
+                                                                "indemnity_agreed",
+                                                                e.target.checked
+                                                            )
+                                                        }
+                                                    />
+                                                    <label
+                                                        htmlFor="indemnity_agreed"
+                                                        className="text-sm text-gray-800"
+                                                    >
+                                                        I{" "}
+                                                        <span className="inline-block align-baseline">
+                                                            <TextInput
+                                                                id="indemnity_name"
+                                                                name="indemnity_name"
+                                                                value={
+                                                                    data.indemnity_name
+                                                                }
+                                                                onChange={(e) =>
+                                                                    setData(
+                                                                        "indemnity_name",
+                                                                        e.target
+                                                                            .value
+                                                                    )
+                                                                }
+                                                                placeholder={
+                                                                    fullName ||
+                                                                    "First Last"
+                                                                }
+                                                                className="
+                                                                    inline-block
+                                                                    w-[14ch] md:w-[20ch]
+                                                                    px-1 py-0
+                                                                    border-0 border-b border-gray-300 rounded-none
+                                                                    focus:border-b-gray-500 focus:ring-0
+                                                                    !text-sm
+                                                                "
+                                                            />
+                                                        </span>{" "}
+                                                        have read and accept the
+                                                        Indemnity &amp; Risk
+                                                        Terms.
+                                                    </label>
+                                                </div>
 
-                                    <TextInput
-                                        id="password_confirmation"
-                                        type="password"
-                                        name="password_confirmation"
-                                        value={data.password_confirmation}
-                                        className="mt-1 block w-full"
-                                        autoComplete="new-password"
-                                        placeholder="Confirm password"
-                                        onChange={(e) =>
-                                            setData(
-                                                "password_confirmation",
-                                                e.target.value
-                                            )
-                                        }
-                                        required
-                                    />
+                                                {/* client-side helper + backend errors */}
+                                                {data.indemnity_name.trim() !==
+                                                    fullName && (
+                                                    <div className="mt-2 text-xs text-red-600">
+                                                        Please type your full
+                                                        name exactly as entered:{" "}
+                                                        <strong>
+                                                            {fullName ||
+                                                                "First Last"}
+                                                        </strong>
+                                                    </div>
+                                                )}
+                                                <InputError
+                                                    message={
+                                                        errors.indemnity_name ||
+                                                        errors.indemnity_agreed
+                                                    }
+                                                    className="mt-2"
+                                                />
+                                            </div>
+                                        </div>
 
-                                    <InputError
-                                        message={errors.password_confirmation}
-                                        className="mt-2"
-                                    />
-                                </div>
+                                        <div className="mt-6 col-span-2 flex gap-3">
+                                            <button
+                                                type="button"
+                                                onClick={backToStep1}
+                                                className="inline-flex items-center justify-center rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                                                disabled={processing}
+                                            >
+                                                Back
+                                            </button>
 
-                                <div className="mt-4  col-span-2">
-                                    <PrimaryButton
-                                        className="w-full flex justify-center"
-                                        disabled={processing}
-                                    >
-                                        Sign up
-                                    </PrimaryButton>
-                                </div>
+                                            <PrimaryButton
+                                                type="submit"
+                                                className="flex-1 flex justify-center"
+                                                disabled={!canSubmit}
+                                            >
+                                                Sign up
+                                            </PrimaryButton>
+                                        </div>
+                                    </>
+                                )}
                             </form>
                         </div>
                     </div>
+
+                    {/* footer */}
                     <div className="flex justify-center">
                         <p
                             className={`${styles.paragraph} !text-xs !text-[#2C2C2C]`}
@@ -253,7 +685,7 @@ export default function Register() {
                                 Privacy Policy
                             </Link>{" "}
                             and{" "}
-                            <Link href="#" className="text-hh-orange  !text-xs">
+                            <Link href="#" className="text-hh-orange !text-xs">
                                 Terms of Service
                             </Link>
                         </p>
