@@ -453,52 +453,64 @@ class BookingController extends Controller
         ];
 
         $validator = Validator::make($request->all(), $rules, [
-            // Optional: clearer messages while debugging
-            'items.*.timeslot_id.required' => 'Each item must include a timeslot_id.',
-            'items.*.timeslot_id.exists'   => 'timeslot_id :input does not exist.',
+            'items.*.timeslot_id.required'       => 'Each item must include a timeslot_id.',
+            'items.*.timeslot_id.exists'         => 'timeslot_id :input does not exist.',
             'items.*.event_occurrence_id.exists' => 'event_occurrence_id :input does not exist.',
         ]);
 
         try {
-            $data = $validator->validate(); // same as $request->validate but inside try/catch
+            $data = $validator->validate();
         } catch (ValidationException $e) {
             Log::warning('Preflight validation failed', [
-                'errors' => $e->errors(),   // field => [messages...]
-                'failed' => $validator->failed(), // rule-level breakdown
+                'errors' => $e->errors(),
+                'failed' => $validator->failed(),
                 'input'  => $request->all(),
             ]);
-            throw $e; // let Inertia handle 422 as usual
+            throw $e;
         }
 
         Log::info('Preflight check', ['cart_key' => $data['cart_key'], 'items' => $data['items']]);
 
-
         // Collect unique resources
-        $slotIds = collect($data['items'])
-            ->pluck('timeslot_id')->filter()->unique()->values();
+        $slotIds = collect($data['items'])->pluck('timeslot_id')->filter()->unique()->values();
+        $occIds  = collect($data['items'])->where('kind', 'event')->pluck('event_occurrence_id')->filter()->unique()->values();
 
-        $occIds  = collect($data['items'])
-            ->where('kind', 'event')
-            ->pluck('event_occurrence_id')->filter()->unique()->values();
+        // ---- Load TIMESLOTS with paid & pending sums to avoid N+1
+        $slots = \App\Models\Timeslot::query()
+            ->whereIn('id', $slotIds)
+            ->withSum(['bookings as paid_people_sum' => function ($q) {
+                $q->where('status', 'paid');
+            }], 'people')
+            ->withSum(['bookings as pending_people_sum' => function ($q) use ($now) {
+                $q->where('status', 'pending')->where('hold_expires_at', '>', $now);
+            }], 'people')
+            ->get()
+            ->keyBy('id');
 
-        // Load resources
-        $slots = \App\Models\Timeslot::whereIn('id', $slotIds)->get()->keyBy('id');
-        $occs  = \App\Models\EventOccurrence::with('event')->whereIn('id', $occIds)->get()->keyBy('id');
-
-        // Current availability per slot
+        // Compute current availability per slot
         $availBySlot = [];
         foreach ($slots as $slot) {
-            $active = $slot->bookings()
-                ->where(function ($q) use ($now) {
-                    $q->where('status', 'paid')
-                        ->orWhere(fn($q2) => $q2->where('status', 'pending')->where('hold_expires_at', '>', $now));
-                })
-                ->sum('people');
-
-            $availBySlot[$slot->id] = max(0, (int) $slot->capacity - (int) $active);
+            $capacity = (int) $slot->capacity;
+            $paid     = (int) ($slot->paid_people_sum ?? 0);
+            $pending  = (int) ($slot->pending_people_sum ?? 0);
+            $active   = $paid + $pending;
+            $availBySlot[$slot->id] = max(0, $capacity - $active);
         }
 
-        // Current availability per event occurrence
+        // ---- Load OCCURRENCES with parent EVENT + paid & pending sums (bookings)
+        $occs = \App\Models\EventOccurrence::query()
+            ->whereIn('id', $occIds)
+            ->with(['event:id,default_capacity'])
+            ->withSum(['bookings as paid_people_sum' => function ($q) {
+                $q->where('status', 'paid');
+            }], 'people')
+            ->withSum(['bookings as pending_people_sum' => function ($q) use ($now) {
+                $q->where('status', 'pending')->where('hold_expires_at', '>', $now);
+            }], 'people')
+            ->get()
+            ->keyBy('id');
+
+        // Compute current availability per occurrence (base − paid − pending)
         $availByOcc = [];
         $inactiveOcc = [];
         foreach ($occs as $occ) {
@@ -506,25 +518,21 @@ class BookingController extends Controller
                 $inactiveOcc[$occ->id] = true;
                 continue;
             }
-            $cap = (int) ($occ->effective_capacity ?? 8);
-            $active = $occ->bookings()
-                ->where(function ($q) use ($now) {
-                    $q->where('status', 'paid')
-                        ->orWhere(fn($q2) => $q2->where('status', 'pending')->where('hold_expires_at', '>', $now));
-                })
-                ->sum('people');
-
-            $availByOcc[$occ->id] = max(0, $cap - (int) $active);
+            $base    = (int) ($occ->capacity ?? $occ->event?->default_capacity ?? 0);
+            $paid    = (int) ($occ->paid_people_sum ?? 0);
+            $pending = (int) ($occ->pending_people_sum ?? 0);
+            $availByOcc[$occ->id] = max(0, $base - $paid - $pending);
         }
 
-        // Simulate cart and attach errors per item
+        // ---- Simulate the cart and attach errors per item
         $errors = [];
+
         foreach ($data['items'] as $it) {
             $clientId = $it['client_id'] ?? null;
             $people   = (int) $it['people'];
             $slotId   = (int) $it['timeslot_id'];
 
-            // First, validate/decrement the sauna slot (applies to BOTH kinds)
+            // 1) Validate slot capacity first (applies to BOTH kinds)
             $availableSlot = $availBySlot[$slotId] ?? 0;
             if ($people > $availableSlot) {
                 $errors[] = [
@@ -538,6 +546,7 @@ class BookingController extends Controller
                 continue;
             }
 
+            // 2) If event kind, validate occurrence capacity and activity
             if ($it['kind'] === 'event') {
                 $occId = (int) $it['event_occurrence_id'];
 
@@ -565,8 +574,8 @@ class BookingController extends Controller
                     continue;
                 }
 
-                // both resources pass → decrement both
-                $availByOcc[$occId]  = $availableOcc - $people;
+                // both resources pass → decrement both for this simulated cart
+                $availByOcc[$occId] = $availableOcc - $people;
             }
 
             $availBySlot[$slotId] = $availableSlot - $people;
@@ -583,6 +592,7 @@ class BookingController extends Controller
             ? back()->with('preflight', $result)
             : response()->json($result);
     }
+
 
 
 

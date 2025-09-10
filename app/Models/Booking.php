@@ -24,6 +24,7 @@ class Booking extends Model
         'cart_key',
         'booking_type',
         'no_show',
+        'updated_via',
         'payment_method',    // UUID to group bookings in a cart
     ];
 

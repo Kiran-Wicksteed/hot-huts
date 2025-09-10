@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 
 class EventOccurrence extends Model
 {
@@ -83,6 +84,41 @@ class EventOccurrence extends Model
 
     public function bookings()
     {
-        return $this->hasMany(Booking::class);
+        return $this->hasMany(Booking::class, 'event_occurrence_id');
+    }
+
+    public function paidBookings()
+    {
+        return $this->hasMany(Booking::class, 'event_occurrence_id')
+            ->where('status', 'paid');
+    }
+
+    protected function baseCapacity(): Attribute
+    {
+        return Attribute::get(function () {
+            return $this->capacity ?? $this->event?->default_capacity ?? 0;
+        });
+    }
+
+    protected function effectiveCapacity(): Attribute
+    {
+        return Attribute::get(function () {
+            $base = (int) ($this->base_capacity ?? 0);
+
+            // Prefer withSum('bookings as paid_people_sum', 'people')
+            if (isset($this->paid_people_sum)) {
+                $paidQty = (int) $this->paid_people_sum;
+            } elseif ($this->relationLoaded('paidBookings')) {
+                // Fallback to relation if loaded
+                $paidQty = (int) $this->paidBookings->sum('people');
+            } else {
+                // Final fallback: single query
+                $paidQty = (int) $this->bookings()
+                    ->where('status', 'paid')
+                    ->sum('people');
+            }
+
+            return max(0, $base - $paidQty);
+        });
     }
 }

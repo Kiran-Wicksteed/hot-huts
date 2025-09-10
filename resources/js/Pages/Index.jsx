@@ -41,6 +41,8 @@ export default function Index({ locations, services, addons, events }) {
         payment: {},
     });
 
+    console.log("events", events);
+
     const sessionService = services.find((s) => s.category === "session");
 
     function makeInitialServices(services) {
@@ -68,11 +70,20 @@ export default function Index({ locations, services, addons, events }) {
     };
 
     const goToPrevStep = () => {
-        if (currentStep > 1) {
-            setCurrentStep(currentStep - 1);
-            // Scroll to top on navigation
-            window.scrollTo(0, 0);
-        }
+        setCurrentStep((prev) => {
+            let next = prev - 1;
+
+            // If going back into step 2 while in event flow, skip to step 1 instead
+            if (formData.booking_type === "event" && next === 2) {
+                next = 1;
+            }
+
+            // clamp
+            if (next < 1) next = 1;
+
+            return next;
+        });
+        window.scrollTo(0, 0);
     };
 
     const updateFormData = (newData) => {
@@ -80,6 +91,13 @@ export default function Index({ locations, services, addons, events }) {
     };
 
     const isEvent = formData.booking_type === "event";
+
+    useEffect(() => {
+        if (currentStep === 2 && formData.booking_type === "event") {
+            setCurrentStep(3); // jump to EventTimeDate
+            window.scrollTo(0, 0);
+        }
+    }, [currentStep, formData.booking_type]);
 
     return (
         <CartProvider>

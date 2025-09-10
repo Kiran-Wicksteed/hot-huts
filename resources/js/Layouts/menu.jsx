@@ -58,9 +58,9 @@ export default function Menu({ currentStep }) {
 
     return (
         <div
-            className={`${styles.boxWidth} py-4 px-4 2xl:px-28 md:px-10 lg:px-16 xl:px-20`}
+            className={`${styles.boxWidth} absolute top-0 left-0 w-full  py-4 px-4 2xl:px-28 md:px-10 lg:px-16 xl:px-20`}
         >
-            <div className="border border-hh-orange bg-white rounded-md shadow">
+            <div className="border border-hh-orange bg-white/95 rounded-md shadow">
                 <nav>
                     <ul className="flex justify-between max-w-6xl mx-auto items-center">
                         <li>

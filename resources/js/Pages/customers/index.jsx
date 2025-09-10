@@ -69,15 +69,23 @@ export default function CustomerPage() {
                         >
                             Customer List
                         </h4>
-                        <button
-                            type="button"
-                            onClick={() => setCreateOpen(true)}
-                            className="inline-flex items-center gap-2 rounded-lg bg-hh-orange px-4 py-2 text-white hover:bg-hh-orange/90 focus:outline-none focus:ring-2 focus:ring-hh-orange focus:ring-offset-2"
-                        >
-                            <span className="text-sm font-medium">
-                                Add customer
-                            </span>
-                        </button>
+                        <div className="flex items-center gap-2">
+                            <a
+                                href={route("customers.export")}
+                                className="inline-flex items-center gap-2 rounded-lg border border-hh-orange px-4 py-2 text-hh-orange hover:bg-hh-orange/5 focus:outline-none focus:ring-2 focus:ring-hh-orange focus:ring-offset-2 text-sm font-medium"
+                            >
+                                Export CSV
+                            </a>
+                            <button
+                                type="button"
+                                onClick={() => setCreateOpen(true)}
+                                className="inline-flex items-center gap-2 rounded-lg bg-hh-orange px-4 py-2 text-white hover:bg-hh-orange/90 focus:outline-none focus:ring-2 focus:ring-hh-orange focus:ring-offset-2"
+                            >
+                                <span className="text-sm font-medium">
+                                    Add customer
+                                </span>
+                            </button>
+                        </div>
                     </div>
 
                     {/* Header */}

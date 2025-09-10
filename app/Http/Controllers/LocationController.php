@@ -1,5 +1,6 @@
 <?php
 
+// app/Http/Controllers/LocationController.php
 namespace App\Http\Controllers;
 
 use App\Models\Location;
@@ -7,42 +8,47 @@ use App\Models\Sauna;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
 
 class LocationController extends Controller
 {
-    /* ------------------------------------------------ index */
     public function index()
     {
         $locations = Location::with('openings')->latest()->get()->map(
             function (Location $loc) {
-                $ops = $loc->openings;      // rows already 1-per-period
+                $ops = $loc->openings;
 
                 return [
-                    'id'         => $loc->id,
-                    'name'       => $loc->name,
-                    'address'    => $loc->address,
-                    'timezone'   => $loc->timezone,
+                    'id' => $loc->id,
+                    'name' => $loc->name,
+                    'address' => $loc->address,
+                    'timezone' => $loc->timezone,
                     'image_path' => $loc->image_path,
 
-                    // ----- for the modal -----
+                    // ----- for the modal (new shape) -----
                     'sauna_id' => optional($ops->first())->sauna_id ?? '',
-                    'weekdays' => $ops->pluck('weekday')->unique()->values(),   // [0,3]
-                    'periods'  => $ops->pluck('period')->unique()->values(),    // ['morning',…]
-                    'times'    => $ops->keyBy('period')->map(fn($o) => [
-                        'start' => $o->start_time,
-                        'end'   => $o->end_time,
-                    ]),
+                    'weekdays' => $ops->pluck('weekday')->unique()->values(), // [0,3,5]
+                    'day_times' => $ops
+                        ->groupBy('weekday')
+                        ->map(
+                            fn($rows) => $rows
+                                ->keyBy('period')
+                                ->map(fn($o) => [
+                                    'start' => substr($o->start_time, 0, 5), // HH:MM
+                                    'end' => substr($o->end_time, 0, 5),
+                                ])
+                        ),
                 ];
             }
         );
 
         return Inertia::render('Locations/index', [
             'locations' => $locations,
-            'saunas'    => Sauna::select('id', 'name')->get(),
+            'saunas' => Sauna::select('id', 'name')->get(),
         ]);
     }
 
-    /* ------------------------------------------------ store & update */
     public function store(Request $r)
     {
         $pack = $this->validateLocation($r);
@@ -69,44 +75,79 @@ class LocationController extends Controller
         return back()->with('success', 'Location removed.');
     }
 
-    /* ------------------------------------------------ helpers */
-
     private function validateLocation(Request $r): array
     {
-        /* ---------- basic location fields ---------- */
+        // ---------- core fields ----------
         $fields = $r->validate([
-            'name'     => ['required', 'string', 'max:255'],
-            'address'  => ['nullable', 'string'],
+            'name' => ['required', 'string', 'max:255'],
+            'address' => ['nullable', 'string'],
             'timezone' => ['required', 'string', 'timezone'],
-            'image'    => ['nullable', 'image', 'max:2048'],
+            'image' => ['nullable', 'image', 'max:2048'],
+            'sauna_id' => ['required', 'exists:saunas,id'],
         ]);
 
         if ($r->file('image')) {
             $fields['image_path'] = $r->file('image')->store('locations', 'public');
         }
 
-        /* ---------- opening-rule flat fields ---------- */
-        $flat = $r->validate([
-            'sauna_id'   => ['required', 'exists:saunas,id'],
-            'weekdays'   => ['required', 'array', 'min:1'],
-            'weekdays.*' => ['integer', 'between:0,6'],
-            'periods'    => ['required', 'array', 'min:1'],
-            'periods.*'  => [Rule::in(['morning', 'afternoon', 'evening', 'night'])],
-            'custom_times'                 => ['required', 'array'],
-            'custom_times.*.start'         => ['required', 'date_format:H:i'],
-            'custom_times.*.end'           => ['required', 'date_format:H:i', 'after:custom_times.*.start'],
-        ]);
+        // ---------- normalize payload shape ----------
+        // Preferred: day_times[weekday][period] = {start,end}
+        $dayTimes = $r->input('day_times');
 
-        /* ---------- explode into row-per-period ---------- */
+        // Backward-compat: convert old (weekdays + periods + custom_times) to day_times
+        if (!$dayTimes && $r->filled('weekdays') && $r->filled('periods') && $r->filled('custom_times')) {
+            $dayTimes = [];
+            foreach ((array) $r->input('weekdays', []) as $w) {
+                foreach ((array) $r->input('periods', []) as $p) {
+                    $rng = $r->input("custom_times.$p");
+                    if ($rng && isset($rng['start'], $rng['end'])) {
+                        $dayTimes[$w][$p] = [
+                            'start' => substr($rng['start'], 0, 5),
+                            'end' => substr($rng['end'], 0, 5),
+                        ];
+                    }
+                }
+            }
+        }
+
+        // Validate day_times
+        $v = Validator::make(
+            ['day_times' => $dayTimes],
+            [
+                'day_times' => ['required', 'array', 'min:1'],
+                'day_times.*' => ['array'], // each weekday
+                'day_times.*.*.start' => ['required', 'date_format:H:i'],
+                'day_times.*.*.end' => ['required', 'date_format:H:i'],
+            ],
+            [],
+            ['day_times' => 'day times'] // friendly name
+        );
+
+        // ensure end > start for each (weekday, period)
+        $v->after(function ($validator) use ($dayTimes) {
+            foreach ((array) $dayTimes as $w => $periods) {
+                foreach ((array) $periods as $p => $rng) {
+                    $s = $rng['start'] ?? null;
+                    $e = $rng['end'] ?? null;
+                    if ($s && $e && strtotime($e) <= strtotime($s)) {
+                        $validator->errors()->add("day_times.$w.$p.end", 'End time must be after start time.');
+                    }
+                }
+            }
+        });
+
+        $v->validate();
+
+        // ---------- explode into openings ----------
         $openings = [];
-        foreach ($flat['weekdays'] as $w) {
-            foreach ($flat['periods'] as $p) {
+        foreach ($dayTimes as $weekday => $periods) {
+            foreach ($periods as $period => $rng) {
                 $openings[] = [
-                    'sauna_id'   => $flat['sauna_id'],
-                    'weekday'    => $w,
-                    'period'     => $p,
-                    'start_time' => $flat['custom_times'][$p]['start'],
-                    'end_time'   => $flat['custom_times'][$p]['end'],
+                    'sauna_id' => $fields['sauna_id'],
+                    'weekday' => (int) $weekday,
+                    'period' => $period,
+                    'start_time' => substr($rng['start'], 0, 5),
+                    'end_time' => substr($rng['end'], 0, 5),
                 ];
             }
         }
@@ -116,10 +157,10 @@ class LocationController extends Controller
 
     private function syncOpenings(Location $loc, array $openings): void
     {
-        $loc->openings()->delete();        // wipe old rules
+        $loc->openings()->delete();
 
         foreach ($openings as $o) {
-            $loc->openings()->create($o);  // row already has period/start/end
+            $loc->openings()->create($o);
         }
     }
 }

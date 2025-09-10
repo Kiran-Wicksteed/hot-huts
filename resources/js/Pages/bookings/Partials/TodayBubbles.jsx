@@ -2,6 +2,55 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { router } from "@inertiajs/react";
 
+function ConfirmUpdateDialog({
+    open,
+    onCancel,
+    onConfirm,
+    value,
+    setValue,
+    saving,
+}) {
+    if (!open) return null;
+    return (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center">
+            <div className="absolute inset-0 bg-black/40" onClick={onCancel} />
+            <div className="relative bg-white rounded-lg shadow-xl w-full max-w-sm p-4">
+                <h3 className="font-semibold text-sm mb-2">Confirm update</h3>
+                <p className="text-xs text-gray-600 mb-3">
+                    Please enter the payment method used for this update (e.g.
+                    Cash, Card, EFT, Voucher).
+                </p>
+                <input
+                    type="text"
+                    value={value}
+                    onChange={(e) => setValue(e.target.value)}
+                    placeholder="Cash / Card / EFT …"
+                    className="w-full border rounded p-2 text-sm mb-4"
+                    autoFocus
+                />
+                <div className="flex justify-end gap-2">
+                    <button
+                        type="button"
+                        onClick={onCancel}
+                        className="px-3 py-1 text-xs bg-gray-200 rounded"
+                        disabled={saving}
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => onConfirm(value.trim())}
+                        disabled={saving || !value.trim()}
+                        className="px-3 py-1 text-xs bg-hh-orange text-white rounded disabled:opacity-50"
+                    >
+                        {saving ? "Saving…" : "Confirm & Save"}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 function EditBookingModal({ open, onClose, booking, slot, addonServices }) {
     const [saving, setSaving] = useState(false);
     const [people, setPeople] = useState(booking?.people ?? 1);
@@ -16,6 +65,10 @@ function EditBookingModal({ open, onClose, booking, slot, addonServices }) {
         return map;
     });
 
+    // NEW: confirmation state
+    const [confirmOpen, setConfirmOpen] = useState(false);
+    const [updatedVia, setUpdatedVia] = useState("");
+
     useEffect(() => {
         if (open) {
             setPeople(booking?.people ?? 1);
@@ -25,6 +78,8 @@ function EditBookingModal({ open, onClose, booking, slot, addonServices }) {
             const map = new Map();
             booking?.services?.forEach((s) => map.set(s.id, s.quantity));
             setServices(map);
+            setConfirmOpen(false);
+            setUpdatedVia("");
         }
     }, [open, booking]);
 
@@ -45,7 +100,6 @@ function EditBookingModal({ open, onClose, booking, slot, addonServices }) {
     };
 
     const buildServicesPayload = () => {
-        // Convert id=>qty to code=>qty for backend
         const out = {};
         addonServices.forEach((svc) => {
             if (services.has(svc.id)) out[svc.code] = services.get(svc.id);
@@ -53,7 +107,12 @@ function EditBookingModal({ open, onClose, booking, slot, addonServices }) {
         return out;
     };
 
-    const handleSave = () => {
+    // Step 1: open confirm
+    const beginSave = () => setConfirmOpen(true);
+
+    // Step 2: actually save with updated_via
+    const handleConfirmAndSave = (via) => {
+        if (!via) return; // guard
         setSaving(true);
         router.put(
             route("admin.bookings.update", booking.id),
@@ -63,11 +122,15 @@ function EditBookingModal({ open, onClose, booking, slot, addonServices }) {
                 booking_type: bookingType || null,
                 no_show: !!noShow,
                 services: buildServicesPayload(),
+                updated_via: via, // 👈 send confirmation value
             },
             {
                 preserveScroll: true,
                 onFinish: () => setSaving(false),
-                onSuccess: () => onClose(),
+                onSuccess: () => {
+                    setConfirmOpen(false);
+                    onClose();
+                },
             }
         );
     };
@@ -192,7 +255,7 @@ function EditBookingModal({ open, onClose, booking, slot, addonServices }) {
                         Cancel
                     </button>
                     <button
-                        onClick={handleSave}
+                        onClick={beginSave}
                         disabled={saving}
                         className="px-3 py-1 text-xs bg-hh-orange text-white rounded"
                     >
@@ -200,6 +263,16 @@ function EditBookingModal({ open, onClose, booking, slot, addonServices }) {
                     </button>
                 </div>
             </div>
+
+            {/* confirmation popup */}
+            <ConfirmUpdateDialog
+                open={confirmOpen}
+                onCancel={() => setConfirmOpen(false)}
+                onConfirm={handleConfirmAndSave}
+                value={updatedVia}
+                setValue={setUpdatedVia}
+                saving={saving}
+            />
         </div>
     );
 }
@@ -490,6 +563,15 @@ export default function TodayBubbles({
                                                         title="Payment method"
                                                     >
                                                         {b.payment_method}
+                                                    </span>
+                                                )}
+                                                {b.updated_via && (
+                                                    <span
+                                                        className="inline-flex items-center px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700"
+                                                        title="Updated via"
+                                                    >
+                                                        UPDATED •{" "}
+                                                        {b.updated_via}
                                                     </span>
                                                 )}
                                             </div>

@@ -16,12 +16,6 @@ export default function FrontendSidebar() {
                         My Bookings
                     </span>
                 </button>
-                <button className="shadow bg-white border-hh-gray border rounded py-2 w-48 px-6 flex items-center gap-x-2 text-black">
-                    <UserCircleIcon className="h-6 w-6 shrink-0" />
-                    <span className={`${styles.paragraph}  whitespace-nowrap`}>
-                        My Details
-                    </span>
-                </button>
                 <Link href={route("logout")} method="post" as="button">
                     Log Out
                 </Link>

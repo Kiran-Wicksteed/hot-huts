@@ -27,13 +27,20 @@ export default function InvoiceDetails() {
         const qty = toAmount(l.qty) || 0;
 
         if (kind === "event") {
-            // Treat l.total as the per-ticket unit price; fallback to l.unit if needed
-            const perTicket = toAmount(l.total) || toAmount(l.unit);
+            // Use unit if present; otherwise derive from total/qty.
+            const unitFromUnit = toAmount(l.unit);
+            const unit =
+                unitFromUnit > 0
+                    ? unitFromUnit
+                    : qty > 0
+                    ? toAmount(l.total) / qty
+                    : toAmount(l.total);
+            const total = unit * qty;
             return {
                 label: l.label,
                 qty,
-                unit: perTicket,
-                total: perTicket * qty,
+                unit,
+                total,
             };
         }
 
@@ -100,17 +107,23 @@ export default function InvoiceDetails() {
         setItemErrors({});
 
         // Build payload (include client_id so server can echo it back)
-        const payloadItems = items.map((it) => ({
-            client_id: it.id,
-            kind: it.kind, // 'sauna' | 'event'
-            timeslot_id: it.timeslot_id, // always include for both kinds
-            event_occurrence_id:
-                it.kind === "event" ? it.event_occurrence_id : null,
-            people: it.people,
-            addons: (it.addons ?? [])
-                .filter((a) => Number(a.qty) > 0)
-                .map((a) => ({ code: a.code, qty: Number(a.qty) })),
-        }));
+        const payloadItems = items.map((it) => {
+            // Convert addons object { code: qty } -> [{ code, qty }]
+            const addonsObj = it.addons ?? {};
+            const addonsArr = Object.entries(addonsObj)
+                .map(([code, qty]) => ({ code, qty: Number(qty) }))
+                .filter((a) => a.qty > 0);
+
+            return {
+                client_id: it.id,
+                kind: it.kind, // 'sauna' | 'event'
+                timeslot_id: it.timeslot_id,
+                event_occurrence_id:
+                    it.kind === "event" ? it.event_occurrence_id : null,
+                people: it.people,
+                addons: addonsArr,
+            };
+        });
 
         // Lookup maps for fallback mapping if server didn't echo client_id
         const slotIdToItemId = {};
@@ -210,13 +223,23 @@ export default function InvoiceDetails() {
         router.visit(route("index"), { replace: true });
     };
 
+    const storageUrl = (path) => {
+        if (!path) return null;
+        if (/^https?:\/\//i.test(path)) return path;
+        // ensure it points at the /storage symlink
+        return "/storage/" + String(path).replace(/^\/?(storage\/)?/i, "");
+    };
+
+    const hero = storageUrl("images/tub-bg.jpg");
+
     return (
         <div
-            className={`${styles.boxWidth} pb-28 pt-10 px-4 2xl:px-28 md:px-10 lg:px-16 xl:px-20`}
+            className={`${styles.boxWidth} bg-cover bg-center bg-no-repeat pb-28 pt-40 px-4 2xl:px-28 md:px-10 lg:px-16 xl:px-20`}
+            style={hero ? { backgroundImage: `url(${hero})` } : undefined}
         >
             <div className="grid grid-cols-3 gap-x-8">
                 {/* LEFT: summary */}
-                <div className="col-span-2 border border-hh-gray rounded-md shadow bg-white p-6">
+                <div className="col-span-2 border border-hh-orange rounded-md shadow bg-white p-6">
                     <h1 className={`${styles.h2} text-hh-orange font-medium`}>
                         Order summary
                     </h1>

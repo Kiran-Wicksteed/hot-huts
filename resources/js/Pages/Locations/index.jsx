@@ -4,11 +4,12 @@ import CreateLocation from "./Partials/CreateLocation";
 import { useState } from "react";
 import { Link, usePage } from "@inertiajs/react";
 
+const DAY_NAMES_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
 export default function LocationsPage({ locations, saunas }) {
     const [editing, setEditing] = useState(null);
 
     console.log("locations", locations);
-    console.log("saunas", saunas);
 
     const asset = (path) => {
         return `/storage/${path}`;
@@ -111,7 +112,13 @@ export default function LocationsPage({ locations, saunas }) {
                                     <p
                                         className={`${styles.paragraph} !text-[#999999] !text-sm`}
                                     >
-                                        Wednesday
+                                        {(Array.isArray(loc.weekdays)
+                                            ? loc.weekdays
+                                            : Array.from(loc.weekdays || [])
+                                        )
+                                            .map((i) => DAY_NAMES_SHORT[i])
+                                            .filter(Boolean)
+                                            .join(", ")}
                                     </p>
                                 </div>
 

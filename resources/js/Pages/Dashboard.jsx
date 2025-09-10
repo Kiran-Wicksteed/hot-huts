@@ -40,6 +40,15 @@ export default function Dashboard() {
             <div className="mx-auto ml-[256px]  ">
                 <div className="mx-auto ">
                     <div className="mt-4 grid grid-cols-1 gap-4 sm:mt-12 lg:grid-cols-10 lg:grid-rows-1">
+                        <div className="col-span-10">
+                            <h1 className={`${styles.h1}`}>
+                                Welcome to HotHuts Admin
+                            </h1>
+                            <p className={`${styles.paragraph} mt-2 max-w-3xl`}>
+                                Review today’s bookings, confirm payments, and
+                                keep the heat on 🔥
+                            </p>
+                        </div>
                         {/* <div className="relative lg:col-span-4  h-80 border border-hh-gray rounded-md bg-white ">
                             <div className="relative  h-full flex flex-col justify-end overflow-hidden">
                                 <div className="m-2  border border-hh-gray rounded-md h-full ">
@@ -587,7 +596,7 @@ export default function Dashboard() {
                                 </div>
                             </div>
                         </div> */}
-                        <div className="relative lg:col-span-4 overflow-hidden border border-hh-gray rounded-md  bg-white">
+                        {/* <div className="relative lg:col-span-4 overflow-hidden border border-hh-gray rounded-md  bg-white">
                             <div className="relative  h-full flex flex-col  overflow-y-scroll">
                                 <div className="p-6">
                                     <h4
@@ -607,7 +616,7 @@ export default function Dashboard() {
                                     />
                                 </div>
                             </div>
-                        </div>
+                        </div> */}
                         {/* <div className="relative lg:col-span-full overflow-hidden border border-hh-gray rounded-md  bg-white p-6">
                             <h4
                                 className={`${styles.h3} !mb-4 font-medium text-black `}

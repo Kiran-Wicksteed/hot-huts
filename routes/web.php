@@ -57,6 +57,14 @@ Route::middleware(['auth',  'admin'])
             ->name('customers.update');
     });
 
+Route::middleware(['auth',  'admin'])
+    ->group(function () {
+        Route::get('/customers/export', [AdminCustomerController::class, 'export'])
+            ->name('customers.export');
+    });
+
+
+
 Route::middleware(['auth', 'verified'])
     ->prefix('admin')
     ->group(function () {

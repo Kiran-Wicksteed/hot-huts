@@ -92,7 +92,10 @@ export default function ServiceSection({
 
     return (
         <div
-            className={`${styles.boxWidth} pb-28 pt-10 px-4 2xl:px-28 md:px-10 lg:px-16 xl:px-20`}
+            className={`${styles.boxWidth} bg-cover bg-center bg-no-repeat pb-28 pt-40 px-4 2xl:px-28 md:px-10 lg:px-16 xl:px-20`}
+            style={
+                thumbSrc ? { backgroundImage: `url(${thumbSrc})` } : undefined
+            }
         >
             <h1
                 className={`${styles.h3} !text-2xl !text-black font-normal max-w-3xl`}
@@ -103,19 +106,6 @@ export default function ServiceSection({
             </h1>
             <div className="grid grid-cols-2 gap-6">
                 <div className="col-span-1 border border-hh-orange bg-white rounded-md shadow grid grid-cols-3 overflow-hidden items-center mt-10">
-                    {/* thumbnail */}
-                    <div className="col-span-full overflow-hidden h-48">
-                        <img
-                            src={thumbSrc}
-                            alt={
-                                currentLocation
-                                    ? currentLocation.name
-                                    : "Hot Huts"
-                            }
-                            className="w-full h-full object-cover object-center"
-                        />
-                    </div>
-
                     {/* right panel */}
                     <div className="col-span-full py-8 px-20 space-y-6">
                         {/* Badges */}
@@ -295,19 +285,6 @@ export default function ServiceSection({
                 {/* ---------- Next upcoming event banner ---------- */}
                 {nextEventHere && (
                     <div className="flex-1 border border-hh-orange bg-white rounded-md shadow grid grid-cols-3 overflow-hidden items-center mt-10">
-                        {/* thumbnail */}
-                        <div className="col-span-full overflow-hidden h-48">
-                            <img
-                                src="/storage/images/line-pattern.png"
-                                alt={
-                                    currentLocation
-                                        ? currentLocation.name
-                                        : "Hot Huts"
-                                }
-                                className="w-full h-full object-cover object-center"
-                            />
-                        </div>
-
                         {/* right panel */}
                         <div className="col-span-full py-8 px-20 space-y-6">
                             {/* Badges */}

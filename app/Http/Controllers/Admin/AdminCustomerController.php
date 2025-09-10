@@ -15,6 +15,9 @@ use App\Models\Booking;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Mail;
 use App\Mail\WelcomeMail;
+use Symfony\Component\HttpFoundation\StreamedResponse;
+use Illuminate\Support\Carbon;
+
 
 class AdminCustomerController extends Controller
 {
@@ -26,7 +29,7 @@ class AdminCustomerController extends Controller
                 'email'             => ['required', 'email:filter', 'max:255', 'unique:users,email'],
                 'contact_number'    => ['nullable', 'string', 'max:20'],
                 'password'          => ['required', 'confirmed', PasswordRule::defaults()],
-                'photo'             => ['nullable', 'file', 'mimes:jpg,png,gif', 'max:3072'],
+                'photo'             => ['required', 'file', 'mimes:jpg,png,gif', 'max:3072'],
 
                 // Indemnity (Step 2)
                 'indemnity_agreed'  => ['accepted'],
@@ -243,5 +246,61 @@ class AdminCustomerController extends Controller
         $user->fill($updates)->save();
 
         return back()->with('success', 'Customer updated.');
+    }
+
+    public function export(Request $request): StreamedResponse
+    {
+        $fileName = 'customers_' . now()->format('Ymd_His') . '.csv';
+
+        $headers = [
+            'Content-Type'        => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => "attachment; filename=\"{$fileName}\"",
+            'Cache-Control'       => 'no-store, no-cache',
+        ];
+
+        $callback = function () {
+            $out = fopen('php://output', 'w');
+
+            // BOM so Excel opens UTF-8 properly
+            fprintf($out, chr(0xEF) . chr(0xBB) . chr(0xBF));
+
+            // Header row
+            fputcsv($out, [
+                'ID',
+                'Full Name',
+                'Email',
+                'Contact Number',
+                'Role',
+                'Recent Booking',
+                'Total Appointments',
+            ]);
+
+            // Use aggregates instead of eager loading a full relation per user
+            $query = User::query()
+                ->withCount(['bookings as total_appointments'])
+                ->withMax('bookings', 'created_at') // adds bookings_max_created_at
+                ->orderBy('id');
+
+            foreach ($query->cursor() as $u) {
+                $recentRaw = $u->bookings_max_created_at; // string nullable
+                $recent = $recentRaw
+                    ? Carbon::parse($recentRaw)->timezone(config('app.timezone'))->format('d M Y, g:ia')
+                    : 'No Appointments';
+
+                fputcsv($out, [
+                    $u->id,
+                    $u->name,
+                    $u->email,
+                    $u->contact_number ?? 'N/A',
+                    $u->is_admin ? 'Admin' : 'Customer',
+                    $recent,
+                    $u->total_appointments,
+                ]);
+            }
+
+            fclose($out);
+        };
+
+        return response()->stream($callback, 200, $headers);
     }
 }

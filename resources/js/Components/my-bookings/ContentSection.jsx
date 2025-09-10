@@ -102,7 +102,7 @@ export default function ContentSection({
                                     className="border border-hh-gray rounded-md" // Move border styling here
                                 />
                             </div>
-                            <div className=" border border-hh-gray rounded-md  shadow-md p-6">
+                            {/* <div className=" border border-hh-gray rounded-md  shadow-md p-6">
                                 <h4
                                     className={`${styles.h3} font-medium text-black`}
                                 >
@@ -222,112 +222,7 @@ export default function ContentSection({
                                         </div>
                                     </div>
                                 </div>
-                            </div>
-                        </div>
-                        <div className="border border-hh-gray rounded-md bg-white p-8 space-y-6">
-                            <div className="bg-white rounded border border-hh-orange py-2 px-6 w-fit">
-                                <p
-                                    className={`${styles.paragraph} text-hh-orange uppercase`}
-                                >
-                                    Completed
-                                </p>
-                            </div>
-                            <p
-                                className={`${styles.h3} font-medium text-black`}
-                            >
-                                Wed, 29 March 2025 at 9:00AM
-                            </p>
-                            <div className="divide-y divide-hh-gray">
-                                <div className="flex gap-x-4 items-center py-2">
-                                    <div className="border border-hh-gray p-1 rounded-lg shadow">
-                                        <ShoppingCartIcon className="h-6 w-6 text-black" />
-                                    </div>
-                                    <div className="">
-                                        <p
-                                            className={`${styles.paragraph} text-sm text-black`}
-                                        >
-                                            Book Again
-                                        </p>
-                                        <p
-                                            className={`${styles.paragraph} text-sm text-hh-gray`}
-                                        >
-                                            Book your next sauna
-                                        </p>
-                                    </div>
-                                </div>
-                                <div className="flex gap-x-4 items-center py-2">
-                                    <div className="border border-hh-gray p-1 rounded-lg shadow">
-                                        <MapPinIcon className="h-6 w-6 text-black" />
-                                    </div>
-                                    <div className="">
-                                        <p
-                                            className={`${styles.paragraph} text-sm text-black`}
-                                        >
-                                            Venue Details
-                                        </p>
-                                        <p
-                                            className={`${styles.paragraph} text-sm text-hh-gray`}
-                                        >
-                                            St James Tidal Pool
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-                            <div>
-                                <p
-                                    className={`${styles.paragraph} text-sm text-black`}
-                                >
-                                    Invoice Details
-                                </p>
-                                <div className="border border-hh-gray py-1.5 px-2 flex justify-between items-center rounded mt-4">
-                                    <p
-                                        className={`${styles.paragraph} text-sm text-[#2C2C2C]`}
-                                    >
-                                        Single Sauna Session
-                                    </p>
-                                    <p
-                                        className={`${styles.paragraph} text-sm text-[#2C2C2C]`}
-                                    >
-                                        R210
-                                    </p>
-                                </div>
-                                <div className="border border-hh-gray py-1.5 px-2 flex justify-between items-center rounded mt-4">
-                                    <p
-                                        className={`${styles.paragraph} text-sm text-[#2C2C2C]`}
-                                    >
-                                        Hot Honey
-                                    </p>
-                                    <p
-                                        className={`${styles.paragraph} text-sm text-[#2C2C2C]`}
-                                    >
-                                        R60
-                                    </p>
-                                </div>
-                                <div className="border border-hh-gray py-1.5 px-2 flex justify-between items-center rounded mt-4">
-                                    <p
-                                        className={`${styles.paragraph} text-sm text-[#2C2C2C]`}
-                                    >
-                                        REVIVE + Water Combo
-                                    </p>
-                                    <p
-                                        className={`${styles.paragraph} text-sm text-[#2C2C2C]`}
-                                    >
-                                        R80
-                                    </p>
-                                </div>
-                                <div className="border-b shadow border-hh-gray py-1.5 px-2 flex justify-between items-center rounded mt-4">
-                                    <p
-                                        className={`${styles.paragraph} text-sm text-[#2C2C2C]`}
-                                    >
-                                        Total
-                                    </p>
-                                    <p
-                                        className={`${styles.paragraph} text-sm text-[#2C2C2C]`}
-                                    >
-                                        R350
-                                    </p>
-                                </div>
-                            </div>
+                            </div> */}
                         </div>
                     </div>
                 </div>

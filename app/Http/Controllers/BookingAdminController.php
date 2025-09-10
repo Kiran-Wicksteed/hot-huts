@@ -117,6 +117,7 @@ class BookingAdminController extends Controller
                     'guest_name'  => $booking->guest_name,
                     'guest_email' => $booking->guest_email,
                     'payment_method'    => $booking->payment_method,
+                    'updated_via'      => $booking->updated_via,
                     'booking_type'    => $booking->booking_type,
                     'no_show' => (bool) $booking->no_show,
                     'user'        => ['name' => $booking->user?->name],
@@ -163,6 +164,7 @@ class BookingAdminController extends Controller
             'no_show'         => ['required', 'boolean'],
             'services'        => ['array'],          // payload: code => qty
             'services.*'      => ['integer', 'min:1'],
+            'updated_via'     => ['required', 'string', 'max:50'],
         ]);
 
         // Update main fields
@@ -171,6 +173,7 @@ class BookingAdminController extends Controller
             'payment_method' => $data['payment_method'] ?? null,
             'booking_type'   => $data['booking_type']   ?? $booking->booking_type,
             'no_show'        => $data['no_show'],
+            'updated_via'   => $data['updated_via'],
         ])->save();
 
         // Sync add-ons (expects services: { CODE: qty })

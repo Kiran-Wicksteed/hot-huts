@@ -1,109 +1,129 @@
+// resources/js/Pages/Locations/Partials/CreateLocation.jsx
 import { Dialog } from "@headlessui/react";
-import { useForm } from "@inertiajs/react";
+import { useForm, router } from "@inertiajs/react";
 import React from "react";
+
+const DAY_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const PERIODS = ["morning", "afternoon", "evening", "night"];
+const DEFAULT_RANGE = {
+    morning: { start: "06:00", end: "11:00" },
+    afternoon: { start: "12:00", end: "16:00" },
+    evening: { start: "17:00", end: "20:00" },
+    night: { start: "20:00", end: "23:00" },
+};
+
+function deepClone(obj) {
+    return JSON.parse(JSON.stringify(obj));
+}
 
 export default function CreateLocation({ item = {}, onClose, saunas = [] }) {
     const isEdit = Boolean(item.id);
 
-    /* ---------- defaults ---------- */
-    const defaultRanges = {
-        morning: { start: "06:00", end: "11:00" },
-        afternoon: { start: "12:00", end: "16:00" },
-        evening: { start: "17:00", end: "20:00" },
-        night: { start: "20:00", end: "23:00" },
-    };
+    // Build default day_times (only for selected days)
+    const initialDayTimes = item.day_times
+        ? item.day_times
+        : (item.weekdays ?? []).reduce((acc, w) => {
+              acc[w] = deepClone(DEFAULT_RANGE);
+              return acc;
+          }, {});
 
-    /* ---------- inertia form ---------- */
-    const { data, setData, post, put, processing, errors } = useForm({
+    const { data, setData, post, processing, errors, transform } = useForm({
         name: item.name ?? "",
         address: item.address ?? "",
         timezone: item.timezone ?? "Africa/Johannesburg",
         image: null,
         sauna_id: item.sauna_id ?? "",
-        weekdays: item.weekdays ?? [],
-        periods: (item.periods ?? []).filter(Boolean),
-        custom_times: {
-            ...defaultRanges,
-            ...(item.times || {}),
-        },
+        day_times: initialDayTimes, // <-- NEW
     });
 
-    /* ---------- local state for UI control ---------- */
-    const [enabledPeriods, setEnabledPeriods] = React.useState(
-        new Set(data.periods)
-    );
+    const hasDay = (w) => !!data.day_times?.[w];
 
-    /* ---------- helpers ---------- */
-    const toggleWeekday = (i) => {
-        const w = new Set(data.weekdays);
-        w.has(i) ? w.delete(i) : w.add(i);
-        setData("weekdays", [...w]);
+    const toggleWeekday = (w) => {
+        const cur = { ...(data.day_times || {}) };
+        if (cur[w]) {
+            delete cur[w];
+        } else {
+            cur[w] = deepClone(DEFAULT_RANGE);
+        }
+        setData("day_times", cur);
     };
 
-    const togglePeriod = (p) => {
-        const nxt = new Set(enabledPeriods);
-        nxt.has(p) ? nxt.delete(p) : nxt.add(p);
-        const cleaned = Array.from(nxt).filter(Boolean);
-        setEnabledPeriods(new Set(cleaned));
-        setData("periods", cleaned);
+    const togglePeriod = (w, p) => {
+        const cur = { ...(data.day_times || {}) };
+        const day = { ...(cur[w] || {}) };
+        if (day[p]) {
+            delete day[p];
+        } else {
+            day[p] = {
+                ...(DEFAULT_RANGE[p] || { start: "08:00", end: "17:00" }),
+            };
+        }
+        cur[w] = day;
+        setData("day_times", cur);
     };
 
-    // ✅ This now updates the nested state within useForm
-    const changeTime = (p, field, val) => {
-        setData("custom_times", {
-            ...data.custom_times,
-            [p]: {
-                ...data.custom_times[p],
-                [field]: val,
-            },
-        });
+    const changeTime = (w, p, field, val) => {
+        const cur = { ...(data.day_times || {}) };
+        const day = { ...(cur[w] || {}) };
+        const rng = { ...(day[p] || {}) };
+        rng[field] = (val ?? "").slice(0, 5);
+        day[p] = rng;
+        cur[w] = day;
+        setData("day_times", cur);
     };
 
-    /* ---------- submit ---------- */
     const submit = (e) => {
         e.preventDefault();
 
-        const options = {
-            onSuccess: onClose,
-            // ✅ Transform the data right before sending
-            transform: (values) => {
-                // Filter custom_times to only include keys from the 'periods' array
-                const filteredTimes = Object.fromEntries(
-                    values.periods.map((p) => [p, values.custom_times[p]])
-                );
-                return { ...values, custom_times: filteredTimes };
-            },
-        };
+        const fix = (t) => (t ?? "").slice(0, 5);
 
-        if (isEdit) {
-            // `put` automatically handles POST + _method spoofing for file uploads
-            put(route("locations.update", item.id), options);
-        } else {
-            post(route("locations.store"), options);
-        }
+        transform((values) => {
+            // prune empty days / periods & normalise times
+            const dt = {};
+            Object.entries(values.day_times || {}).forEach(([w, periods]) => {
+                const cleaned = {};
+                Object.entries(periods || {}).forEach(([p, rng]) => {
+                    if (rng?.start && rng?.end) {
+                        cleaned[p] = {
+                            start: fix(rng.start),
+                            end: fix(rng.end),
+                        };
+                    }
+                });
+                if (Object.keys(cleaned).length) dt[w] = cleaned;
+            });
+
+            const out = {
+                name: values.name,
+                address: values.address,
+                timezone: values.timezone,
+                sauna_id: values.sauna_id ? Number(values.sauna_id) : "",
+                day_times: dt,
+                ...(isEdit ? { _method: "PUT" } : {}),
+            };
+
+            if (values.image instanceof File) out.image = values.image;
+
+            return out;
+        });
+
+        const url = isEdit
+            ? route("locations.update", item.id)
+            : route("locations.store");
+        post(url, {
+            onSuccess: onClose,
+            forceFormData: true,
+            headers: isEdit ? { "X-HTTP-Method-Override": "PUT" } : {},
+        });
     };
 
-    /* ---------- ui ---------- */
     return (
         <Dialog open onClose={onClose} className="relative z-50">
-            {/* Backdrop */}
             <div className="fixed inset-0 bg-black/40" aria-hidden="true" />
-
-            {/* Scroll container (lets the modal scroll on small screens) */}
             <div className="fixed inset-0 overflow-y-auto">
                 <div className="flex min-h-full items-end sm:items-center justify-center p-0 sm:p-4">
-                    <Dialog.Panel
-                        className={[
-                            // Mobile: full-screen sheet
-                            "w-screen h-[100dvh] sm:w-full sm:h-auto",
-                            // Desktop: centered card with constrained height
-                            "sm:max-w-md sm:max-h-[85dvh]",
-                            // Visuals + scrolling
-                            "bg-white shadow-lg rounded-none sm:rounded-xl overflow-y-auto",
-                        ].join(" ")}
-                    >
-                        {/* Sticky header so the title/close never scroll away */}
-                        <div className="sticky top-0 z-10 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/70 border-b">
+                    <Dialog.Panel className="w-screen h-[100dvh] sm:w-full sm:h-auto sm:max-w-md sm:max-h-[85dvh] bg-white shadow-lg rounded-none sm:rounded-xl overflow-y-auto">
+                        <div className="sticky top-0 z-10 bg-white/95 backdrop-blur border-b">
                             <div className="px-4 py-3 sm:px-6">
                                 <Dialog.Title className="text-lg font-semibold">
                                     {isEdit ? "Edit Location" : "New Location"}
@@ -111,13 +131,12 @@ export default function CreateLocation({ item = {}, onClose, saunas = [] }) {
                             </div>
                         </div>
 
-                        {/* Form content */}
                         <form
                             onSubmit={submit}
                             encType="multipart/form-data"
                             className="px-4 py-4 sm:px-6 sm:py-6 space-y-3"
                         >
-                            {/* ---- name / address / tz ---- */}
+                            {/* name/address/tz */}
                             <input
                                 value={data.name}
                                 onChange={(e) =>
@@ -160,7 +179,7 @@ export default function CreateLocation({ item = {}, onClose, saunas = [] }) {
                                 </p>
                             )}
 
-                            {/* ---- sauna ---- */}
+                            {/* sauna */}
                             <label className="block mb-2 font-medium">
                                 Sauna
                             </label>
@@ -169,7 +188,7 @@ export default function CreateLocation({ item = {}, onClose, saunas = [] }) {
                                 onChange={(e) =>
                                     setData("sauna_id", e.target.value)
                                 }
-                                className="w-full border p-2 rounded mb-4"
+                                className="w-full border p-2 rounded mb-2"
                             >
                                 <option value="">– pick a sauna –</option>
                                 {saunas.map((s) => (
@@ -184,119 +203,161 @@ export default function CreateLocation({ item = {}, onClose, saunas = [] }) {
                                 </p>
                             )}
 
-                            {/* ---- weekdays ---- */}
+                            {/* weekdays + per-day periods/times */}
                             <label className="block mb-2 font-medium">
-                                Weekdays
+                                Availability by day
                             </label>
-                            <div className="flex flex-wrap gap-2 mb-4">
-                                {[
-                                    "Sun",
-                                    "Mon",
-                                    "Tue",
-                                    "Wed",
-                                    "Thu",
-                                    "Fri",
-                                    "Sat",
-                                ].map((d, i) => (
-                                    <label
-                                        key={i}
-                                        className="flex items-center gap-1"
-                                    >
-                                        <input
-                                            type="checkbox"
-                                            checked={data.weekdays.includes(i)}
-                                            onChange={() => toggleWeekday(i)}
-                                        />
-                                        {d}
-                                    </label>
-                                ))}
-                            </div>
-                            {errors.weekdays && (
-                                <p className="text-red-600 text-sm">
-                                    {errors.weekdays}
-                                </p>
-                            )}
 
-                            {/* ---- periods ---- */}
-                            <label className="block mb-2 font-medium">
-                                Periods
-                            </label>
-                            <div className="space-y-3 mb-6">
-                                {[
-                                    "morning",
-                                    "afternoon",
-                                    "evening",
-                                    "night",
-                                ].map((p) => {
-                                    const on = enabledPeriods.has(p);
-                                    const cap = p[0].toUpperCase() + p.slice(1);
-                                    const { start, end } = data.custom_times[p];
-
+                            <div className="space-y-3">
+                                {DAY_SHORT.map((label, w) => {
+                                    const on = hasDay(w);
                                     return (
                                         <div
-                                            key={p}
-                                            className="flex items-center gap-3"
+                                            key={w}
+                                            className="border rounded p-2"
                                         >
-                                            <label className="flex items-center gap-2">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={on}
-                                                    onChange={() =>
-                                                        togglePeriod(p)
-                                                    }
-                                                />
-                                                <span className="capitalize w-20">
-                                                    {cap}
-                                                </span>
-                                            </label>
+                                            <div className="flex items-center justify-between">
+                                                <label className="flex items-center gap-2">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={on}
+                                                        onChange={() =>
+                                                            toggleWeekday(w)
+                                                        }
+                                                    />
+                                                    <span className="font-medium">
+                                                        {label}
+                                                    </span>
+                                                </label>
+                                                {/* quick copy: copy previous day's config */}
+                                                {on && w > 0 && (
+                                                    <button
+                                                        type="button"
+                                                        className="text-xs underline"
+                                                        onClick={() => {
+                                                            if (!hasDay(w - 1))
+                                                                return;
+                                                            const prev =
+                                                                data.day_times[
+                                                                    w - 1
+                                                                ];
+                                                            setData(
+                                                                "day_times",
+                                                                {
+                                                                    ...data.day_times,
+                                                                    [w]: deepClone(
+                                                                        prev
+                                                                    ),
+                                                                }
+                                                            );
+                                                        }}
+                                                    >
+                                                        Copy from{" "}
+                                                        {DAY_SHORT[w - 1]}
+                                                    </button>
+                                                )}
+                                            </div>
 
                                             {on && (
-                                                <>
-                                                    <input
-                                                        type="time"
-                                                        value={start}
-                                                        onChange={(e) =>
-                                                            changeTime(
-                                                                p,
-                                                                "start",
-                                                                e.target.value
-                                                            )
-                                                        }
-                                                        className="border p-1 rounded"
-                                                    />
-                                                    <span>–</span>
-                                                    <input
-                                                        type="time"
-                                                        value={end}
-                                                        onChange={(e) =>
-                                                            changeTime(
-                                                                p,
-                                                                "end",
-                                                                e.target.value
-                                                            )
-                                                        }
-                                                        className="border p-1 rounded"
-                                                    />
-                                                </>
+                                                <div className="mt-2 space-y-2">
+                                                    {PERIODS.map((p) => {
+                                                        const enabled =
+                                                            !!data.day_times?.[
+                                                                w
+                                                            ]?.[p];
+                                                        const rng =
+                                                            data.day_times?.[
+                                                                w
+                                                            ]?.[p] || {};
+                                                        return (
+                                                            <div
+                                                                key={p}
+                                                                className="flex items-center gap-3"
+                                                            >
+                                                                <label className="flex items-center gap-2 w-32">
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        checked={
+                                                                            enabled
+                                                                        }
+                                                                        onChange={() =>
+                                                                            togglePeriod(
+                                                                                w,
+                                                                                p
+                                                                            )
+                                                                        }
+                                                                    />
+                                                                    <span className="capitalize">
+                                                                        {p}
+                                                                    </span>
+                                                                </label>
+                                                                {enabled && (
+                                                                    <>
+                                                                        <input
+                                                                            type="time"
+                                                                            value={
+                                                                                rng.start ||
+                                                                                ""
+                                                                            }
+                                                                            onChange={(
+                                                                                e
+                                                                            ) =>
+                                                                                changeTime(
+                                                                                    w,
+                                                                                    p,
+                                                                                    "start",
+                                                                                    e
+                                                                                        .target
+                                                                                        .value
+                                                                                )
+                                                                            }
+                                                                            className="border p-1 rounded"
+                                                                        />
+                                                                        <span>
+                                                                            –
+                                                                        </span>
+                                                                        <input
+                                                                            type="time"
+                                                                            value={
+                                                                                rng.end ||
+                                                                                ""
+                                                                            }
+                                                                            onChange={(
+                                                                                e
+                                                                            ) =>
+                                                                                changeTime(
+                                                                                    w,
+                                                                                    p,
+                                                                                    "end",
+                                                                                    e
+                                                                                        .target
+                                                                                        .value
+                                                                                )
+                                                                            }
+                                                                            className="border p-1 rounded"
+                                                                        />
+                                                                    </>
+                                                                )}
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
                                             )}
                                         </div>
                                     );
                                 })}
                             </div>
-                            {errors.periods && (
-                                <p className="text-red-600 text-sm">
-                                    {errors.periods}
-                                </p>
-                            )}
+
+                            {/* field-level errors */}
                             {Object.keys(errors)
-                                .filter((k) => k.startsWith("custom_times"))
+                                .filter((k) => k.startsWith("day_times"))
                                 .map((k) => (
                                     <p key={k} className="text-red-600 text-sm">
                                         {errors[k]}
                                     </p>
                                 ))}
 
-                            {/* ---- image ---- */}
+                            {/* image */}
                             <input
                                 type="file"
                                 onChange={(e) =>
@@ -310,7 +371,7 @@ export default function CreateLocation({ item = {}, onClose, saunas = [] }) {
                                 </p>
                             )}
 
-                            {/* Sticky footer so actions are always reachable */}
+                            {/* actions */}
                             <div className="sticky bottom-0 -mx-4 sm:-mx-6 border-t bg-white/95 backdrop-blur px-4 sm:px-6 pt-4 pb-4 flex justify-end gap-2">
                                 <button
                                     type="button"

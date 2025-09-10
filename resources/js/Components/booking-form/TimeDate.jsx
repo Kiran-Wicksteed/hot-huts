@@ -5,6 +5,9 @@ import { MinusIcon, PlusIcon } from "@heroicons/react/24/solid";
 import dayjs from "dayjs";
 import { useCart } from "@/context/CartContext";
 
+const PERIOD_ORDER = ["morning", "afternoon", "evening", "night"];
+const nice = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+
 export default function TimeDate({
     nextStep,
     prevStep,
@@ -186,9 +189,19 @@ export default function TimeDate({
         nextStep();
     };
 
+    const storageUrl = (path) => {
+        if (!path) return null;
+        if (/^https?:\/\//i.test(path)) return path;
+        // ensure it points at the /storage symlink
+        return "/storage/" + String(path).replace(/^\/?(storage\/)?/i, "");
+    };
+
+    const hero = storageUrl("images/fire-bg.jpg");
+
     return (
         <div
-            className={`${styles.boxWidth} pb-28 pt-10 px-4 2xl:px-28 md:px-10 lg:px-16 xl:px-20`}
+            className={`${styles.boxWidth} bg-cover bg-center bg-no-repeat pb-28 pt-40 px-4 2xl:px-28 md:px-10 lg:px-16 xl:px-20`}
+            style={hero ? { backgroundImage: `url(${hero})` } : undefined}
         >
             <h1
                 className={`${styles.h3} !text-2xl !text-black font-normal max-w-3xl`}
@@ -197,9 +210,9 @@ export default function TimeDate({
                 <span className="text-hh-orange block">{location.name}</span>
             </h1>
 
-            <div className="grid grid-cols-3 gap-x-20 relative mt-10">
+            <div className="grid grid-cols-3 gap-x-10 relative mt-10">
                 {/* left: calendar + slots */}
-                <div className="col-span-2 bg-white">
+                <div className="col-span-2 bg-white p-10 rounded-md shadow border-hh-orange border">
                     <h3 className={`${styles.h2} text-black font-medium`}>
                         Pick a slot on a{" "}
                         <span className="text-hh-orange font-semibold">
@@ -269,52 +282,34 @@ export default function TimeDate({
 
                             {/* slots */}
                             <div className="space-y-10">
-                                {slots.morning.length > 0 ||
-                                slots.evening.length > 0 ? (
-                                    <>
-                                        {slots.morning.length > 0 && (
-                                            <div className="space-y-2">
+                                {PERIOD_ORDER.some(
+                                    (p) => (slots[p] ?? []).length > 0
+                                ) ? (
+                                    PERIOD_ORDER.map((p) =>
+                                        (slots[p] ?? []).length > 0 ? (
+                                            <div key={p} className="space-y-2">
                                                 <p
                                                     className={`${styles.paragraph} mb-6 underline !text-lg text-black font-medium`}
                                                 >
-                                                    Morning Slots
+                                                    {nice(p)} Slots
                                                 </p>
-                                                {slots.morning.map((slot) => (
-                                                    <TimeSlot
-                                                        key={slot.id}
-                                                        slot={slot}
-                                                        selectedTime={
-                                                            selectedSlot?.id
-                                                        }
-                                                        handleTimeSelect={
-                                                            handleTimeSelect
-                                                        }
-                                                    />
-                                                ))}
+                                                {(slots[p] ?? []).map(
+                                                    (slot) => (
+                                                        <TimeSlot
+                                                            key={slot.id}
+                                                            slot={slot}
+                                                            selectedTime={
+                                                                selectedSlot?.id
+                                                            }
+                                                            handleTimeSelect={
+                                                                handleTimeSelect
+                                                            }
+                                                        />
+                                                    )
+                                                )}
                                             </div>
-                                        )}
-                                        {slots.evening.length > 0 && (
-                                            <div className="space-y-2">
-                                                <p
-                                                    className={`${styles.paragraph} mb-6 underline !text-lg text-black font-medium`}
-                                                >
-                                                    Evening Slots
-                                                </p>
-                                                {slots.evening.map((slot) => (
-                                                    <TimeSlot
-                                                        key={slot.id}
-                                                        slot={slot}
-                                                        selectedTime={
-                                                            selectedSlot?.id
-                                                        }
-                                                        handleTimeSelect={
-                                                            handleTimeSelect
-                                                        }
-                                                    />
-                                                ))}
-                                            </div>
-                                        )}
-                                    </>
+                                        ) : null
+                                    )
                                 ) : (
                                     <p
                                         className={`${styles.paragraph} text-hh-gray`}

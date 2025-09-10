@@ -181,14 +181,17 @@ class SaunaScheduleController extends Controller
         $prunedSchedulesCount = 0;
         if (!empty($schedulesToPrune)) {
             $pruneIds = collect($schedulesToPrune)->pluck('id')->all();
-            $schedulesWithBookings = DB::table('timeslots')
-                ->whereIn('sauna_schedule_id', $pruneIds)
-                ->whereExists(function ($query) {
-                    $query->select(DB::raw(1))
-                        ->from('booking_service')
-                        ->whereColumn('booking_service.timeslot_id', 'timeslots.id');
+            $schedulesWithBookings = DB::table('timeslots as t')
+                ->whereIn('t.sauna_schedule_id', $pruneIds)
+                ->whereExists(function ($q) {
+                    $q->select(DB::raw(1))
+                        ->from('bookings as b')
+                        ->whereColumn('b.timeslot_id', 't.id')
+                        // optional guards if you use them:
+                        ->when(Schema::hasColumn('bookings', 'deleted_at'), fn($qq) => $qq->whereNull('b.deleted_at'))
+                        ->when(Schema::hasColumn('bookings', 'status'), fn($qq) => $qq->whereNotIn('b.status', ['cancelled', 'void']));
                 })
-                ->pluck('sauna_schedule_id')
+                ->pluck('t.sauna_schedule_id')
                 ->unique();
             $pruneIdsWithoutBookings = collect($pruneIds)->diff($schedulesWithBookings)->all();
             if (!empty($pruneIdsWithoutBookings)) {

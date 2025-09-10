@@ -17,7 +17,13 @@ class EventOccurrenceController extends Controller
     public function index(Event $event)
     {
         $occurrences = $event->occurrences()
-            ->with('location')
+            ->with([
+                'location:id,name',
+                'event:id,default_capacity', // needed for base capacity
+            ])
+            ->withSum([
+                'bookings as paid_people_sum' => fn($q) => $q->where('status', 'paid'),
+            ], 'people') // SUM(bookings.people) where status=paid
             ->orderBy('occurs_on')
             ->orderBy('start_time')
             ->paginate(10)
@@ -31,11 +37,10 @@ class EventOccurrenceController extends Controller
                     'name' => $o->location->name,
                 ],
                 'effective_price'    => $o->effective_price,
-                'effective_capacity' => $o->effective_capacity,
+                'effective_capacity' => $o->effective_capacity, // dynamic
                 'is_active'          => $o->is_active,
             ]);
 
-        // For the <select> in the modal
         $locations = Location::orderBy('name')->get(['id', 'name']);
 
         return Inertia::render('Events/Occurrences', [
@@ -44,6 +49,7 @@ class EventOccurrenceController extends Controller
             'locations'   => $locations,
         ]);
     }
+
 
     /**
      * Store a new dated occurrence.
