@@ -39,7 +39,7 @@ class PaymentAdminController extends Controller
                 'customerInitials' => strtoupper(substr($booking->user->name, 0, 1) . substr(strrchr($booking->user->name, ' '), 1, 1)),
                 'customerName' => $booking->user->name,
                 'date' => $booking->created_at->format('d M Y, g:ia'),
-                'service' => optional($booking->timeslot->schedule)->name ?? 'Unknown Service',
+                'service' => $booking->timeslot?->schedule?->name ?? 'Unknown Service',
                 'method' => $booking->payment_status ?? 'Unknown',
                 'amount' => (float) $booking->amount,
                 'status' => ucfirst($booking->status),
