@@ -38,24 +38,24 @@ export default function Login({ status, canResetPassword }) {
                     alt="Picturee of beach"
                     className="h-full w-full absolute top-0 object-cover"
                 />
-                <div className="relative pt-28 px-12">
+                <div className="relative pt-8 sm:pt-16 lg:pt-28 px-4 sm:px-8 lg:px-12">
                     <img
                         src="/storage/images/logo.png"
                         alt="Picturee of beach"
-                        className="h-24 w-auto"
+                        className="h-16 sm:h-20 lg:h-24 w-auto"
                     />
                     <h1
-                        className={`${styles.h2} font-semibold !text-hh-orange mt-10`}
+                        className={`${styles.h2} font-semibold !text-hh-orange mt-4 sm:mt-6 lg:mt-10 !text-2xl sm:!text-xl lg:!text-2xl`}
                     >
                         Welcome Back to Your Seaside Sanctuary.
                     </h1>
                 </div>
             </div>
-            <div className="col-span-2">
+            <div className="col-span-1 lg:col-span-2">
                 {" "}
-                <div className="flex flex-col h-full justify-between p-14">
-                    <div className="flex justify-end">
-                        <p className={`${styles.paragraph}  !text-[#2C2C2C]`}>
+                <div className="flex flex-col h-full justify-between p-4 pt-8 sm:p-8 lg:p-14">
+                    <div className="flex flex-col lg:flex-row lg:justify-end items-center lg:items-start">
+                        <p className={`${styles.paragraph} !text-[#2C2C2C] text-center lg:text-right`}>
                             New user?{" "}
                             <Link
                                 href="/register"
@@ -65,13 +65,13 @@ export default function Login({ status, canResetPassword }) {
                             </Link>
                         </p>
                     </div>
-                    <div className="flex justify-center flex-col items-center">
+                    <div className="flex justify-center flex-col items-center flex-1">
                         <h1
-                            className={`${styles.h3} !mb-0 font-medium !text-[#2C2C2C]`}
+                            className={`${styles.h3} !mb-6 font-medium !text-[#2C2C2C] text-center`}
                         >
                             Login
                         </h1>
-                        <div className=" w-full overflow-hidden bg-white px-6 py-4 sm:max-w-md  ">
+                        <div className="w-full overflow-hidden bg-white px-4 py-4 sm:px-6 sm:max-w-md lg:max-w-lg">
                             <form onSubmit={submit}>
                                 <div>
                                     <InputLabel htmlFor="email" value="Email" />
@@ -161,14 +161,14 @@ export default function Login({ status, canResetPassword }) {
                     </div>
                     <div className="flex justify-center">
                         <p
-                            className={`${styles.paragraph} !text-xs !text-[#2C2C2C]`}
+                            className={`${styles.paragraph} !text-xs !text-[#2C2C2C] text-center px-4`}
                         >
                             Protected by reCAPTCHA and subject to the{" "}
                             <Link href="#" className="text-hh-orange !text-xs">
                                 Privacy Policy
                             </Link>{" "}
                             and{" "}
-                            <Link href="#" className="text-hh-orange  !text-xs">
+                            <Link href="#" className="text-hh-orange !text-xs">
                                 Terms of Service
                             </Link>
                         </p>

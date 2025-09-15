@@ -320,29 +320,29 @@ export default function EventTimeDate({
 
     return (
         <div
-            className={`${styles.boxWidth} bg-cover bg-center bg-no-repeat pb-28 pt-40 px-4 2xl:px-28 md:px-10 lg:px-16 xl:px-20`}
+            className={`${styles.boxWidth} bg-cover bg-center bg-no-repeat pb-10 sm:pb-28 pt-20 sm:pt-40 px-2 sm:px-4 2xl:px-28 md:px-10 lg:px-16 xl:px-20`}
             style={hero ? { backgroundImage: `url(${hero})` } : undefined}
         >
             <h1
-                className={`${styles.h3} !text-2xl !text-black font-normal max-w-3xl`}
+                className={`${styles.h3} !text-lg sm:!text-xl lg:!text-2xl !text-white font-normal max-w-3xl mb-6 sm:mb-0`}
             >
                 Add a sauna session after your{" "}
                 <span className="text-hh-orange">{event_name}</span> at&nbsp;
                 {location.name}
             </h1>
 
-            <div className="grid grid-cols-3 gap-x-10 mt-10">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-x-10 relative mt-6 sm:mt-10">
                 {/* LEFT: slot picker */}
-                <div className="col-span-2 bg-white  p-10 rounded-md shadow border-hh-orange border">
-                    <h3 className={`${styles.h2} text-black font-medium mb-2`}>
+                <div className="col-span-1 lg:col-span-2 bg-white/95 p-4 sm:p-6 lg:p-10 rounded-md shadow border-hh-orange border">
+                    <h3 className={`${styles.h2} !text-lg sm:!text-xl lg:!text-2xl text-black font-medium mb-2`}>
                         Choose a sauna slot on {prettyEventDate}
                     </h3>
-                    <p className={`${styles.paragraph} text-black mb-6`}>
+                    <p className={`${styles.paragraph} !text-sm sm:!text-base text-black mb-4 sm:mb-6`}>
                         After your event ({eventTimeRange}), pick a time that
                         suits you:
                     </p>
 
-                    <div className="h-[485px] overflow-y-scroll space-y-2">
+                    <div className="h-[300px] sm:h-[400px] lg:h-[485px] overflow-y-scroll space-y-2">
                         {loading && <p>Loading…</p>}
                         {!loading && slots.length === 0 && (
                             <p className={`${styles.paragraph} text-hh-gray`}>
@@ -359,21 +359,20 @@ export default function EventTimeDate({
                                         key={slot.id}
                                         onClick={() => handleSelectSlot(slot)}
                                         disabled={disabled}
-                                        className={`w-full text-left border rounded shadow p-6 flex justify-between
-                      ${
+                                        className={`w-full text-left border rounded shadow p-4 sm:p-6 flex flex-col sm:flex-row sm:justify-between gap-2 sm:gap-0 touch-manipulation ${
                           disabled
                               ? "opacity-40 cursor-not-allowed"
                               : "cursor-pointer"
                       }
-                      ${selected ? "border-hh-orange" : "border-hh-gray"}`}
+                      ${selected ? "border-hh-orange bg-orange-50" : "border-hh-gray"}`}
                                     >
                                         <p
-                                            className={`${styles.paragraph} text-black font-medium`}
+                                            className={`${styles.paragraph} !text-sm sm:!text-base text-black font-medium`}
                                         >
                                             {slot.starts_at} – {slot.ends_at}
                                         </p>
                                         <p
-                                            className={`${styles.paragraph} uppercase text-[#999]`}
+                                            className={`${styles.paragraph} !text-xs sm:!text-sm uppercase text-[#999]`}
                                         >
                                             {slot.spots_left} slots left
                                         </p>
@@ -384,26 +383,26 @@ export default function EventTimeDate({
                 </div>
 
                 {/* RIGHT: summary */}
-                <div className="col-span-1 border border-hh-gray bg-white rounded-md shadow h-fit sticky top-12">
-                    <div className="p-8 space-y-5">
-                        <h4 className={`${styles.h3} font-medium text-black`}>
+                <div className="col-span-1 border border-hh-gray bg-white/95 rounded-md shadow h-fit lg:sticky lg:top-12">
+                    <div className="p-4 sm:p-6 lg:p-8 space-y-4 sm:space-y-5">
+                        <h4 className={`${styles.h3} !text-lg sm:!text-xl lg:!text-2xl font-medium text-black`}>
                             Summary
                         </h4>
 
                         {/* badges */}
                         <div className="flex flex-wrap items-center gap-2">
-                            <div className="bg-hh-orange py-1 px-4 shadow flex items-center gap-1 text-white rounded">
-                                <MapPinIcon className="h-5 w-5" />
+                            <div className="bg-hh-orange py-1 px-3 sm:px-4 shadow flex items-center gap-1 text-white rounded">
+                                <MapPinIcon className="h-4 w-4 sm:h-5 sm:w-5" />
                                 <p
-                                    className={`${styles.paragraph} uppercase !text-sm`}
+                                    className={`${styles.paragraph} uppercase !text-xs sm:!text-sm`}
                                 >
                                     {location.name}
                                 </p>
                             </div>
-                            <div className="bg-hh-orange py-1 px-4 shadow flex items-center gap-1 text-white rounded">
-                                <ClockIcon className="h-5 w-5" />
+                            <div className="bg-hh-orange py-1 px-3 sm:px-4 shadow flex items-center gap-1 text-white rounded">
+                                <ClockIcon className="h-4 w-4 sm:h-5 sm:w-5" />
                                 <p
-                                    className={`${styles.paragraph} uppercase !text-sm`}
+                                    className={`${styles.paragraph} uppercase !text-xs sm:!text-sm`}
                                 >
                                     event - {eventTimeRange}
                                 </p>
@@ -412,23 +411,23 @@ export default function EventTimeDate({
 
                         {/* guests */}
                         <div className="border border-hh-gray p-3 rounded space-y-3">
-                            <div className="flex items-center justify-between">
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0">
                                 <p
-                                    className={`${styles.paragraph} text-black font-medium`}
+                                    className={`${styles.paragraph} !text-sm sm:!text-base text-black font-medium`}
                                 >
                                     Guests
                                 </p>
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-3 justify-center sm:justify-end">
                                     <button
                                         type="button"
                                         onClick={decGuests}
                                         disabled={guestQty <= 1}
-                                        className="h-8 w-8 grid place-items-center border border-hh-orange rounded text-hh-orange disabled:opacity-40"
+                                        className="h-10 w-10 sm:h-8 sm:w-8 grid place-items-center border border-hh-orange rounded text-hh-orange disabled:opacity-40 touch-manipulation"
                                         aria-label="Decrease guests"
                                     >
-                                        <MinusIcon className="h-4 w-4" />
+                                        <MinusIcon className="h-5 w-5 sm:h-4 sm:w-4" />
                                     </button>
-                                    <span className="min-w-[2ch] text-center">
+                                    <span className="min-w-[3ch] text-center font-medium">
                                         {guestQty}
                                     </span>
                                     <button
@@ -440,25 +439,25 @@ export default function EventTimeDate({
                                                 ? hardMaxGuests
                                                 : 8)
                                         }
-                                        className="h-8 w-8 grid place-items-center bg-hh-orange rounded text-white disabled:opacity-40"
+                                        className="h-10 w-10 sm:h-8 sm:w-8 grid place-items-center bg-hh-orange rounded text-white disabled:opacity-40 touch-manipulation"
                                         aria-label="Increase guests"
                                     >
-                                        <PlusIcon className="h-4 w-4" />
+                                        <PlusIcon className="h-5 w-5 sm:h-4 sm:w-4" />
                                     </button>
                                 </div>
                             </div>
 
-                            <div className="flex items-center justify-between text-sm">
-                                <span className="text-[#666]">
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-0 text-xs sm:text-sm">
+                                <span className="text-[#666] text-center sm:text-left">
                                     {event_name} @ R{formatR(eventUnitRand)} ea
                                 </span>
-                                <span className="text-hh-orange font-medium">
+                                <span className="text-hh-orange font-medium text-center sm:text-right">
                                     R{formatR(eventTotalRand)}
                                 </span>
                             </div>
 
                             {/* capacity hints */}
-                            <div className="text-xs text-[#666] pt-1">
+                            <div className="text-xs text-[#666] pt-1 text-center sm:text-left">
                                 {Number.isFinite(hardMaxGuests) ? (
                                     <>
                                         <span className="block">
@@ -482,7 +481,7 @@ export default function EventTimeDate({
                         {visibleAddons.length > 0 && (
                             <div className="border border-hh-gray p-3 rounded space-y-3">
                                 <p
-                                    className={`${styles.paragraph} text-black font-medium`}
+                                    className={`${styles.paragraph} !text-sm sm:!text-base text-black font-medium`}
                                 >
                                     Add-ons
                                 </p>
@@ -494,11 +493,11 @@ export default function EventTimeDate({
                                         return (
                                             <div
                                                 key={code}
-                                                className="flex items-center justify-between"
+                                                className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0"
                                             >
-                                                <div className="flex flex-col">
+                                                <div className="flex flex-col text-center sm:text-left">
                                                     <span
-                                                        className={`${styles.paragraph} text-black`}
+                                                        className={`${styles.paragraph} !text-sm text-black`}
                                                     >
                                                         {a.name ?? code}
                                                     </span>
@@ -506,21 +505,21 @@ export default function EventTimeDate({
                                                         R{formatR(unit)} ea
                                                     </span>
                                                 </div>
-                                                <div className="flex items-center gap-2">
+                                                <div className="flex items-center gap-3 justify-center sm:justify-end">
                                                     <button
                                                         type="button"
                                                         onClick={() =>
                                                             decAddon(code)
                                                         }
                                                         disabled={qty <= 0}
-                                                        className="h-7 w-7 grid place-items-center border border-hh-orange rounded text-hh-orange disabled:opacity-40"
+                                                        className="h-9 w-9 sm:h-7 sm:w-7 grid place-items-center border border-hh-orange rounded text-hh-orange disabled:opacity-40 touch-manipulation"
                                                         aria-label={`Decrease ${
                                                             a.name ?? code
                                                         }`}
                                                     >
                                                         <MinusIcon className="h-4 w-4" />
                                                     </button>
-                                                    <span className="min-w-[2ch] text-center">
+                                                    <span className="min-w-[3ch] text-center font-medium">
                                                         {qty}
                                                     </span>
                                                     <button
@@ -528,7 +527,7 @@ export default function EventTimeDate({
                                                         onClick={() =>
                                                             incAddon(code)
                                                         }
-                                                        className="h-7 w-7 grid place-items-center bg-hh-orange rounded text-white"
+                                                        className="h-9 w-9 sm:h-7 sm:w-7 grid place-items-center bg-hh-orange rounded text-white touch-manipulation"
                                                         aria-label={`Increase ${
                                                             a.name ?? code
                                                         }`}
@@ -541,11 +540,11 @@ export default function EventTimeDate({
                                     })}
                                 </div>
 
-                                <div className="flex items-center justify-between pt-1">
-                                    <span className="text-sm text-[#666]">
+                                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-0 pt-1">
+                                    <span className="text-xs sm:text-sm text-[#666] text-center sm:text-left">
                                         Add-ons subtotal
                                     </span>
-                                    <span className="text-hh-orange font-medium">
+                                    <span className="text-hh-orange font-medium text-center sm:text-right">
                                         R{formatR(addonsSubtotalRand)}
                                     </span>
                                 </div>
@@ -553,44 +552,44 @@ export default function EventTimeDate({
                         )}
 
                         {/* grand total */}
-                        <div className="flex items-center justify-between border-t pt-3">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0 border-t pt-3">
                             <p
-                                className={`${styles.paragraph} text-black font-medium`}
+                                className={`${styles.paragraph} !text-base sm:!text-lg text-black font-medium text-center sm:text-left`}
                             >
                                 Total
                             </p>
                             <p
-                                className={`${styles.paragraph} text-hh-orange font-semibold`}
+                                className={`${styles.paragraph} !text-lg sm:!text-xl text-hh-orange font-semibold text-center sm:text-right`}
                             >
                                 R{formatR(grandTotalRand)}
                             </p>
                         </div>
 
                         {/* consent + buttons */}
-                        <div className="flex items-center gap-x-2">
+                        <div className="flex items-start gap-x-3">
                             <input
                                 type="checkbox"
                                 id="consent"
                                 checked={agreed}
                                 onChange={(e) => setAgreed(e.target.checked)}
-                                className="h-4 w-4 text-hh-orange border-hh-orange rounded bg-white"
+                                className="h-4 w-4 mt-0.5 text-hh-orange border-hh-orange rounded bg-white shrink-0"
                             />
                             <label
                                 htmlFor="consent"
-                                className={`${styles.paragraph} text-hh-gray !text-sm`}
+                                className={`${styles.paragraph} text-hh-gray !text-xs sm:!text-sm leading-relaxed`}
                             >
                                 I agree that I have read and accepted the Terms
                                 of Use and Privacy Policy
                             </label>
                         </div>
 
-                        <div className="flex items-center gap-x-2 pt-2">
+                        <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-x-2 pt-4 sm:pt-2">
                             <button
                                 onClick={prevStep}
-                                className="bg-white border border-hh-orange py-1 px-4 shadow text-hh-orange rounded"
+                                className="w-full sm:w-auto bg-white border border-hh-orange py-3 sm:py-2 px-6 sm:px-4 shadow text-hh-orange rounded font-medium"
                             >
                                 <p
-                                    className={`${styles.paragraph} uppercase whitespace-nowrap`}
+                                    className={`${styles.paragraph} uppercase !text-sm whitespace-nowrap`}
                                 >
                                     go back
                                 </p>
@@ -604,16 +603,17 @@ export default function EventTimeDate({
                                         guestQty > hardMaxGuests) ||
                                     hardMaxGuests === 0
                                 }
-                                className={`bg-hh-orange py-1 w-full px-4 shadow text-white rounded ${
+                                className={`w-full sm:flex-1 py-3 sm:py-2 px-6 sm:px-4 shadow rounded font-medium ${
                                     (!selectedTimeId ||
                                         !agreed ||
                                         (Number.isFinite(hardMaxGuests) &&
                                             guestQty > hardMaxGuests) ||
-                                        hardMaxGuests === 0) &&
-                                    "opacity-50 cursor-not-allowed"
+                                        hardMaxGuests === 0)
+                                        ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                                        : "bg-hh-orange text-white"
                                 }`}
                             >
-                                <p className={`${styles.paragraph} uppercase`}>
+                                <p className={`${styles.paragraph} uppercase !text-sm`}>
                                     Continue
                                 </p>
                             </button>

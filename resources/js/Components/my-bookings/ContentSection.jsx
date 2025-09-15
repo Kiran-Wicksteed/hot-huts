@@ -30,14 +30,16 @@ export default function ContentSection({
 
     return (
         <div
-            className={`${styles.boxWidth} py-12 px-4 2xl:px-28 md:px-10 lg:px-16 xl:px-20 flex gap-x-16`}
+            className={`${styles.boxWidth} py-6 sm:py-12 px-2 sm:px-4 2xl:px-28 md:px-10 lg:px-16 xl:px-20 flex flex-col lg:flex-row gap-6 lg:gap-x-16`}
         >
-            <FrontendSidebar />
-            <div>
-                <div className="flex justify-between items-center ">
-                    <div className="flex gap-x-4  items-center">
+            <div className="lg:block">
+                <FrontendSidebar />
+            </div>
+            <div className="flex-1">
+                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 sm:gap-0">
+                    <div className="flex gap-x-3 sm:gap-x-4 items-center">
                         {user.photo != null ? (
-                            <div className=" h-14 w-14 overflow-hidden shrink-0 rounded-full">
+                            <div className="h-12 w-12 sm:h-14 sm:w-14 overflow-hidden shrink-0 rounded-full">
                                 <img
                                     alt=""
                                     src={asset(user.photo)}
@@ -47,43 +49,43 @@ export default function ContentSection({
                         ) : (
                             <UserIcon
                                 aria-hidden="true"
-                                className="h-14 w-14 text-white bg-hh-orange rounded-full p-1.5"
+                                className="h-12 w-12 sm:h-14 sm:w-14 text-white bg-hh-orange rounded-full p-1.5"
                             />
                         )}
 
-                        <p className={`${styles.paragraph} text-black `}>
+                        <p className={`${styles.paragraph} !text-sm sm:!text-base text-black`}>
                             Good morning,{" "}
                             <span className="font-medium"> {user.name}</span>
                         </p>
                     </div>
-                    <div className="flex gap-x-4  items-center">
+                    <div className="flex flex-col sm:flex-row gap-2 sm:gap-x-4 items-center">
                         <p
-                            className={`${styles.paragraph} !text-2xl text-black font-medium"`}
+                            className={`${styles.paragraph} !text-sm sm:!text-lg lg:!text-xl text-black font-medium text-center sm:text-left`}
                         >
                             Loyalty Points received
                         </p>
                         <ProgressCircle points={loyaltyPoints} />
                     </div>
                 </div>
-                <div className="grid grid-cols-10 gap-x-10 mt-10">
-                    <div className="col-span-5">
+                <div className="grid grid-cols-1 lg:grid-cols-10 gap-6 lg:gap-x-10 mt-6 sm:mt-10">
+                    <div className="col-span-1 lg:col-span-5">
                         <div>
                             <h1
-                                className={`${styles.h2} font-medium text-hh-orange`}
+                                className={`${styles.h2} !text-xl sm:!text-2xl font-medium text-hh-orange`}
                             >
                                 My Bookings
                             </h1>
                             <h3
-                                className={`${styles.h3} font-medium text-black`}
+                                className={`${styles.h3} !text-lg sm:!text-xl font-medium text-black`}
                             >
                                 Upcoming
                             </h3>
                             <UpcomingSection />
                         </div>
                         <div>
-                            <div className="flex flex-col items-between justify-start pt-20">
+                            <div className="flex flex-col items-between justify-start pt-12 sm:pt-20">
                                 <h3
-                                    className={`${styles.h3} font-medium text-black`}
+                                    className={`${styles.h3} !text-lg sm:!text-xl font-medium text-black`}
                                 >
                                     Past Bookings
                                 </h3>
@@ -91,15 +93,15 @@ export default function ContentSection({
                             </div>
                         </div>
                     </div>
-                    <div className="relative lg:col-span-5 space-y-8">
-                        <div className="border border-hh-gray rounded-md bg-white p-8 space-y-6">
-                            <div className=" border border-hh-gray rounded-md  shadow-md">
+                    <div className="relative col-span-1 lg:col-span-5 space-y-6 sm:space-y-8">
+                        <div className="border border-hh-gray rounded-md bg-white/95 p-0 sm:p-6 lg:p-8 space-y-4 sm:space-y-6">
+                            <div className="border border-hh-gray rounded-md shadow-md">
                                 <DatePicker
                                     selected={startDate}
                                     onChange={(date) => setStartDate(date)}
                                     showOutsideMonthDays={false}
                                     inline // This makes the calendar always visible
-                                    className="border border-hh-gray rounded-md" // Move border styling here
+                                    className="border border-hh-gray rounded-md w-full" // Move border styling here
                                 />
                             </div>
                             {/* <div className=" border border-hh-gray rounded-md  shadow-md p-6">
@@ -240,17 +242,17 @@ const UpcomingSection = () => {
 
     if (upcoming.length === 0) {
         return (
-            <div className="border border-hh-gray px-6 py-16 rounded-md flex flex-col justify-center items-center shadow-md">
-                <CalendarIcon className="h-16 w-16 text-hh-gray" />
-                <h4 className={`${styles.h3} mt-4 font-medium text-black`}>
+            <div className="border border-hh-gray px-4 sm:px-6 py-12 sm:py-16 rounded-md flex flex-col justify-center items-center shadow-md">
+                <CalendarIcon className="h-12 w-12 sm:h-16 sm:w-16 text-hh-gray" />
+                <h4 className={`${styles.h3} !text-base sm:!text-lg mt-4 font-medium text-black text-center`}>
                     No upcoming bookings
                 </h4>
-                <p className={`${styles.paragraph} text-hh-gray`}>
+                <p className={`${styles.paragraph} !text-sm text-hh-gray text-center`}>
                     Your upcoming bookings will appear here
                 </p>
                 <Link
-                    href={route("index")} /* or wherever “book now” lives   */
-                    className="bg-hh-orange rounded py-2 px-6 text-white mt-4"
+                    href={route("index")} /* or wherever "book now" lives   */
+                    className="bg-hh-orange rounded py-3 px-6 text-white mt-4 font-medium text-sm"
                 >
                     Book now
                 </Link>
@@ -266,9 +268,9 @@ const UpcomingSection = () => {
         return (
             <div
                 key={b.id}
-                className="border border-hh-gray bg-white rounded-md shadow grid grid-cols-3 overflow-hidden items-center mt-6"
+                className="border border-hh-gray bg-white/95 rounded-md shadow grid grid-cols-1 sm:grid-cols-3 overflow-hidden items-center mt-4 sm:mt-6"
             >
-                <div className="col-span-1">
+                <div className="col-span-1 h-32 sm:h-auto">
                     <img
                         src={
                             loc.image_path
@@ -280,19 +282,19 @@ const UpcomingSection = () => {
                     />
                 </div>
 
-                <div className="col-span-2 p-6">
+                <div className="col-span-1 sm:col-span-2 p-4 sm:p-6">
                     <h3
-                        className={`${styles.paragraph} text-black font-medium`}
+                        className={`${styles.paragraph} !text-sm sm:!text-base text-black font-medium`}
                     >
                         {loc.name}
                     </h3>
 
-                    <p className={`${styles.paragraph} text-sm text-black`}>
+                    <p className={`${styles.paragraph} !text-xs sm:!text-sm text-black`}>
                         {oneLine}
                     </p>
 
                     <p
-                        className={`${styles.paragraph} text-sm text-hh-gray mt-2`}
+                        className={`${styles.paragraph} !text-xs sm:!text-sm text-hh-gray mt-1 sm:mt-2`}
                     >
                         {/* first service line label */}
                         {b.services[0]?.name ?? "Sauna Session"}
@@ -311,17 +313,17 @@ const PastSection = () => {
 
     if (past.length === 0) {
         return (
-            <div className="border border-hh-gray px-6 py-16 rounded-md flex flex-col justify-center items-center shadow-md">
-                <CalendarIcon className="h-16 w-16 text-hh-gray" />
-                <h4 className={`${styles.h3} mt-4 font-medium text-black`}>
+            <div className="border border-hh-gray px-4 sm:px-6 py-12 sm:py-16 rounded-md flex flex-col justify-center items-center shadow-md">
+                <CalendarIcon className="h-12 w-12 sm:h-16 sm:w-16 text-hh-gray" />
+                <h4 className={`${styles.h3} !text-base sm:!text-lg mt-4 font-medium text-black text-center`}>
                     No past bookings
                 </h4>
-                <p className={`${styles.paragraph} text-hh-gray`}>
+                <p className={`${styles.paragraph} !text-sm text-hh-gray text-center`}>
                     Your past bookings will appear here
                 </p>
                 <Link
-                    href={route("index")} /* or wherever “book now” lives   */
-                    className="bg-hh-orange rounded py-2 px-6 text-white mt-4"
+                    href={route("index")} /* or wherever "book now" lives   */
+                    className="bg-hh-orange rounded py-3 px-6 text-white mt-4 font-medium text-sm"
                 >
                     Book now
                 </Link>
@@ -337,9 +339,9 @@ const PastSection = () => {
         return (
             <div
                 key={b.id}
-                className="border border-hh-gray bg-white rounded-md shadow grid grid-cols-3 overflow-hidden items-center mt-6"
+                className="border border-hh-gray bg-white/95 rounded-md shadow grid grid-cols-1 sm:grid-cols-3 overflow-hidden items-center mt-4 sm:mt-6"
             >
-                <div className="col-span-1">
+                <div className="col-span-1 h-32 sm:h-auto">
                     <img
                         src={
                             loc.image_path
@@ -351,19 +353,19 @@ const PastSection = () => {
                     />
                 </div>
 
-                <div className="col-span-2 p-6">
+                <div className="col-span-1 sm:col-span-2 p-4 sm:p-6">
                     <h3
-                        className={`${styles.paragraph} text-black font-medium`}
+                        className={`${styles.paragraph} !text-sm sm:!text-base text-black font-medium`}
                     >
                         {loc.name}
                     </h3>
 
-                    <p className={`${styles.paragraph} text-sm text-black`}>
+                    <p className={`${styles.paragraph} !text-xs sm:!text-sm text-black`}>
                         {oneLine}
                     </p>
 
                     <p
-                        className={`${styles.paragraph} text-sm text-hh-gray mt-2`}
+                        className={`${styles.paragraph} !text-xs sm:!text-sm text-hh-gray mt-1 sm:mt-2`}
                     >
                         {/* first service line label */}
                         {b.services[0]?.name ?? "Sauna Session"}
@@ -380,7 +382,7 @@ const ProgressCircle = ({ points }) => {
     const progress =
         normalizedPoints === 0 && points > 0 ? 100 : normalizedPoints * 25;
     return (
-        <div className="relative h-14 w-14">
+        <div className="relative h-12 w-12 sm:h-14 sm:w-14">
             {/* Background circle (empty state) */}
             <div className="absolute inset-0 rounded-full border border-hh-gray shadow" />
 

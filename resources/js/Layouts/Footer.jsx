@@ -51,7 +51,7 @@ const navigation = {
 export default function Footer() {
     return (
         <footer className="bg-[#FCFCFC]">
-            <div className="mx-auto max-w-7xl overflow-hidden py-16">
+            <div className="mx-auto max-w-7xl overflow-hidden py-16 px-8">
                 <img
                     alt="Hot Huts"
                     src="/storage/images/hot-huts-logo.png"

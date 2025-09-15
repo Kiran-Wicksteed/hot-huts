@@ -90,13 +90,15 @@ export default function InvoiceDetails() {
         };
 
         return (
-            <div className={`${styles.boxWidth} py-20 px-4`}>
-                <p className={`${styles.paragraph}`}>Your cart is empty.</p>
+            <div className={`${styles.boxWidth} py-10 sm:py-20 px-2 sm:px-4 text-center`}>
+                <p className={`${styles.paragraph} !text-base sm:!text-lg mb-4`}>Your cart is empty.</p>
                 <button
                     onClick={startFreshBooking}
-                    className="mt-4 bg-hh-orange text-white px-4 py-2 rounded"
+                    className="bg-hh-orange text-white px-6 py-3 rounded font-medium touch-manipulation"
                 >
-                    Start a booking
+                    <span className={`${styles.paragraph} !text-sm sm:!text-base`}>
+                        Start a booking
+                    </span>
                 </button>
             </div>
         );
@@ -234,16 +236,16 @@ export default function InvoiceDetails() {
 
     return (
         <div
-            className={`${styles.boxWidth} bg-cover bg-center bg-no-repeat pb-28 pt-40 px-4 2xl:px-28 md:px-10 lg:px-16 xl:px-20`}
+            className={`${styles.boxWidth} bg-cover bg-center bg-no-repeat pb-10 sm:pb-28 pt-20 sm:pt-40 px-2 sm:px-4 2xl:px-28 md:px-10 lg:px-16 xl:px-20`}
             style={hero ? { backgroundImage: `url(${hero})` } : undefined}
         >
-            <div className="grid grid-cols-3 gap-x-8">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-x-8">
                 {/* LEFT: summary */}
-                <div className="col-span-2 border border-hh-orange rounded-md shadow bg-white p-6">
-                    <h1 className={`${styles.h2} text-hh-orange font-medium`}>
+                <div className="col-span-1 lg:col-span-2 border border-hh-orange rounded-md shadow bg-white/95 p-4 sm:p-6">
+                    <h1 className={`${styles.h2} !text-xl sm:!text-2xl lg:!text-3xl text-hh-orange font-medium`}>
                         Order summary
                     </h1>
-                    <p className={`${styles.paragraph} text-black/60 mb-4`}>
+                    <p className={`${styles.paragraph} !text-sm sm:!text-base text-black/60 mb-4`}>
                         {invoiceDate}
                     </p>
 
@@ -262,21 +264,21 @@ export default function InvoiceDetails() {
                         return (
                             <div
                                 key={it.id}
-                                className={`mb-8 rounded p-4 border shadow ${
+                                className={`mb-6 sm:mb-8 rounded p-3 sm:p-4 border shadow ${
                                     err ? "border-red-500" : "border-hh-gray"
                                 }`}
                             >
-                                <div className="flex justify-between items-center mb-2">
-                                    <div>
+                                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-3 gap-2 sm:gap-0">
+                                    <div className="flex-1">
                                         <p
-                                            className={`${styles.h3} text-black font-medium`}
+                                            className={`${styles.h3} !text-base sm:!text-lg lg:!text-xl text-black font-medium`}
                                         >
                                             {it.kind === "event"
                                                 ? it.event_name
                                                 : "Single sauna session"}
                                         </p>
                                         <p
-                                            className={`${styles.paragraph} text-black/60`}
+                                            className={`${styles.paragraph} !text-xs sm:!text-sm text-black/60`}
                                         >
                                             {it.location_name} • {it.date}{" "}
                                             {it.timeRange
@@ -285,7 +287,7 @@ export default function InvoiceDetails() {
                                         </p>
                                     </div>
                                     <button
-                                        className="text-sm text-red-600 underline"
+                                        className="text-xs sm:text-sm text-red-600 underline self-start sm:self-center touch-manipulation"
                                         onClick={() => removeItem(it.id)}
                                     >
                                         Remove
@@ -298,7 +300,7 @@ export default function InvoiceDetails() {
                                     </div>
                                 )}
 
-                                <div className="grid grid-cols-8 gap-y-1">
+                                <div className="hidden sm:grid grid-cols-8 gap-y-1">
                                     <Header />
                                     {lines.map((l, idx) => (
                                         <Line
@@ -310,8 +312,21 @@ export default function InvoiceDetails() {
                                         />
                                     ))}
                                 </div>
+                                
+                                {/* Mobile layout */}
+                                <div className="sm:hidden space-y-2">
+                                    {lines.map((l, idx) => (
+                                        <MobileLine
+                                            key={idx}
+                                            item={l.label}
+                                            qty={l.qty}
+                                            unit={l.unit}
+                                            total={l.total}
+                                        />
+                                    ))}
+                                </div>
 
-                                <div className="grid grid-cols-8 bg-[#F5F5F5] rounded py-2 mt-4">
+                                <div className="hidden sm:grid grid-cols-8 bg-[#F5F5F5] rounded py-2 mt-4">
                                     <div className="col-span-5" />
                                     <p
                                         className={`${styles.paragraph} col-span-2 text-right text-black/50`}
@@ -324,12 +339,22 @@ export default function InvoiceDetails() {
                                         R{money(calcItemTotal(it))}
                                     </p>
                                 </div>
+                                
+                                {/* Mobile item total */}
+                                <div className="sm:hidden flex justify-between items-center bg-[#F5F5F5] rounded py-3 px-3 mt-3">
+                                    <p className={`${styles.paragraph} !text-sm text-black/50`}>
+                                        Item total:
+                                    </p>
+                                    <p className={`${styles.paragraph} !text-sm font-medium text-black`}>
+                                        R{money(calcItemTotal(it))}
+                                    </p>
+                                </div>
                             </div>
                         );
                     })}
 
-                    {/* Grand total */}
-                    <div className="grid grid-cols-8 bg-[#F5F5F5] rounded py-4">
+                    {/* Grand total - Desktop */}
+                    <div className="hidden sm:grid grid-cols-8 bg-[#F5F5F5] rounded py-4">
                         <div className="col-span-5" />
                         <p
                             className={`${styles.paragraph} col-span-2 text-right text-black/50`}
@@ -342,25 +367,35 @@ export default function InvoiceDetails() {
                             R{money(grandTotal)}
                         </p>
                     </div>
+                    
+                    {/* Grand total - Mobile */}
+                    <div className="sm:hidden flex justify-between items-center bg-[#F5F5F5] rounded py-4 px-4">
+                        <p className={`${styles.paragraph} !text-base font-medium text-black/50`}>
+                            Total Amount:
+                        </p>
+                        <p className={`${styles.paragraph} !text-lg font-semibold text-black`}>
+                            R{money(grandTotal)}
+                        </p>
+                    </div>
                 </div>
 
                 {/* RIGHT: actions */}
                 <div className="col-span-1">
-                    <div className="space-y-2 mt-6">
+                    <div className="space-y-3 sm:space-y-2 mt-4 sm:mt-6">
                         <button
                             onClick={proceedToPayment}
-                            className="shadow border border-hh-orange w-full py-2 text-white bg-hh-orange rounded"
+                            className="shadow border border-hh-orange w-full py-3 sm:py-2 text-white bg-hh-orange rounded font-medium touch-manipulation"
                         >
-                            <span className={`${styles.paragraph} font-medium`}>
+                            <span className={`${styles.paragraph} !text-sm sm:!text-base font-medium`}>
                                 Proceed to payment
                             </span>
                         </button>
 
                         <button
                             onClick={bookAnother}
-                            className="bg-black shadow w-full py-2 text-white rounded"
+                            className="bg-black shadow w-full py-3 sm:py-2 text-white rounded font-medium touch-manipulation"
                         >
-                            <span className={`${styles.paragraph} font-medium`}>
+                            <span className={`${styles.paragraph} !text-sm sm:!text-base font-medium`}>
                                 Book another service
                             </span>
                         </button>
@@ -386,6 +421,22 @@ const Header = () => (
             Total
         </p>
     </>
+);
+
+const MobileLine = ({ item, qty, unit, total }) => (
+    <div className="flex justify-between items-center py-2 border-b border-gray-100 last:border-b-0">
+        <div className="flex-1">
+            <p className={`${styles.paragraph} !text-sm text-black font-medium`}>
+                {item}
+            </p>
+            <p className={`${styles.paragraph} !text-xs text-black/50`}>
+                {Number(qty)} × R{Number(unit).toFixed(2)}
+            </p>
+        </div>
+        <p className={`${styles.paragraph} !text-sm text-black font-medium`}>
+            R{Number(total).toFixed(2)}
+        </p>
+    </div>
 );
 
 const Line = ({ item, qty, unit, total }) => (

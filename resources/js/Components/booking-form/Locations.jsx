@@ -130,38 +130,38 @@ export default function Locations({ nextStep, updateFormData, events }) {
 
     return (
         <div
-            className={`${styles.boxWidth} bg-cover bg-center bg-no-repeat pb-10 pt-40 px-4 2xl:px-28 md:px-10 lg:px-16 xl:px-20`}
+            className={`${styles.boxWidth} bg-cover bg-center bg-no-repeat pb-6 sm:pb-10 pt-20 sm:pt-40 px-2 sm:px-4 2xl:px-28 md:px-10 lg:px-16 xl:px-20`}
             style={hero ? { backgroundImage: `url(${hero})` } : undefined}
         >
-            <div className="bg-white/95 p-10 border border-hh-orange rounded-md shadow">
-                <h1 className={`${styles.h4} !text-xl !text-black font-normal`}>
+            <div className="bg-white/95 p-4 sm:p-6 lg:p-10 border border-hh-orange rounded-md shadow">
+                <h1 className={`${styles.h4} !text-lg sm:!text-xl !text-black font-normal`}>
                     Escape to relaxation: Book your sauna experience today
                 </h1>
                 <p
-                    className={`${styles.paragraph}  !text-black font-normal pb-12`}
+                    className={`${styles.paragraph} !text-sm sm:!text-base !text-black font-normal pb-6 sm:pb-12`}
                 >
                     Plunge into the ocean, then step straight into the warmth of
                     our wood-fired beachfront sauna…
                 </p>
 
                 {/* Header */}
-                <div className="flex gap-x-4 items-center mb-10">
-                    <p className="text-hh-orange font-medium text-3xl">
+                <div className="flex gap-x-4 items-center mb-6 sm:mb-10">
+                    <p className="text-hh-orange font-medium text-xl sm:text-2xl lg:text-3xl">
                         SAUNA SCHEDULE
                     </p>
                 </div>
 
-                {/* 7 equal columns, no AM/PM rows */}
-                <div className="grid grid-cols-7 gap-x-6">
+                {/* Responsive grid: mobile stack, tablet 3 cols, desktop 7 cols */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-4 sm:gap-x-6">
                     {Object.entries(schedule).map(([day, items]) => (
-                        <div key={day} className="space-y-6 col-span-1">
-                            <div className="bg-hh-orange rounded-2xl shadow py-3 px-6 flex justify-center">
-                                <p className="text-white text-2xl uppercase">
+                        <div key={day} className="space-y-3 sm:space-y-4 md:space-y-6 col-span-1">
+                            <div className="bg-hh-orange rounded-xl sm:rounded-2xl shadow py-2 sm:py-3 md:py-2.5 px-4 sm:px-6 md:px-4 flex justify-center">
+                                <p className="text-white text-lg sm:text-xl md:text-lg lg:text-xl uppercase font-medium">
                                     {day}
                                 </p>
                             </div>
 
-                            <div className="border border-hh-orange bg-white rounded-2xl px-2 py-4 flex flex-col gap-y-3">
+                            <div className="border border-hh-orange bg-white rounded-xl sm:rounded-2xl px-2 py-3 sm:py-4 md:py-3 flex flex-col gap-y-2 sm:gap-y-3 md:gap-y-2 min-h-[120px] sm:min-h-[140px] md:min-h-[130px]">
                                 {items.map((item) => {
                                     const isSel =
                                         selected?.day === day &&
@@ -172,25 +172,25 @@ export default function Locations({ nextStep, updateFormData, events }) {
                                             onClick={() =>
                                                 handleSelect(day, item)
                                             }
-                                            className={`border border-hh-orange rounded-2xl p-1.5 cursor-pointer transition-all hover:bg-hh-orange/10 ${
-                                                isSel ? "bg-hh-orange/10" : ""
+                                            className={`border border-hh-orange rounded-xl sm:rounded-2xl p-2 sm:p-1.5 md:p-2 cursor-pointer transition-all hover:bg-hh-orange/10 active:bg-hh-orange/20 ${
+                                                isSel ? "bg-hh-orange/10 shadow-sm" : ""
                                             }`}
                                         >
-                                            <p className="text-hh-orange font-medium uppercase text-center leading-snug text-sm">
+                                            <p className="text-hh-orange font-medium uppercase text-center leading-snug text-sm md:text-xs lg:text-sm">
                                                 {item.name}
-                                                {/* {item.windowsLabel && (
-                                                <span className="block normal-case text-xs text-black/70">
-                                                    {item.windowsLabel} aa
-                                                </span>
-                                            )} */}
                                             </p>
+                                            {item.windowsLabel && (
+                                                <p className="text-xs md:text-[11px] lg:text-xs text-black/60 text-center mt-1 normal-case leading-tight">
+                                                    {item.windowsLabel}
+                                                </p>
+                                            )}
                                         </div>
                                     );
                                 })}
 
                                 {items.length === 0 && (
-                                    <div className="text-xs text-hh-gray text-center py-6">
-                                        {/* empty state */}
+                                    <div className="text-xs text-gray-400 text-center py-4 sm:py-6 md:py-4">
+                                        No sessions
                                     </div>
                                 )}
                             </div>
@@ -198,23 +198,27 @@ export default function Locations({ nextStep, updateFormData, events }) {
                     ))}
                 </div>
 
-                <div className=" mt-8">
+                <div className="mt-6 sm:mt-8">
                     {selected && (
-                        <div>
+                        <div className="flex flex-col sm:flex-row md:flex-col lg:flex-row gap-3 sm:gap-0 md:gap-3 lg:gap-0">
+                            <div className="bg-gray-50 p-3 rounded-lg mb-3 sm:mb-0 md:mb-3 lg:mb-0 sm:mr-4 md:mr-0 lg:mr-4 flex-1">
+                                <p className="text-sm text-gray-600">Selected:</p>
+                                <p className="font-medium text-hh-orange">{selected.name} - {selected.day}</p>
+                            </div>
                             <button
                                 onClick={handleNext}
-                                className={`bg-hh-orange text-white py-2 px-6 rounded hover:bg-hh-orange/80 transition ${styles.paragraph}`}
+                                className={`bg-hh-orange text-white py-3 px-6 rounded-lg hover:bg-hh-orange/80 transition font-medium w-full sm:w-auto md:w-full lg:w-auto ${styles.paragraph}`}
                             >
-                                Next
+                                Next Step
                             </button>
                         </div>
                     )}
                 </div>
 
                 {upcomingEvents.length > 0 && (
-                    <div className="mt-16">
+                    <div className="mt-8 sm:mt-16">
                         <h2
-                            className={`${styles.h3} !text-xl !text-black mb-4`}
+                            className={`${styles.h3} !text-lg sm:!text-xl !text-black mb-4`}
                         >
                             Upcoming Events
                         </h2>
@@ -223,7 +227,7 @@ export default function Locations({ nextStep, updateFormData, events }) {
                                 <div
                                     key={ev.id}
                                     className={[
-                                        "flex items-center gap-x-4 rounded-lg px-4 py-3 transition",
+                                        "flex flex-col sm:flex-row md:flex-col lg:flex-row sm:items-center md:items-start lg:items-center gap-3 sm:gap-x-4 md:gap-3 lg:gap-x-4 rounded-lg p-3 sm:px-4 sm:py-3 md:p-3 lg:px-4 lg:py-3 transition",
                                         i === 0
                                             ? "border border-hh-orange bg-white"
                                             : "bg-[#f7f7f7] hover:bg-white",
@@ -235,18 +239,18 @@ export default function Locations({ nextStep, updateFormData, events }) {
                                             "/storage/images/hot-huts-logo.png"
                                         }
                                         alt={ev.event_name}
-                                        className="w-14 h-14 object-cover rounded"
+                                        className="w-16 h-16 sm:w-14 sm:h-14 md:w-16 md:h-16 lg:w-14 lg:h-14 object-cover rounded mx-auto sm:mx-0 md:mx-auto lg:mx-0"
                                     />
-                                    <div className="flex-1">
-                                        <p className="font-medium text-sm text-black mb-0.5">
+                                    <div className="flex-1 text-center sm:text-left md:text-center lg:text-left">
+                                        <p className="font-medium text-sm sm:text-sm md:text-sm lg:text-sm text-black mb-1 sm:mb-0.5">
                                             {ev.event_name}
                                         </p>
-                                        <div className="flex items-center gap-x-4 text-xs text-[#666]">
-                                            <span className="flex items-center gap-x-1">
+                                        <div className="flex flex-col sm:flex-row md:flex-col lg:flex-row sm:items-center md:items-center lg:items-center gap-2 sm:gap-x-4 md:gap-2 lg:gap-x-4 text-xs text-[#666]">
+                                            <span className="flex items-center justify-center sm:justify-start md:justify-center lg:justify-start gap-x-1">
                                                 <MapPinIcon className="w-4 h-4 text-hh-orange" />
                                                 {ev.location}
                                             </span>
-                                            <span className="flex items-center gap-x-1">
+                                            <span className="flex items-center justify-center sm:justify-start md:justify-center lg:justify-start gap-x-1">
                                                 <ClockIcon className="w-4 h-4 text-hh-orange" />
                                                 {dayjs(ev.date).format(
                                                     "D MMM YYYY"
@@ -295,7 +299,7 @@ export default function Locations({ nextStep, updateFormData, events }) {
 
                                             nextStep(); // step helper will skip ServiceSection for events
                                         }}
-                                        className="text-hh-orange font-semibold text-sm hover:underline"
+                                        className="bg-hh-orange text-white px-4 py-2 rounded-lg font-medium text-sm hover:bg-hh-orange/80 transition w-full sm:w-auto md:w-full lg:w-auto"
                                     >
                                         Book Now
                                     </button>

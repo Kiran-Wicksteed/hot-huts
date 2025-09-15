@@ -92,38 +92,38 @@ export default function ServiceSection({
 
     return (
         <div
-            className={`${styles.boxWidth} bg-cover bg-center bg-no-repeat pb-28 pt-40 px-4 2xl:px-28 md:px-10 lg:px-16 xl:px-20`}
+            className={`${styles.boxWidth} bg-cover bg-center bg-no-repeat pb-10 sm:pb-28 pt-28 sm:pt-40 px-2 sm:px-4 2xl:px-28 md:px-10 lg:px-16 xl:px-20`}
             style={
                 thumbSrc ? { backgroundImage: `url(${thumbSrc})` } : undefined
             }
         >
             <h1
-                className={`${styles.h3} !text-2xl !text-black font-normal max-w-3xl`}
+                className={`${styles.h3} !text-lg sm:!text-xl lg:!text-2xl !text-black font-normal max-w-3xl mb-6 sm:mb-0`}
             >
                 Cold dip, warm glow: dive into the Sea,&nbsp;then unwind in a
                 beachfront sauna at&nbsp;
                 <span className="text-hh-orange">{location.name}.</span>
             </h1>
-            <div className="grid grid-cols-2 gap-6">
-                <div className="col-span-1 border border-hh-orange bg-white rounded-md shadow grid grid-cols-3 overflow-hidden items-center mt-10">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+                <div className="col-span-1 border border-hh-orange bg-white/95 rounded-md shadow grid grid-cols-3 overflow-hidden items-center mt-6 sm:mt-10">
                     {/* right panel */}
-                    <div className="col-span-full py-8 px-20 space-y-6">
+                    <div className="col-span-full py-4 sm:py-6 lg:py-8 px-4 sm:px-8 lg:px-20 space-y-4 sm:space-y-6">
                         {/* Badges */}
-                        <div className="flex items-center gap-x-2">
+                        <div className="flex flex-wrap items-center gap-2">
                             {location.day && (
-                                <div className="bg-hh-orange py-1 px-4 shadow flex items-center gap-1 text-white rounded">
-                                    <MapPinIcon className="h-5 w-5" />
+                                <div className="bg-hh-orange py-1 px-3 sm:px-4 shadow flex items-center gap-1 text-white rounded">
+                                    <MapPinIcon className="h-4 w-4 sm:h-5 sm:w-5" />
                                     <p
-                                        className={`${styles.paragraph} uppercase !text-sm`}
+                                        className={`${styles.paragraph} uppercase !text-xs sm:!text-sm`}
                                     >
                                         {location.day}
                                     </p>
                                 </div>
                             )}
                             {location.time && (
-                                <div className="bg-hh-orange py-1 px-4 shadow flex items-center gap-1 text-white rounded">
+                                <div className="bg-hh-orange py-1 px-3 sm:px-4 shadow flex items-center gap-1 text-white rounded">
                                     <p
-                                        className={`${styles.paragraph} uppercase !text-sm`}
+                                        className={`${styles.paragraph} uppercase !text-xs sm:!text-sm`}
                                     >
                                         {location.time}
                                     </p>
@@ -131,7 +131,7 @@ export default function ServiceSection({
                             )}
                         </div>
 
-                        <h3 className={`${styles.h2} text-black font-medium`}>
+                        <h3 className={`${styles.h2} !text-lg sm:!text-xl text-black font-medium`}>
                             Single Sauna Session
                         </h3>
 
@@ -143,10 +143,10 @@ export default function ServiceSection({
                                 return (
                                     <div
                                         key={svc.id}
-                                        className="flex justify-between items-center border border-hh-orange px-2 py-1 rounded"
+                                        className="flex flex-col sm:flex-row sm:justify-between sm:items-center border border-hh-orange px-3 py-2 rounded gap-3 sm:gap-2"
                                     >
                                         {/* label */}
-                                        <div className="flex items-center gap-x-2">
+                                        <div className="flex items-center gap-x-2 flex-1">
                                             <input
                                                 type="checkbox"
                                                 checked={qty > 0}
@@ -159,14 +159,14 @@ export default function ServiceSection({
                                                 className="h-4 w-4 text-hh-orange border-hh-orange rounded"
                                             />
                                             <label
-                                                className={`${styles.paragraph} font-medium text-black`}
+                                                className={`${styles.paragraph} !text-sm font-medium text-black`}
                                             >
                                                 {svc.name} / R{svc.price}
                                             </label>
                                         </div>
 
                                         {/* qty picker */}
-                                        <div className="flex gap-x-1">
+                                        <div className="flex gap-x-2 items-center justify-center sm:justify-end">
                                             <button
                                                 onClick={() =>
                                                     updateQuantity(
@@ -175,11 +175,12 @@ export default function ServiceSection({
                                                     )
                                                 }
                                                 aria-label="Decrease quantity"
+                                                className="touch-manipulation"
                                             >
-                                                <MinusIcon className="h-6 w-6 text-black bg-[#E2E2E2] rounded-lg p-0.5" />
+                                                <MinusIcon className="h-8 w-8 sm:h-6 sm:w-6 text-black bg-[#E2E2E2] rounded-lg p-1 sm:p-0.5" />
                                             </button>
                                             <span
-                                                className={`${styles.paragraph} font-medium text-black w-6 text-center`}
+                                                className={`${styles.paragraph} font-medium text-black w-8 sm:w-6 text-center`}
                                             >
                                                 {qty}
                                             </span>
@@ -191,8 +192,9 @@ export default function ServiceSection({
                                                     )
                                                 }
                                                 aria-label="Increase quantity"
+                                                className="touch-manipulation"
                                             >
-                                                <PlusIcon className="h-6 w-6 text-black bg-[#E2E2E2] rounded-lg p-0.5" />
+                                                <PlusIcon className="h-8 w-8 sm:h-6 sm:w-6 text-black bg-[#E2E2E2] rounded-lg p-1 sm:p-0.5" />
                                             </button>
                                         </div>
                                     </div>
@@ -200,25 +202,25 @@ export default function ServiceSection({
                             })}
 
                             {/* ----------------- PEOPLE COUNT ----------------- */}
-                            <div className="flex justify-between items-end pr-2 pt-6">
+                            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-end gap-4 sm:gap-0 pt-6">
                                 <p
-                                    className={`${styles.h2} text-hh-orange font-medium`}
+                                    className={`${styles.h2} !text-lg sm:!text-xl text-hh-orange font-medium`}
                                 >
                                     R{total}
                                     <span
-                                        className={`ml-1 text-hh-gray ${styles.paragraph}`}
+                                        className={`ml-1 text-hh-gray ${styles.paragraph} !text-sm`}
                                     >
                                         / total
                                     </span>
                                 </p>
 
-                                <div className="flex items-center gap-x-4">
+                                <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-x-4">
                                     <p
-                                        className={`text-hh-gray ${styles.paragraph}`}
+                                        className={`text-hh-gray ${styles.paragraph} !text-sm text-center sm:text-left`}
                                     >
                                         No of people (max 8)
                                     </p>
-                                    <div className="flex gap-x-1">
+                                    <div className="flex gap-x-2 justify-center sm:justify-end">
                                         <button
                                             onClick={() =>
                                                 updateQuantity(
@@ -227,11 +229,12 @@ export default function ServiceSection({
                                                 )
                                             }
                                             aria-label="Decrease people"
+                                            className="touch-manipulation"
                                         >
-                                            <MinusIcon className="h-6 w-6 text-black bg-[#E2E2E2] rounded-lg p-0.5" />
+                                            <MinusIcon className="h-8 w-8 sm:h-6 sm:w-6 text-black bg-[#E2E2E2] rounded-lg p-1 sm:p-0.5" />
                                         </button>
                                         <span
-                                            className={`${styles.paragraph} font-medium text-black w-6 text-center`}
+                                            className={`${styles.paragraph} font-medium text-black w-8 sm:w-6 text-center`}
                                         >
                                             {people}
                                         </span>
@@ -243,8 +246,9 @@ export default function ServiceSection({
                                                 )
                                             }
                                             aria-label="Increase people"
+                                            className="touch-manipulation"
                                         >
-                                            <PlusIcon className="h-6 w-6 text-black bg-[#E2E2E2] rounded-lg p-0.5" />
+                                            <PlusIcon className="h-8 w-8 sm:h-6 sm:w-6 text-black bg-[#E2E2E2] rounded-lg p-1 sm:p-0.5" />
                                         </button>
                                     </div>
                                 </div>
@@ -252,10 +256,10 @@ export default function ServiceSection({
                         </div>
 
                         {/* nav buttons */}
-                        <div className="flex items-center gap-x-2 justify-end mt-8">
+                        <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-x-2 justify-end mt-6 sm:mt-8">
                             <button
                                 onClick={prevStep}
-                                className="bg-white py-1 px-4 shadow text-hh-orange rounded border-hh-orange"
+                                className="w-full sm:w-auto bg-white py-3 sm:py-2 px-6 sm:px-4 shadow text-hh-orange rounded border border-hh-orange font-medium"
                             >
                                 <p
                                     className={`${styles.paragraph} uppercase !text-sm`}
@@ -270,7 +274,7 @@ export default function ServiceSection({
                                     });
                                     nextStep();
                                 }}
-                                className="bg-hh-orange py-1 px-4 shadow text-white rounded"
+                                className="w-full sm:w-auto bg-hh-orange py-3 sm:py-2 px-6 sm:px-4 shadow text-white rounded font-medium"
                             >
                                 <p
                                     className={`${styles.paragraph} uppercase !text-sm`}
@@ -284,17 +288,17 @@ export default function ServiceSection({
 
                 {/* ---------- Next upcoming event banner ---------- */}
                 {nextEventHere && (
-                    <div className="flex-1 border border-hh-orange bg-white rounded-md shadow grid grid-cols-3 overflow-hidden items-center mt-10">
+                    <div className="flex-1 border border-hh-orange bg-white/95 rounded-md shadow grid grid-cols-3 overflow-hidden items-center mt-6 sm:mt-10">
                         {/* right panel */}
-                        <div className="col-span-full py-8 px-20 space-y-6">
+                        <div className="col-span-full py-4 sm:py-6 lg:py-8 px-4 sm:px-8 lg:px-20 space-y-4 sm:space-y-6">
                             {/* Badges */}
                             {nextEventHere && (
-                                <div className="flex items-center gap-x-2">
+                                <div className="flex flex-wrap items-center gap-2">
                                     {/* Date badge */}
-                                    <div className="bg-hh-orange py-1 px-4 shadow flex items-center gap-1 text-white rounded">
-                                        <CalendarDaysIcon className="h-5 w-5" />
+                                    <div className="bg-hh-orange py-1 px-3 sm:px-4 shadow flex items-center gap-1 text-white rounded">
+                                        <CalendarDaysIcon className="h-4 w-4 sm:h-5 sm:w-5" />
                                         <p
-                                            className={`${styles.paragraph} uppercase !text-sm`}
+                                            className={`${styles.paragraph} uppercase !text-xs sm:!text-sm`}
                                         >
                                             {dayjs(nextEventHere.date).format(
                                                 "ddd, D MMM YYYY"
@@ -303,10 +307,10 @@ export default function ServiceSection({
                                     </div>
 
                                     {/* Time badge */}
-                                    <div className="bg-hh-orange py-1 px-4 shadow flex items-center gap-1 text-white rounded">
-                                        <ClockIcon className="h-5 w-5" />
+                                    <div className="bg-hh-orange py-1 px-3 sm:px-4 shadow flex items-center gap-1 text-white rounded">
+                                        <ClockIcon className="h-4 w-4 sm:h-5 sm:w-5" />
                                         <p
-                                            className={`${styles.paragraph} uppercase !text-sm`}
+                                            className={`${styles.paragraph} uppercase !text-xs sm:!text-sm`}
                                         >
                                             {nextEventHere.start} –{" "}
                                             {nextEventHere.end}
@@ -316,25 +320,25 @@ export default function ServiceSection({
                             )}
 
                             <h3
-                                className={`${styles.h2} text-black font-medium`}
+                                className={`${styles.h2} !text-lg sm:!text-xl text-black font-medium`}
                             >
                                 {nextEventHere.event_name}
                             </h3>
 
-                            <p>{nextEventHere.description}</p>
+                            <p className="text-sm sm:text-base">{nextEventHere.description}</p>
 
                             {/* ----------------- ADD-ONS LIST ----------------- */}
                             <div className="space-y-2">
-                                <div className="flex justify-between items-center border border-hh-orange px-2 py-1 rounded">
+                                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center border border-hh-orange px-3 py-2 rounded gap-3 sm:gap-2">
                                     {/* label */}
-                                    <div className="flex items-center gap-x-2">
+                                    <div className="flex items-center gap-x-2 flex-1">
                                         <input
                                             type="checkbox"
                                             checked={true}
                                             className="h-4 w-4 text-hh-orange border-hh-orange rounded"
                                         />
                                         <label
-                                            className={`${styles.paragraph} font-medium text-black`}
+                                            className={`${styles.paragraph} !text-sm font-medium text-black`}
                                         >
                                             Single Sauna Session (15 minutes) *
                                         </label>
@@ -342,25 +346,25 @@ export default function ServiceSection({
                                 </div>
 
                                 {/* ----------------- PEOPLE COUNT ----------------- */}
-                                <div className="flex justify-between items-end pr-2 pt-6">
+                                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-end gap-4 sm:gap-0 pt-6">
                                     <p
-                                        className={`${styles.h2} text-hh-orange font-medium`}
+                                        className={`${styles.h2} !text-lg sm:!text-xl text-hh-orange font-medium`}
                                     >
                                         R{eventTotal}
                                         <span
-                                            className={`ml-1 text-hh-gray ${styles.paragraph}`}
+                                            className={`ml-1 text-hh-gray ${styles.paragraph} !text-sm`}
                                         >
                                             / total
                                         </span>
                                     </p>
 
-                                    <div className="flex items-center gap-x-4">
+                                    <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-x-4">
                                         <p
-                                            className={`text-hh-gray ${styles.paragraph}`}
+                                            className={`text-hh-gray ${styles.paragraph} !text-sm text-center sm:text-left`}
                                         >
                                             No of people
                                         </p>
-                                        <div className="flex gap-x-1">
+                                        <div className="flex gap-x-2 justify-center sm:justify-end">
                                             <button
                                                 onClick={() =>
                                                     setEventQty(
@@ -371,11 +375,12 @@ export default function ServiceSection({
                                                     )
                                                 }
                                                 aria-label="Decrease people"
+                                                className="touch-manipulation"
                                             >
-                                                <MinusIcon className="h-6 w-6 text-black bg-[#E2E2E2] rounded-lg p-0.5" />
+                                                <MinusIcon className="h-8 w-8 sm:h-6 sm:w-6 text-black bg-[#E2E2E2] rounded-lg p-1 sm:p-0.5" />
                                             </button>
                                             <span
-                                                className={`${styles.paragraph} font-medium text-black w-6 text-center`}
+                                                className={`${styles.paragraph} font-medium text-black w-8 sm:w-6 text-center`}
                                             >
                                                 {eventQty}
                                             </span>
@@ -389,8 +394,9 @@ export default function ServiceSection({
                                                     )
                                                 }
                                                 aria-label="Increase people"
+                                                className="touch-manipulation"
                                             >
-                                                <PlusIcon className="h-6 w-6 text-black bg-[#E2E2E2] rounded-lg p-0.5" />
+                                                <PlusIcon className="h-8 w-8 sm:h-6 sm:w-6 text-black bg-[#E2E2E2] rounded-lg p-1 sm:p-0.5" />
                                             </button>
                                         </div>
                                     </div>
@@ -398,10 +404,10 @@ export default function ServiceSection({
                             </div>
 
                             {/* nav buttons */}
-                            <div className="flex items-center gap-x-2 justify-end mt-8">
+                            <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-x-2 justify-end mt-6 sm:mt-8">
                                 <button
                                     onClick={prevStep}
-                                    className="bg-white py-1 px-4 shadow text-hh-orange rounded border-hh-orange"
+                                    className="w-full sm:w-auto bg-white py-3 sm:py-2 px-6 sm:px-4 shadow text-hh-orange rounded border border-hh-orange font-medium"
                                 >
                                     <p
                                         className={`${styles.paragraph} uppercase !text-sm`}
@@ -428,7 +434,7 @@ export default function ServiceSection({
                                         });
                                         nextStep();
                                     }}
-                                    className="bg-hh-orange py-1 px-4 shadow text-white rounded"
+                                    className="w-full sm:w-auto bg-hh-orange py-3 sm:py-2 px-6 sm:px-4 shadow text-white rounded font-medium"
                                 >
                                     <p
                                         className={`${styles.paragraph} uppercase !text-sm`}
