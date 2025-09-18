@@ -14,7 +14,7 @@ export default function ConfirmedMenu() {
         >
             <div className="border border-hh-orange bg-white rounded-md shadow">
                 <nav>
-                    <ul className="flex justify-between max-w-6xl mx-auto items-center">
+                    <ul className="flex justify-between px-4 max-w-6xl mx-auto items-center">
                         <li>
                             <a href="/" className="-m-1.5 p-1.5">
                                 <span className="sr-only">Hot Huts</span>

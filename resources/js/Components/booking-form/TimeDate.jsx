@@ -200,27 +200,27 @@ export default function TimeDate({
 
     return (
         <div
-            className={`${styles.boxWidth} bg-cover bg-center bg-no-repeat pb-28 pt-40 px-4 2xl:px-28 md:px-10 lg:px-16 xl:px-20`}
+            className={`${styles.boxWidth} bg-cover bg-center bg-no-repeat pb-10 sm:pb-28 pt-28 sm:pt-40 px-2 sm:px-4 2xl:px-28 md:px-10 lg:px-16 xl:px-20`}
             style={hero ? { backgroundImage: `url(${hero})` } : undefined}
         >
             <h1
-                className={`${styles.h3} !text-2xl !text-black font-normal max-w-3xl`}
+                className={`${styles.h3} !text-lg sm:!text-xl lg:!text-2xl !text-white font-normal max-w-3xl mb-6 sm:mb-0`}
             >
                 Feel the Chill, Embrace the Heat — sauna sessions by the sea.
                 <span className="text-hh-orange block">{location.name}</span>
             </h1>
 
-            <div className="grid grid-cols-3 gap-x-10 relative mt-10">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-x-10 relative mt-6 sm:mt-10">
                 {/* left: calendar + slots */}
-                <div className="col-span-2 bg-white p-10 rounded-md shadow border-hh-orange border">
-                    <h3 className={`${styles.h2} text-black font-medium`}>
+                <div className="col-span-1 lg:col-span-2 bg-white/95 p-4 sm:p-6 lg:p-10 rounded-md shadow border-hh-orange border">
+                    <h3 className={`${styles.h2} !text-lg sm:!text-xl lg:!text-2xl text-black font-medium`}>
                         Pick a slot on a{" "}
                         <span className="text-hh-orange font-semibold">
                             {selectedDate ? selectedDate.format("dddd") : "..."}
                         </span>
                     </h3>
                     <p
-                        className={`!font-medium !text-xl text-black mt-2 mb-4 ${styles.paragraph}`}
+                        className={`!font-medium !text-lg sm:!text-xl text-black mt-2 mb-4 ${styles.paragraph}`}
                     >
                         {selectedDate
                             ? selectedDate.format("MMMM YYYY")
@@ -243,7 +243,7 @@ export default function TimeDate({
                     {!loading && displayDays.length > 0 && (
                         <>
                             {/* date chips */}
-                            <div className="flex gap-x-6 mb-16">
+                            <div className="flex flex-wrap gap-3 sm:gap-x-6 mb-8 sm:mb-16 justify-center sm:justify-start">
                                 {displayDays.map((day) => {
                                     const isSelected = day.isSame(
                                         selectedDate,
@@ -256,7 +256,7 @@ export default function TimeDate({
                                             className="text-center cursor-pointer"
                                         >
                                             <div
-                                                className={`text-xl w-16 py-4 rounded-md ${
+                                                className={`text-lg sm:text-xl w-14 sm:w-16 py-3 sm:py-4 rounded-md ${
                                                     isSelected
                                                         ? "bg-hh-orange text-white font-bold border border-hh-orange"
                                                         : "bg-white text-hh-gray border border-hh-gray font-medium"
@@ -267,7 +267,7 @@ export default function TimeDate({
                                             <div
                                                 className={`${
                                                     styles.paragraph
-                                                } font-medium ${
+                                                } !text-sm font-medium ${
                                                     isSelected
                                                         ? "text-hh-orange"
                                                         : "text-hh-gray"
@@ -281,7 +281,7 @@ export default function TimeDate({
                             </div>
 
                             {/* slots */}
-                            <div className="space-y-10">
+                            <div className="space-y-6 sm:space-y-10">
                                 {PERIOD_ORDER.some(
                                     (p) => (slots[p] ?? []).length > 0
                                 ) ? (
@@ -289,7 +289,7 @@ export default function TimeDate({
                                         (slots[p] ?? []).length > 0 ? (
                                             <div key={p} className="space-y-2">
                                                 <p
-                                                    className={`${styles.paragraph} mb-6 underline !text-lg text-black font-medium`}
+                                                    className={`${styles.paragraph} mb-4 sm:mb-6 underline !text-base sm:!text-lg text-black font-medium`}
                                                 >
                                                     {nice(p)} Slots
                                                 </p>
@@ -323,27 +323,27 @@ export default function TimeDate({
                 </div>
 
                 {/* right: summary */}
-                <div className="col-span-1 border border-hh-gray bg-white rounded-md shadow overflow-hidden h-fit sticky top-12">
-                    <div className="p-8">
+                <div className="col-span-1 border border-hh-gray bg-white/95 rounded-md shadow overflow-hidden h-fit lg:sticky lg:top-12">
+                    <div className="p-4 sm:p-6 lg:p-8">
                         <h4
-                            className={`${styles.h3} !mb-4 font-medium text-black`}
+                            className={`${styles.h3} !text-lg sm:!text-xl lg:!text-2xl !mb-4 font-medium text-black`}
                         >
                             Summary
                         </h4>
-                        <div className="flex items-center gap-x-2">
-                            <div className="bg-hh-orange py-1 px-4 shadow flex items-center gap-1 text-white rounded">
-                                <MapPinIcon className="h-5 w-5" />
+                        <div className="flex flex-wrap items-center gap-2">
+                            <div className="bg-hh-orange py-1 px-3 sm:px-4 shadow flex items-center gap-1 text-white rounded">
+                                <MapPinIcon className="h-4 w-4 sm:h-5 sm:w-5" />
                                 <p
-                                    className={`${styles.paragraph} uppercase !text-sm`}
+                                    className={`${styles.paragraph} uppercase !text-xs sm:!text-sm`}
                                 >
                                     {selectedDate
                                         ? selectedDate.format("dddd")
                                         : location.day}
                                 </p>
                             </div>
-                            <div className="bg-hh-orange py-1 px-4 shadow flex items-center gap-1 text-white rounded">
+                            <div className="bg-hh-orange py-1 px-3 sm:px-4 shadow flex items-center gap-1 text-white rounded">
                                 <p
-                                    className={`${styles.paragraph} uppercase !text-sm`}
+                                    className={`${styles.paragraph} uppercase !text-xs sm:!text-sm`}
                                 >
                                     15 minutes
                                 </p>
@@ -351,18 +351,18 @@ export default function TimeDate({
                         </div>
 
                         <div className="space-y-2">
-                            <div className="flex items-center gap-x-2 mt-6 mb-6 text-hh-orange">
-                                <MapPinIcon className="h-6 w-6 shrink-0" />
+                            <div className="flex items-center gap-x-2 mt-4 sm:mt-6 mb-4 sm:mb-6 text-hh-orange">
+                                <MapPinIcon className="h-5 w-5 sm:h-6 sm:w-6 shrink-0" />
                                 <h3
-                                    className={`${styles.h3} !mb-0 font-medium`}
+                                    className={`${styles.h3} !text-base sm:!text-lg lg:!text-xl !mb-0 font-medium`}
                                 >
                                     {location.name}
                                 </h3>
                             </div>
 
-                            <div className="flex justify-between items-end border border-hh-gray p-2 rounded">
+                            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-end gap-3 sm:gap-2 border border-hh-gray p-3 sm:p-2 rounded">
                                 <p
-                                    className={`${styles.paragraph} text-black font-medium!mb-0`}
+                                    className={`${styles.paragraph} !text-sm text-black font-medium !mb-0`}
                                 >
                                     Single Sauna Session
                                 </p>
@@ -382,10 +382,10 @@ export default function TimeDate({
                                 .map((svc) => (
                                     <div
                                         key={svc.code}
-                                        className="flex justify-between items-end border border-hh-gray p-2 rounded"
+                                        className="flex flex-col sm:flex-row sm:justify-between sm:items-end gap-3 sm:gap-2 border border-hh-gray p-3 sm:p-2 rounded"
                                     >
                                         <p
-                                            className={`${styles.paragraph} text-black font-medium!mb-0`}
+                                            className={`${styles.paragraph} !text-sm text-black font-medium !mb-0`}
                                         >
                                             {svc.name}
                                         </p>
@@ -399,19 +399,19 @@ export default function TimeDate({
                                     </div>
                                 ))}
 
-                            <div className="pt-6 flex justify-between gap-x-2 items-center">
-                                <div className="bg-white w-full py-3 shadow flex items-center justify-center gap-1 text-hh-orange rounded border border-hh-orange">
+                            <div className="pt-4 sm:pt-6 flex flex-col sm:flex-row justify-between gap-3 sm:gap-x-2 items-center">
+                                <div className="bg-white w-full py-2 sm:py-3 shadow flex items-center justify-center gap-1 text-hh-orange rounded border border-hh-orange">
                                     <p
-                                        className={`${styles.paragraph} uppercase !text-sm`}
+                                        className={`${styles.paragraph} uppercase !text-xs sm:!text-sm`}
                                     >
                                         {selectedDate
                                             ? selectedDate.format("YYYY-MM-DD")
                                             : "Date"}
                                     </p>
                                 </div>
-                                <div className="bg-white w-full py-3 shadow flex items-center justify-center gap-1 text-hh-orange rounded border border-hh-orange">
+                                <div className="bg-white w-full py-2 sm:py-3 shadow flex items-center justify-center gap-1 text-hh-orange rounded border border-hh-orange">
                                     <p
-                                        className={`${styles.paragraph} uppercase !text-sm`}
+                                        className={`${styles.paragraph} uppercase !text-xs sm:!text-sm`}
                                     >
                                         {time || "Time"}
                                     </p>
@@ -419,12 +419,12 @@ export default function TimeDate({
                             </div>
 
                             <h4
-                                className={`${styles.h3} !mb-4 font-medium text-hh-orange pt-8`}
+                                className={`${styles.h3} !text-lg sm:!text-xl lg:!text-2xl !mb-4 font-medium text-hh-orange pt-6 sm:pt-8`}
                             >
                                 Total: R{total}
                             </h4>
 
-                            <div className="flex items-center gap-x-2">
+                            <div className="flex items-start gap-x-3">
                                 <input
                                     type="checkbox"
                                     id="consent"
@@ -433,37 +433,36 @@ export default function TimeDate({
                                     onChange={(e) =>
                                         setAgreed(e.target.checked)
                                     }
-                                    className="h-4 w-4 text-hh-orange ring-white border-hh-orange ring focus:ring-hh-orange rounded bg-white"
+                                    className="h-4 w-4 mt-0.5 text-hh-orange ring-white border-hh-orange ring focus:ring-hh-orange rounded bg-white shrink-0"
                                 />
                                 <label
                                     htmlFor="consent"
-                                    className={`${styles.paragraph} text-hh-gray !text-sm`}
+                                    className={`${styles.paragraph} text-hh-gray !text-xs sm:!text-sm leading-relaxed`}
                                 >
                                     I agree that I have read and accepted the
                                     Terms of Use and Privacy Policy
                                 </label>
                             </div>
 
-                            <div className="flex items-center gap-x-2 pt-6">
-                                <div className="bg-white border border-hh-orange py-1 px-4 shadow flex items-center gap-1 text-hh-orange rounded">
-                                    <button
-                                        onClick={prevStep}
-                                        className={`${styles.paragraph} uppercase whitespace-nowrap`}
-                                    >
+                            <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-x-2 pt-4 sm:pt-6">
+                                <button
+                                    onClick={prevStep}
+                                    className="w-full sm:w-auto bg-white border border-hh-orange py-3 sm:py-2 px-6 sm:px-4 shadow text-hh-orange rounded font-medium"
+                                >
+                                    <span className={`${styles.paragraph} uppercase !text-sm`}>
                                         go back
-                                    </button>
-                                </div>
+                                    </span>
+                                </button>
                                 <button
                                     onClick={onContinue}
                                     disabled={!selectedSlot || !agreed}
-                                    className={`${
-                                        styles.paragraph
-                                    } w-full uppercase ${
-                                        (!selectedSlot || !agreed) &&
-                                        "opacity-50 cursor-not-allowed"
+                                    className={`w-full sm:flex-1 py-3 sm:py-2 px-6 sm:px-4 shadow rounded font-medium ${
+                                        (!selectedSlot || !agreed)
+                                            ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                                            : "bg-hh-orange text-white"
                                     }`}
                                 >
-                                    <span className="bg-hh-orange py-1 w-full px-4 shadow flex items-center justify-center gap-1 text-white rounded">
+                                    <span className={`${styles.paragraph} uppercase !text-sm`}>
                                         Continue
                                     </span>
                                 </button>
@@ -479,19 +478,19 @@ export default function TimeDate({
 function TimeSlot({ slot, selectedTime, handleTimeSelect }) {
     return (
         <div
-            className={`border rounded shadow p-6 flex justify-between ${
+            className={`border rounded shadow p-4 sm:p-6 flex flex-col sm:flex-row sm:justify-between gap-2 sm:gap-0 ${
                 slot.spots_left === 0
                     ? "opacity-40 cursor-not-allowed"
-                    : "cursor-pointer"
+                    : "cursor-pointer touch-manipulation"
             } ${
-                selectedTime === slot.id ? "border-hh-orange" : "border-hh-gray"
+                selectedTime === slot.id ? "border-hh-orange bg-orange-50" : "border-hh-gray"
             }`}
             onClick={() => handleTimeSelect(slot)}
         >
-            <p className={`${styles.paragraph} text-black font-medium`}>
+            <p className={`${styles.paragraph} !text-sm sm:!text-base text-black font-medium`}>
                 {slot.starts_at} – {slot.ends_at}
             </p>
-            <p className={`${styles.paragraph} uppercase text-[#999]`}>
+            <p className={`${styles.paragraph} !text-xs sm:!text-sm uppercase text-[#999]`}>
                 {slot.spots_left} slots left
             </p>
         </div>
@@ -500,17 +499,23 @@ function TimeSlot({ slot, selectedTime, handleTimeSelect }) {
 
 function QtyPicker({ code, qty, min, max, update }) {
     return (
-        <div className="flex gap-x-1 items-center">
-            <button onClick={() => update(code, Math.max(min, qty - 1))}>
-                <MinusIcon className="h-6 w-6 text-black bg-[#E2E2E2] rounded-lg p-0.5" />
+        <div className="flex gap-x-2 items-center justify-center sm:justify-end">
+            <button 
+                onClick={() => update(code, Math.max(min, qty - 1))}
+                className="touch-manipulation"
+            >
+                <MinusIcon className="h-8 w-8 sm:h-6 sm:w-6 text-black bg-[#E2E2E2] rounded-lg p-1 sm:p-0.5" />
             </button>
             <span
-                className={`${styles.paragraph} font-medium text-black w-6 text-center`}
+                className={`${styles.paragraph} font-medium text-black w-8 sm:w-6 text-center`}
             >
                 {qty}
             </span>
-            <button onClick={() => update(code, Math.min(max, qty + 1))}>
-                <PlusIcon className="h-6 w-6 text-black bg-[#E2E2E2] rounded-lg p-0.5" />
+            <button 
+                onClick={() => update(code, Math.min(max, qty + 1))}
+                className="touch-manipulation"
+            >
+                <PlusIcon className="h-8 w-8 sm:h-6 sm:w-6 text-black bg-[#E2E2E2] rounded-lg p-1 sm:p-0.5" />
             </button>
         </div>
     );
