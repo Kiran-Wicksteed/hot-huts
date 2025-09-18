@@ -106,13 +106,21 @@ export default function InvoiceDetails() {
         };
 
         return (
-            <div className={`${styles.boxWidth} py-10 sm:py-20 px-2 sm:px-4 text-center`}>
-                <p className={`${styles.paragraph} !text-base sm:!text-lg mb-4`}>Your cart is empty.</p>
+            <div
+                className={`${styles.boxWidth} py-10 sm:py-20 px-2 sm:px-4 text-center`}
+            >
+                <p
+                    className={`${styles.paragraph} !text-base sm:!text-lg mb-4`}
+                >
+                    Your cart is empty.
+                </p>
                 <button
                     onClick={startFreshBooking}
                     className="bg-hh-orange text-white px-6 py-3 rounded font-medium touch-manipulation"
                 >
-                    <span className={`${styles.paragraph} !text-sm sm:!text-base`}>
+                    <span
+                        className={`${styles.paragraph} !text-sm sm:!text-base`}
+                    >
                         Start a booking
                     </span>
                 </button>
@@ -333,10 +341,14 @@ export default function InvoiceDetails() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-x-8">
                 {/* LEFT: summary */}
                 <div className="col-span-1 lg:col-span-2 border border-hh-orange rounded-md shadow bg-white/95 p-4 sm:p-6">
-                    <h1 className={`${styles.h2} !text-xl sm:!text-2xl lg:!text-3xl text-hh-orange font-medium`}>
+                    <h1
+                        className={`${styles.h2} !text-xl sm:!text-2xl lg:!text-3xl text-hh-orange font-medium`}
+                    >
                         Order summary
                     </h1>
-                    <p className={`${styles.paragraph} !text-sm sm:!text-base text-black/60 mb-4`}>
+                    <p
+                        className={`${styles.paragraph} !text-sm sm:!text-base text-black/60 mb-4`}
+                    >
                         {invoiceDate}
                     </p>
 
@@ -403,7 +415,7 @@ export default function InvoiceDetails() {
                                         />
                                     ))}
                                 </div>
-                                
+
                                 {/* Mobile layout */}
                                 <div className="sm:hidden space-y-2">
                                     {lines.map((l, idx) => (
@@ -430,13 +442,17 @@ export default function InvoiceDetails() {
                                         R{money(calcItemTotal(it))}
                                     </p>
                                 </div>
-                                
+
                                 {/* Mobile item total */}
                                 <div className="sm:hidden flex justify-between items-center bg-[#F5F5F5] rounded py-3 px-3 mt-3">
-                                    <p className={`${styles.paragraph} !text-sm text-black/50`}>
+                                    <p
+                                        className={`${styles.paragraph} !text-sm text-black/50`}
+                                    >
                                         Item total:
                                     </p>
-                                    <p className={`${styles.paragraph} !text-sm font-medium text-black`}>
+                                    <p
+                                        className={`${styles.paragraph} !text-sm font-medium text-black`}
+                                    >
                                         R{money(calcItemTotal(it))}
                                     </p>
                                 </div>
@@ -444,10 +460,8 @@ export default function InvoiceDetails() {
                         );
                     })}
 
-
                     {/* Grand total - Desktop */}
                     <div className="hidden sm:grid grid-cols-8 bg-[#F5F5F5] rounded py-4">
-
                         <div className="col-span-5" />
                         <p
                             className={`${styles.paragraph} col-span-2 text-right text-black/50`}
@@ -461,17 +475,19 @@ export default function InvoiceDetails() {
                         </p>
                     </div>
 
-                    
                     {/* Grand total - Mobile */}
                     <div className="sm:hidden flex justify-between items-center bg-[#F5F5F5] rounded py-4 px-4">
-                        <p className={`${styles.paragraph} !text-base font-medium text-black/50`}>
+                        <p
+                            className={`${styles.paragraph} !text-base font-medium text-black/50`}
+                        >
                             Total Amount:
                         </p>
-                        <p className={`${styles.paragraph} !text-lg font-semibold text-black`}>
+                        <p
+                            className={`${styles.paragraph} !text-lg font-semibold text-black`}
+                        >
                             R{money(grandTotal)}
                         </p>
                     </div>
-
 
                     {couponApplied && (
                         <div className="grid grid-cols-8 bg-[#F5F5F5] rounded py-2 items-center mt-2">
@@ -504,87 +520,89 @@ export default function InvoiceDetails() {
                             </p>
                         </div>
                     )}
-
                 </div>
 
                 {/* RIGHT: actions */}
                 <div className="col-span-1">
-
                     <div className="space-y-3 sm:space-y-2 mt-4 sm:mt-6">
-
-                    {/* COUPON BOX */}
-                    <div className="mt-6 mb-4 p-4 bg-white border rounded shadow">
-                        <p
-                            className={`${styles.paragraph} text-black font-medium mb-2`}
-                        >
-                            Have a coupon?
-                        </p>
-                        <div className="flex gap-2">
-                            <input
-                                type="text"
-                                value={coupon}
-                                onChange={(e) => setCoupon(e.target.value)}
-                                onKeyDown={(e) => {
-                                    if (e.key === "Enter") applyCoupon();
-                                }}
-                                placeholder="Enter code"
-                                className="flex-1 border rounded px-3 py-2"
-                                disabled={couponApplied}
-                            />
-                            {!couponApplied ? (
-                                <button
-                                    onClick={applyCoupon}
-                                    disabled={couponBusy}
-                                    className="px-3 py-2 rounded bg-hh-orange text-white border border-hh-orange"
-                                >
-                                    Apply
-                                </button>
-                            ) : (
-                                <button
-                                    onClick={removeCoupon}
-                                    className="px-3 py-2 rounded border text-black bg-white"
-                                >
-                                    Remove
-                                </button>
+                        {/* COUPON BOX */}
+                        <div className="mt-6 mb-4 p-4 bg-white border rounded shadow">
+                            <p
+                                className={`${styles.paragraph} text-black font-medium mb-2`}
+                            >
+                                Have a coupon?
+                            </p>
+                            <div className="flex gap-2">
+                                <input
+                                    type="text"
+                                    value={coupon}
+                                    onChange={(e) => setCoupon(e.target.value)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === "Enter") applyCoupon();
+                                    }}
+                                    placeholder="Enter code"
+                                    className="flex-1 border rounded px-3 py-2"
+                                    disabled={couponApplied}
+                                />
+                                {!couponApplied ? (
+                                    <button
+                                        onClick={applyCoupon}
+                                        disabled={couponBusy}
+                                        className="px-3 py-2 rounded bg-hh-orange text-white border border-hh-orange"
+                                    >
+                                        Apply
+                                    </button>
+                                ) : (
+                                    <button
+                                        onClick={removeCoupon}
+                                        className="px-3 py-2 rounded border text-black bg-white"
+                                    >
+                                        Remove
+                                    </button>
+                                )}
+                            </div>
+                            {couponErr && (
+                                <p className="text-sm text-red-600 mt-2">
+                                    {String(couponErr)}
+                                </p>
+                            )}
+                            {couponMsg && !couponErr && (
+                                <p className="text-sm text-green-700 mt-2">
+                                    {String(couponMsg)}
+                                </p>
+                            )}
+                            {couponApplied && !couponErr && (
+                                <p className="text-xs text-black/60 mt-1">
+                                    This voucher reserves one free sauna seat.
+                                    The discount is applied on the checkout
+                                    step.
+                                </p>
                             )}
                         </div>
-                        {couponErr && (
-                            <p className="text-sm text-red-600 mt-2">
-                                {String(couponErr)}
-                            </p>
-                        )}
-                        {couponMsg && !couponErr && (
-                            <p className="text-sm text-green-700 mt-2">
-                                {String(couponMsg)}
-                            </p>
-                        )}
-                        {couponApplied && !couponErr && (
-                            <p className="text-xs text-black/60 mt-1">
-                                This voucher reserves one free sauna seat. The
-                                discount is applied on the checkout step.
-                            </p>
-                        )}
-                    </div>
 
-                    <div className="space-y-2">
+                        <div className="space-y-2">
+                            <button
+                                onClick={proceedToPayment}
+                                className="shadow border border-hh-orange w-full py-3 sm:py-2 text-white bg-hh-orange rounded font-medium touch-manipulation"
+                            >
+                                <span
+                                    className={`${styles.paragraph} !text-sm sm:!text-base font-medium`}
+                                >
+                                    Proceed to payment
+                                </span>
+                            </button>
 
-                        <button
-                            onClick={proceedToPayment}
-                            className="shadow border border-hh-orange w-full py-3 sm:py-2 text-white bg-hh-orange rounded font-medium touch-manipulation"
-                        >
-                            <span className={`${styles.paragraph} !text-sm sm:!text-base font-medium`}>
-                                Proceed to payment
-                            </span>
-                        </button>
-
-                        <button
-                            onClick={bookAnother}
-                            className="bg-black shadow w-full py-3 sm:py-2 text-white rounded font-medium touch-manipulation"
-                        >
-                            <span className={`${styles.paragraph} !text-sm sm:!text-base font-medium`}>
-                                Book another service
-                            </span>
-                        </button>
+                            <button
+                                onClick={bookAnother}
+                                className="bg-black shadow w-full py-3 sm:py-2 text-white rounded font-medium touch-manipulation"
+                            >
+                                <span
+                                    className={`${styles.paragraph} !text-sm sm:!text-base font-medium`}
+                                >
+                                    Book another service
+                                </span>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -612,7 +630,9 @@ const Header = () => (
 const MobileLine = ({ item, qty, unit, total }) => (
     <div className="flex justify-between items-center py-2 border-b border-gray-100 last:border-b-0">
         <div className="flex-1">
-            <p className={`${styles.paragraph} !text-sm text-black font-medium`}>
+            <p
+                className={`${styles.paragraph} !text-sm text-black font-medium`}
+            >
                 {item}
             </p>
             <p className={`${styles.paragraph} !text-xs text-black/50`}>

@@ -134,29 +134,34 @@ export default function Locations({ nextStep, updateFormData, events }) {
             style={hero ? { backgroundImage: `url(${hero})` } : undefined}
         >
             <div className="bg-white/95 p-4 sm:p-6 lg:p-10 border border-hh-orange rounded-md shadow">
-                <h1 className={`${styles.h4} !text-lg sm:!text-xl !text-black font-normal`}>
+                <h1
+                    className={`${styles.h4} !text-lg sm:!text-xl !text-black font-normal`}
+                >
                     Escape to relaxation: Book your sauna experience today
                 </h1>
                 <p
-                    className={`${styles.paragraph} !text-sm sm:!text-base !text-black font-normal pb-6 sm:pb-12`}
+                    className={`${styles.paragraph} !text-sm sm:!text-base !text-black font-normal pb-6 `}
                 >
                     Plunge into the ocean, then step straight into the warmth of
                     our wood-fired beachfront sauna…
                 </p>
 
                 {/* Header */}
-                <div className="flex gap-x-4 items-center mb-6 sm:mb-10">
+                {/* <div className="flex gap-x-4 items-center mb-6 sm:mb-10">
                     <p className="text-hh-orange font-medium text-xl sm:text-2xl lg:text-3xl">
                         SAUNA SCHEDULE
                     </p>
-                </div>
+                </div> */}
 
                 {/* Responsive grid: mobile stack, tablet 3 cols, desktop 7 cols */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-4 sm:gap-x-6">
                     {Object.entries(schedule).map(([day, items]) => (
-                        <div key={day} className="space-y-3 sm:space-y-4 md:space-y-6 col-span-1">
+                        <div
+                            key={day}
+                            className="space-y-3 sm:space-y-4 md:space-y-6 col-span-1"
+                        >
                             <div className="bg-hh-orange rounded-xl sm:rounded-2xl shadow py-2 sm:py-3 md:py-2.5 px-4 sm:px-6 md:px-4 flex justify-center">
-                                <p className="text-white text-lg sm:text-xl md:text-lg lg:text-xl uppercase font-medium">
+                                <p className="text-white text-lg sm:text-xl md:text-lg lg:text-lg uppercase font-medium">
                                     {day}
                                 </p>
                             </div>
@@ -173,7 +178,9 @@ export default function Locations({ nextStep, updateFormData, events }) {
                                                 handleSelect(day, item)
                                             }
                                             className={`border border-hh-orange rounded-xl sm:rounded-2xl p-2 sm:p-1.5 md:p-2 cursor-pointer transition-all hover:bg-hh-orange/10 active:bg-hh-orange/20 ${
-                                                isSel ? "bg-hh-orange/10 shadow-sm" : ""
+                                                isSel
+                                                    ? "bg-hh-orange/10 shadow-sm"
+                                                    : ""
                                             }`}
                                         >
                                             <p className="text-hh-orange font-medium uppercase text-center leading-snug text-sm md:text-xs lg:text-sm">
@@ -202,8 +209,12 @@ export default function Locations({ nextStep, updateFormData, events }) {
                     {selected && (
                         <div className="flex flex-col sm:flex-row md:flex-col lg:flex-row gap-3 sm:gap-0 md:gap-3 lg:gap-0">
                             <div className="bg-gray-50 p-3 rounded-lg mb-3 sm:mb-0 md:mb-3 lg:mb-0 sm:mr-4 md:mr-0 lg:mr-4 flex-1">
-                                <p className="text-sm text-gray-600">Selected:</p>
-                                <p className="font-medium text-hh-orange">{selected.name} - {selected.day}</p>
+                                <p className="text-sm text-gray-600">
+                                    Selected:
+                                </p>
+                                <p className="font-medium text-hh-orange">
+                                    {selected.name} - {selected.day}
+                                </p>
                             </div>
                             <button
                                 onClick={handleNext}
