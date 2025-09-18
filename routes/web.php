@@ -20,6 +20,7 @@ use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\Admin\AdminCustomerController;
+use App\Http\Controllers\Loyalty\LoyaltyRewardController;
 
 Route::get('/welcome', function () {
     return Inertia::render('Welcome', [
@@ -40,6 +41,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->except(['show', 'create']) // handled by modal
             ->names('events.occurrences');
     });
+});
+
+
+Route::middleware(['auth'])->group(function () {
+    Route::post('/loyalty/rewards/apply',  [LoyaltyRewardController::class, 'apply'])->name('loyalty.rewards.apply');
+    Route::delete('/loyalty/rewards/remove', [LoyaltyRewardController::class, 'remove'])->name('loyalty.rewards.remove');
 });
 
 //Admin Register Route

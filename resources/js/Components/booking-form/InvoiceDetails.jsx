@@ -2,12 +2,20 @@ import { router } from "@inertiajs/react";
 import dayjs from "dayjs";
 import styles from "../../../styles";
 import { useCart } from "@/context/CartContext";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 
 export default function InvoiceDetails() {
     const { items, removeItem, clearCart, cartKey } = useCart();
+
     const [itemErrors, setItemErrors] = useState({}); // { [itemId]: "message" }
     const [globalError, setGlobalError] = useState(null);
+
+    // ---------- COUPON STATE ----------
+    const [coupon, setCoupon] = useState("");
+    const [couponApplied, setCouponApplied] = useState(false);
+    const [couponMsg, setCouponMsg] = useState(null);
+    const [couponErr, setCouponErr] = useState(null);
+    const couponBusy = false; // kept simple; set true/false if you want loading states
 
     // ---------- helpers ----------
     const toAmount = (v) => {
@@ -27,7 +35,6 @@ export default function InvoiceDetails() {
         const qty = toAmount(l.qty) || 0;
 
         if (kind === "event") {
-            // Use unit if present; otherwise derive from total/qty.
             const unitFromUnit = toAmount(l.unit);
             const unit =
                 unitFromUnit > 0
@@ -36,26 +43,14 @@ export default function InvoiceDetails() {
                     ? toAmount(l.total) / qty
                     : toAmount(l.total);
             const total = unit * qty;
-            return {
-                label: l.label,
-                qty,
-                unit,
-                total,
-            };
+            return { label: l.label, qty, unit, total };
         }
 
-        // Sauna / default behaviour
         const unit = toAmount(l.unit);
         const total = toAmount(l.total) || unit * qty;
-        return {
-            label: l.label,
-            qty,
-            unit,
-            total,
-        };
+        return { label: l.label, qty, unit, total };
     };
 
-    // Prefer summing normalized line totals (always fresh). If an item has no lines, fall back.
     const calcItemTotal = (it) => {
         const lines = it?.lines ?? [];
         if (lines.length) {
@@ -65,6 +60,23 @@ export default function InvoiceDetails() {
         }
         return toAmount(it?.lineTotal);
     };
+
+    // ---------- COUPON: best-effort client estimate (1 sauna seat) ----------
+    const estimatedVoucherDiscount = useMemo(() => {
+        if (!couponApplied) return 0;
+        // find the FIRST sauna item and use its base unit as the “one seat” discount
+        for (const it of items) {
+            if (it?.kind !== "sauna") continue;
+            const lines = (it.lines ?? []).map((l) =>
+                normalizeLine(it.kind, l)
+            );
+            if (!lines.length) continue;
+            const unit = toAmount(lines[0].unit);
+            const itemTotal = calcItemTotal(it);
+            if (unit > 0) return Math.min(unit, itemTotal);
+        }
+        return 0;
+    }, [couponApplied, items]);
 
     // keep itemErrors in sync if user removes an item
     useEffect(() => {
@@ -79,6 +91,10 @@ export default function InvoiceDetails() {
     // ---- compute values BEFORE any early return (no hooks below) ----
     const invoiceDate = dayjs().format("D MMMM YYYY");
     const grandTotal = items.reduce((t, it) => t + calcItemTotal(it), 0);
+    const grandTotalAfterVoucher = Math.max(
+        0,
+        grandTotal - estimatedVoucherDiscount
+    );
 
     if (!items.length) {
         const startFreshBooking = () => {
@@ -102,13 +118,91 @@ export default function InvoiceDetails() {
         );
     }
 
+    // ---------- COUPON: actions ----------
+    const applyCoupon = () => {
+        setCouponErr(null);
+        setCouponMsg(null);
+
+        const code = String(coupon || "")
+            .trim()
+            .toUpperCase();
+        if (!code) {
+            setCouponErr("Please enter a code.");
+            return;
+        }
+        if (!cartKey) {
+            setCouponErr("Cart not found. Please refresh and try again.");
+            return;
+        }
+
+        router.post(
+            route("loyalty.rewards.apply"),
+            { code, cart_key: cartKey },
+            {
+                preserveScroll: true,
+                preserveState: true,
+                replace: true,
+                onSuccess: (page) => {
+                    // Inertia usually returns flash + maybe errors
+                    const flash = page?.props?.flash || {};
+                    const err = page?.props?.errors || {};
+                    if (err?.code) {
+                        setCouponErr(err.code);
+                        setCouponApplied(false);
+                        return;
+                    }
+                    if (flash?.success) {
+                        setCouponApplied(true);
+                        setCouponMsg(
+                            flash.success || "Free sauna applied to this cart."
+                        );
+                    } else {
+                        // Some backends redirect without flash; assume success if no errors
+                        setCouponApplied(true);
+                        setCouponMsg("Free sauna applied to this cart.");
+                    }
+                },
+                onError: (errors) => {
+                    setCouponErr(
+                        errors?.code || "Could not apply this code right now."
+                    );
+                    setCouponApplied(false);
+                },
+            }
+        );
+    };
+
+    const removeCoupon = () => {
+        setCouponErr(null);
+        setCouponMsg(null);
+
+        if (!cartKey) {
+            setCouponErr("Cart not found. Please refresh and try again.");
+            return;
+        }
+
+        router.delete(route("loyalty.rewards.remove"), {
+            data: { cart_key: cartKey }, // backend should accept cart_key for cart-level unreserve
+            preserveScroll: true,
+            preserveState: true,
+            replace: true,
+            onSuccess: (page) => {
+                const flash = page?.props?.flash || {};
+                if (flash?.success) setCouponMsg(flash.success);
+                setCouponApplied(false);
+            },
+            onError: () => {
+                setCouponErr("Could not remove the code right now.");
+            },
+        });
+    };
+
     const proceedToPayment = () => {
         setGlobalError(null);
         setItemErrors({});
 
         // Build payload (include client_id so server can echo it back)
         const payloadItems = items.map((it) => {
-            // Convert addons object { code: qty } -> [{ code, qty }]
             const addonsObj = it.addons ?? {};
             const addonsArr = Object.entries(addonsObj)
                 .map(([code, qty]) => ({ code, qty: Number(qty) }))
@@ -125,7 +219,6 @@ export default function InvoiceDetails() {
             };
         });
 
-        // Lookup maps for fallback mapping if server didn't echo client_id
         const slotIdToItemId = {};
         const eventIdToItemId = {};
         items.forEach((it) => {
@@ -143,7 +236,7 @@ export default function InvoiceDetails() {
             {
                 preserveScroll: true,
                 preserveState: true,
-                replace: true, // don't add a history entry
+                replace: true,
                 onSuccess: (page) => {
                     const preflight =
                         page?.props?.preflight ?? page?.props?.flash?.preflight;
@@ -176,7 +269,6 @@ export default function InvoiceDetails() {
                     // Map per-item errors to UI
                     const mapped = {};
                     (preflight.errors || []).forEach((e) => {
-                        // { client_id?: string, type: 'slot'|'event', id, requested, available, reason? }
                         const itemId =
                             e.client_id ??
                             (e.type === "slot"
@@ -226,7 +318,6 @@ export default function InvoiceDetails() {
     const storageUrl = (path) => {
         if (!path) return null;
         if (/^https?:\/\//i.test(path)) return path;
-        // ensure it points at the /storage symlink
         return "/storage/" + String(path).replace(/^\/?(storage\/)?/i, "");
     };
 
@@ -328,8 +419,8 @@ export default function InvoiceDetails() {
                         );
                     })}
 
-                    {/* Grand total */}
-                    <div className="grid grid-cols-8 bg-[#F5F5F5] rounded py-4">
+                    {/* Grand total + estimated voucher line */}
+                    <div className="grid grid-cols-8 bg-[#F5F5F5] rounded py-4 items-center">
                         <div className="col-span-5" />
                         <p
                             className={`${styles.paragraph} col-span-2 text-right text-black/50`}
@@ -342,11 +433,97 @@ export default function InvoiceDetails() {
                             R{money(grandTotal)}
                         </p>
                     </div>
+
+                    {couponApplied && (
+                        <div className="grid grid-cols-8 bg-[#F5F5F5] rounded py-2 items-center mt-2">
+                            <div className="col-span-5" />
+                            <p
+                                className={`${styles.paragraph} col-span-2 text-right text-black/50`}
+                            >
+                                Voucher (est. 1 seat):
+                            </p>
+                            <p
+                                className={`${styles.paragraph} col-span-1 text-black`}
+                            >
+                                -R{money(estimatedVoucherDiscount)}
+                            </p>
+                        </div>
+                    )}
+
+                    {couponApplied && (
+                        <div className="grid grid-cols-8 bg-[#EAFBF0] rounded py-3 items-center mt-2 border border-green-200">
+                            <div className="col-span-5" />
+                            <p
+                                className={`${styles.paragraph} col-span-2 text-right text-black/70 font-medium`}
+                            >
+                                Estimated payable:
+                            </p>
+                            <p
+                                className={`${styles.paragraph} col-span-1 text-black font-medium`}
+                            >
+                                R{money(grandTotalAfterVoucher)}
+                            </p>
+                        </div>
+                    )}
                 </div>
 
                 {/* RIGHT: actions */}
                 <div className="col-span-1">
-                    <div className="space-y-2 mt-6">
+                    {/* COUPON BOX */}
+                    <div className="mt-6 mb-4 p-4 bg-white border rounded shadow">
+                        <p
+                            className={`${styles.paragraph} text-black font-medium mb-2`}
+                        >
+                            Have a coupon?
+                        </p>
+                        <div className="flex gap-2">
+                            <input
+                                type="text"
+                                value={coupon}
+                                onChange={(e) => setCoupon(e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === "Enter") applyCoupon();
+                                }}
+                                placeholder="Enter code"
+                                className="flex-1 border rounded px-3 py-2"
+                                disabled={couponApplied}
+                            />
+                            {!couponApplied ? (
+                                <button
+                                    onClick={applyCoupon}
+                                    disabled={couponBusy}
+                                    className="px-3 py-2 rounded bg-hh-orange text-white border border-hh-orange"
+                                >
+                                    Apply
+                                </button>
+                            ) : (
+                                <button
+                                    onClick={removeCoupon}
+                                    className="px-3 py-2 rounded border text-black bg-white"
+                                >
+                                    Remove
+                                </button>
+                            )}
+                        </div>
+                        {couponErr && (
+                            <p className="text-sm text-red-600 mt-2">
+                                {String(couponErr)}
+                            </p>
+                        )}
+                        {couponMsg && !couponErr && (
+                            <p className="text-sm text-green-700 mt-2">
+                                {String(couponMsg)}
+                            </p>
+                        )}
+                        {couponApplied && !couponErr && (
+                            <p className="text-xs text-black/60 mt-1">
+                                This voucher reserves one free sauna seat. The
+                                discount is applied on the checkout step.
+                            </p>
+                        )}
+                    </div>
+
+                    <div className="space-y-2">
                         <button
                             onClick={proceedToPayment}
                             className="shadow border border-hh-orange w-full py-2 text-white bg-hh-orange rounded"

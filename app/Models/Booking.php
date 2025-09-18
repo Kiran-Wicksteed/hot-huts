@@ -87,4 +87,50 @@ class Booking extends Model
     ', [now(), now()])
             ->where('timeslot_id', $timeslotId);
     }
+
+    public function recalcTotals(): void
+    {
+        $people = max(1, (int) ($this->people ?? 1));
+
+        // 1) Figure out the unit price (prefer a stored column)
+        $unit = $this->unit_price
+            ?? ($this->amount_per_person ?? null)          // if you already have this
+            ?? $this->deriveUnitPrice();                   // optional helper below
+
+        // Fallback if we still don't have a unit: derive from current total
+        if ($unit === null) {
+            $unit = ($this->amount && $people > 0)
+                ? (float) $this->amount / $people
+                : 0.0;
+        }
+
+        $subtotal = $unit * $people;
+
+        // 2) Loyalty: discount exactly one seat if reserved for this booking
+        $hasReserved = LoyaltyReward::where('reserved_booking_id', $this->id)
+            ->where('status', LoyaltyReward::STATUS_RESERVED)
+            ->exists();
+
+        $discount = $hasReserved ? min($unit, $subtotal) : 0.0;
+
+        // 3) Persist
+        // If you have a discount column, set it; otherwise just bake it into amount.
+        if ($this->isFillable('discount_amount')) {
+            $this->discount_amount = round($discount, 2);
+        }
+        $this->amount = max(0, round($subtotal - $discount, 2));
+        $this->save();
+    }
+
+    protected function deriveUnitPrice(): ?float
+    {
+        // Example stubs – replace with your actual relations/columns
+        if (isset($this->service) && isset($this->service->price)) {
+            return (float) $this->service->price;
+        }
+        if (isset($this->eventOccurrence) && isset($this->eventOccurrence->price)) {
+            return (float) $this->eventOccurrence->price;
+        }
+        return null;
+    }
 }

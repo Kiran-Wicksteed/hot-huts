@@ -7,6 +7,8 @@ use Shaz3e\PeachPayment\Helpers\PeachPayment;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use App\Models\Booking;
+use App\Services\LoyaltyService;
+use App\Models\LoyaltyReward;
 
 class PaymentController extends Controller
 {
@@ -80,6 +82,21 @@ class PaymentController extends Controller
                         'payment_status'  => $resultDescription,
                         'hold_expires_at' => null,
                     ]);
+
+                $service = app(LoyaltyService::class);
+
+                foreach ($bookings as $booking) {
+                    // 1) Redeem if this booking has a reserved reward
+                    if ($reward = LoyaltyReward::where('reserved_booking_id', $booking->id)
+                        ->where('status', LoyaltyReward::STATUS_RESERVED)
+                        ->first()
+                    ) {
+                        $service->redeemRewardForBooking($reward, $booking->id);
+                    }
+
+                    // 2) Accrue points (people => points) & auto-issue vouchers
+                    $service->accrueFromBooking($booking);
+                }
                 Log::info("Checkout {$orderNumber}: marked PAID for {$bookings->count()} booking(s).");
             } else {
                 Log::info("Checkout {$orderNumber}: intermediate/unsuccessful webhook.", [
@@ -132,52 +149,7 @@ class PaymentController extends Controller
 
 
 
-    // public function handlePaymentCallback(Request $request)
-    // {
-    //     Log::info('Peach Payments Callback Received', $request->all());
 
-    //     Log::info('Callback hit', [
-    //         'method' => $request->method(),
-    //         'full_url' => $request->fullUrl(),
-    //         'input' => $request->all()
-    //     ]);
-
-
-    //     // Check if this is the POST webhook
-    //     if ($request->isMethod('post')) {
-    //         $orderNumber = $request->input('checkoutId');
-    //         $resultCode = $request->input('result_code');
-    //         $isSuccess = $resultCode && \Illuminate\Support\Str::startsWith($resultCode, ['000.000', '000.100', '000.110']);
-
-    //         $booking = Booking::where('peach_payment_checkout_id', $orderNumber)->first();
-    //         if ($booking) {
-    //             $booking->update([
-    //                 'status' => $isSuccess ? 'paid' : 'cancelled',
-    //                 'payment_status' => $request->input('result_description', 'Unknown'),
-    //             ]);
-    //             if ($isSuccess) {
-    //                 return redirect()->route('bookings.show', $booking);
-    //             }
-    //         }
-    //         return redirect()->route('payment.failed');
-    //     }
-
-    //     // Otherwise it's the GET redirect after payment
-    //     $orderNumber = $request->query('checkoutId') ?? $request->query('peachpaymentOrder');
-    //     $booking = Booking::where('peach_payment_checkout_id', $orderNumber)->first();
-
-    //     if ($booking && $booking->status === 'paid') {
-    //         return redirect()->route('bookings.show', $booking);
-    //     }
-
-    //     return redirect()->route('payment.failed');
-    // }
-
-
-
-    /**
-     * Displays the successful payment page.
-     */
     public function paymentSuccess()
     {
         return response()->json(['status' => 'order success'], 200);
