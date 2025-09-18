@@ -302,6 +302,8 @@ class BookingController extends Controller
             $eventPkg   = Service::whereCode('EVENT_PACKAGE')->first();
 
             // 2D. Create each booking with a hold
+            $voucherApplied = false;
+
             foreach ($items as $it) {
                 $people = (int) $it['people'];
                 $addons = (array) ($it['addons'] ?? []);
@@ -342,6 +344,8 @@ class BookingController extends Controller
                     ]);
                     $total += $line;
 
+
+
                     // add-ons (use cents; fallback if legacy price field)
                     foreach ($addons as $a) {
                         $qty = (int) ($a['qty'] ?? 0);
@@ -357,6 +361,31 @@ class BookingController extends Controller
                             'line_total' => $line,
                         ]);
                         $total += $line;
+                    }
+
+                    if (! $voucherApplied && ! empty($cartKey)) {
+                        // Look for a reward reserved to this cart
+                        $reward = \App\Models\LoyaltyReward::where('status', \App\Models\LoyaltyReward::STATUS_RESERVED)
+                            ->where('reserved_token', $cartKey)
+                            ->lockForUpdate()
+                            ->first();
+
+                        if ($reward) {
+                            // bind to this booking and clear the token
+                            $reward->update([
+                                'reserved_token'     => null,
+                                'reserved_booking_id' => $booking->id,
+                            ]);
+
+                            // discount exactly one sauna seat
+                            $discount = min($priceEach, $total);
+                            $total -= $discount;
+
+                            // (optional) persist a discount column if you have one
+                            // $booking->discount_amount = ($booking->discount_amount ?? 0) + $discount;
+
+                            $voucherApplied = true;
+                        }
                     }
                 } else {
                     if (!$eventPkg) abort(500, 'EVENT_PACKAGE service missing.');
