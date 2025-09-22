@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 
 class UserDashboardController extends Controller
 {
@@ -35,13 +36,106 @@ class UserDashboardController extends Controller
 
         $now = now();
 
+        $loyalty = $this->buildLoyaltyPayload($user);
+
         return Inertia::render('frontend/my-bookings/index', [
             'upcoming' => $bookings->where('timeslot.starts_at', '>', $now)->values(),
             'past'     => $bookings->where('timeslot.starts_at', '<=', $now)->values(),
-            'points'   => $user->loyalty_points ?? 0,
+            'loyalty'  => $loyalty,
             'events'   => [],
         ]);
     }
+
+    public function loyaltyRedeem(Request $request)
+    {
+        $user = $request->user();
+
+        $data = $request->validate([
+            'reward_type_id' => ['required', 'integer', 'exists:loyalty_reward_types,id'],
+        ]);
+
+        $rewardType = DB::table('loyalty_reward_types')
+            ->where('id', $data['reward_type_id'])
+            ->where('active', true)
+            ->first();
+
+        if (!$rewardType) {
+            return back()->withErrors(['reward' => 'This reward is not available.']);
+        }
+
+        $expiresDays = (int) (config('loyalty.reward_expires_days', env('LOYALTY_REWARD_EXPIRES_DAYS', 180)) ?: 180);
+        $now = now();
+
+        $result = DB::transaction(function () use ($user, $rewardType, $expiresDays, $now) {
+            // 1) Lock the account row
+            $acc = DB::table('loyalty_accounts')->where('user_id', $user->id)->lockForUpdate()->first();
+
+            if (!$acc) {
+                // create if missing
+                $accId = DB::table('loyalty_accounts')->insertGetId([
+                    'user_id'         => $user->id,
+                    'points_balance'  => 0,
+                    'lifetime_points' => 0,
+                ]);
+                $acc = DB::table('loyalty_accounts')->where('id', $accId)->lockForUpdate()->first();
+            }
+
+            $balance = (int) $acc->points_balance;
+            $cost    = (int) $rewardType->points_cost;
+
+            if ($balance < $cost) {
+                return ['error' => 'Not enough points to redeem this reward.'];
+            }
+
+            // 2) Deduct points
+            DB::table('loyalty_accounts')->where('id', $acc->id)->update([
+                'points_balance' => $balance - $cost,
+            ]);
+
+            // 3) Ledger entry (negative points)
+            DB::table('loyalty_ledger')->insert([
+                'account_id'  => $acc->id,
+                'type'        => 'redeem',             // your convention: e.g. earn|adjust|redeem
+                'points'      => -$cost,
+                'source_type' => 'reward_type',
+                'source_id'   => $rewardType->id,
+                'notes'       => 'Redeemed reward: ' . ($rewardType->name ?? 'Reward'),
+                'meta'        => json_encode(['name' => $rewardType->name]),
+                'occurred_at' => $now,
+            ]);
+
+            // 4) Generate a unique code
+            $code = $this->generateUniqueRewardCode();
+
+            // 5) Create loyalty_reward
+            $rewardId = DB::table('loyalty_rewards')->insertGetId([
+                'account_id'           => $acc->id,
+                'reward_type_id'       => $rewardType->id,
+                'code'                 => $code,
+                'status'               => 'issued',        // issued | reserved | redeemed | expired
+                'issued_points'        => $cost,
+                'issued_at'            => $now,
+                'expires_at'           => $expiresDays > 0 ? $now->clone()->addDays($expiresDays) : null,
+                'reserved_at'          => null,
+                'redeemed_at'          => null,
+                'reserved_booking_id'  => null,
+                'reserved_token'       => null,
+                'redemption_booking_id' => null,
+            ]);
+
+            return ['id' => $rewardId, 'code' => $code];
+        });
+
+        if (!empty($result['error'])) {
+            return back()->withErrors(['reward' => $result['error']]);
+        }
+
+        // Success — flash the new code or return JSON for SPA toast
+        return redirect()->route('loyalty.index')->with('success', 'Reward redeemed! Code: ' . $result['code']);
+    }
+
+
+
 
     /** Show the reschedule page */
     public function reschedule(Booking $booking)
@@ -223,5 +317,131 @@ class UserDashboardController extends Controller
         $booking->save();
 
         return redirect()->route('user.dashboard')->with('success', 'Booking rescheduled.');
+    }
+
+    public function loyaltyIndex(Request $request)
+    {
+        $user = $request->user();
+        $loyalty  = $this->buildLoyaltyPayload($user);
+        $rewards  = $this->fetchUserRewards($user);
+
+        // how many of the *primary* reward can be redeemed right now?
+        $unit = (int) ($loyalty['unit'] ?? 10);
+        $availableCount = intdiv(max($loyalty['points'] ?? 0, 0), max($unit, 1));
+
+        return Inertia::render('loyalty/index', [
+            'loyalty'              => $loyalty,
+            'vouchers'             => $rewards,
+            'available_to_redeem'  => $availableCount,
+        ]);
+    }
+
+
+    /**
+     * Count how many loyalty vouchers this user has *redeemed* already.
+     * We detect “loyalty” coupons by their parent batch id.
+     */
+    private function countRedeemedLoyaltyVouchers($user): int
+    {
+        if (!Schema::hasTable('coupon_usage') || !Schema::hasTable('coupons')) {
+            return 0;
+        }
+
+        $loginId = $this->getLoginIdForUser($user); // legacy login table mapping
+        if (!$loginId) return 0;
+
+        $parentId = (int) (config('loyalty.parent_coupon_id', env('LOYALTY_PARENT_COUPON_ID', 0)) ?: 0);
+
+        // If you don't use parent_coupon_id, you can switch to a name LIKE filter instead.
+        $q = DB::table('coupon_usage as cu')
+            ->join('coupons as c', 'c.id', '=', 'cu.coupon_id')
+            ->where('cu.login_id', $loginId);
+
+        if ($parentId > 0) {
+            $q->where('c.parent_coupon_id', $parentId);
+        } else {
+            // heuristic fallback: treat coupons with "loyalty" in name as loyalty coupons
+            $q->where('c.name', 'like', '%loyalty%');
+        }
+
+        return (int) $q->count();
+    }
+
+    private function getLoginIdForUser($user): ?int
+    {
+        if (!Schema::hasTable('login')) return null;
+        if (!$user || !$user->email) return null;
+
+        $row = DB::table('login')->where('email', $user->email)->first();
+        return $row?->id ? (int) $row->id : null;
+    }
+
+    private function buildLoyaltyPayload($user): array
+    {
+        // account
+        $acc = DB::table('loyalty_accounts')->where('user_id', $user->id)->first();
+        $points = (int) ($acc->points_balance ?? 0);
+        $lifetime = $acc?->lifetime_points !== null ? (int) $acc->lifetime_points : null;
+
+        // reward types (we’ll show the first active as the “primary”)
+        $types = DB::table('loyalty_reward_types')->where('active', true)->orderBy('points_cost')->get();
+
+        $primary = $types->first();
+        $unit = (int) ($primary->points_cost ?? 10); // default 10 (your free sauna)
+        $unlockedTotal = intdiv(max($points, 0), max($unit, 1));
+        $toNext = $unit - (($points % $unit) ?: $unit);
+
+        return [
+            'points'         => $points,
+            'lifetime'       => $lifetime,
+            'unit'           => $unit,
+            'points_to_next' => $toNext,
+            'types'          => $types->map(fn($t) => [
+                'id'          => $t->id,
+                'name'        => $t->name,
+                'points_cost' => (int) $t->points_cost,
+                'payload'     => json_decode($t->payload ?? 'null', true),
+                'active'      => (bool) $t->active,
+            ])->values(),
+        ];
+    }
+    private function fetchUserRewards($user): array
+    {
+        $acc = DB::table('loyalty_accounts')->where('user_id', $user->id)->first();
+        if (!$acc) return [];
+
+        $rows = DB::table('loyalty_rewards')
+            ->where('account_id', $acc->id)
+            ->orderByDesc('issued_at')
+            ->limit(100)
+            ->get();
+
+        return $rows->map(function ($r) {
+            // Normalize a friendly status for the UI
+            $status = $r->status ?: (
+                $r->redeemed_at ? 'redeemed' : ($r->reserved_at ? 'reserved' : 'issued')
+            );
+
+            return [
+                'id'          => $r->id,
+                'code'        => $r->code,
+                'status'      => $status, // issued | reserved | redeemed | expired (if you set it)
+                'issued_points' => (int) $r->issued_points,
+                'issued_at'   => $r->issued_at,
+                'reserved_at' => $r->reserved_at,
+                'redeemed_at' => $r->redeemed_at,
+                'expires_at'  => $r->expires_at,
+                'reward_type_id' => $r->reward_type_id,
+            ];
+        })->values()->all();
+    }
+    private function generateUniqueRewardCode(): string
+    {
+        do {
+            $code = 'HH-' . strtoupper(Str::random(4)) . '-' . strtoupper(Str::random(4)); // e.g., HH-ABCD-EFGH
+            $exists = DB::table('loyalty_rewards')->where('code', $code)->exists();
+        } while ($exists);
+
+        return $code;
     }
 }

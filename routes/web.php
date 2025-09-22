@@ -199,6 +199,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/my-bookings', [UserDashboardController::class, 'index'])
         ->name('user.dashboard');
 
+
+
     Route::get('/bookings/{booking}/reschedule', [UserDashboardController::class, 'reschedule'])
         ->name('my-bookings.reschedule');
 
@@ -207,6 +209,12 @@ Route::middleware('auth')->group(function () {
 
     Route::post('/bookings/{booking}/reschedule', [UserDashboardController::class, 'rescheduleStore'])
         ->name('my-bookings.reschedule.store');
+
+    Route::get('/loyalty', [UserDashboardController::class, 'loyaltyIndex'])
+        ->name('loyalty.index');
+
+    Route::get('/loyalty', [UserDashboardController::class, 'loyaltyIndex'])->name('loyalty.index');
+    Route::post('/loyalty/redeem', [UserDashboardController::class, 'loyaltyRedeem'])->name('loyalty.redeem');
 });
 
 Route::get('/pending-approval', function () {

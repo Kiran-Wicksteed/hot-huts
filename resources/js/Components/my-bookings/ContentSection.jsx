@@ -5,6 +5,7 @@ import { useState } from "react";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import dayjs from "dayjs";
+import ProgressCircle from "@/Components/common/ProgressCircle";
 
 import {
     ClockIcon,
@@ -20,9 +21,9 @@ export default function ContentSection({
     past = [],
 }) {
     const [startDate, setStartDate] = useState(new Date());
-    const { auth } = usePage().props;
+    const { auth, loyalty = {} } = usePage().props;
     const user = auth.user;
-    const loyaltyPoints = 1;
+    const loyaltyPoints = Number(loyalty.points ?? 0);
 
     const asset = (path) => {
         return `/storage/${path}`;
@@ -270,7 +271,6 @@ const UpcomingSection = () => {
         const loc = b.timeslot.schedule.location;
         const start = dayjs(b.timeslot.starts_at);
         const oneLine = start.format("ddd, D MMM YYYY [at] h:mma");
-        console.log("b", b);
 
         return (
             <div
@@ -411,28 +411,28 @@ const PastSection = () => {
     });
 };
 
-const ProgressCircle = ({ points }) => {
-    // Calculate progress percentage (0-100)
-    const normalizedPoints = points % 4;
-    const progress =
-        normalizedPoints === 0 && points > 0 ? 100 : normalizedPoints * 25;
-    return (
-        <div className="relative h-12 w-12 sm:h-14 sm:w-14">
-            {/* Background circle (empty state) */}
-            <div className="absolute inset-0 rounded-full border border-hh-gray shadow" />
+// const ProgressCircle = ({ points }) => {
+//     // Calculate progress percentage (0-100)
+//     const normalizedPoints = points % 4;
+//     const progress =
+//         normalizedPoints === 0 && points > 0 ? 100 : normalizedPoints * 25;
+//     return (
+//         <div className="relative h-12 w-12 sm:h-14 sm:w-14">
+//             {/* Background circle (empty state) */}
+//             <div className="absolute inset-0 rounded-full border border-hh-gray shadow" />
 
-            {/* Progress fill */}
-            <div
-                className="absolute inset-0 rounded-full"
-                style={{
-                    background: `conic-gradient(
-              #FF5733 0% ${progress}%, 
-              transparent ${progress}% 100%
-            )`,
-                    mask: "radial-gradient(white 55%",
-                    WebkitMask: "radial-gradient(white 55%)",
-                }}
-            />
-        </div>
-    );
-};
+//             {/* Progress fill */}
+//             <div
+//                 className="absolute inset-0 rounded-full"
+//                 style={{
+//                     background: `conic-gradient(
+//               #FF5733 0% ${progress}%,
+//               transparent ${progress}% 100%
+//             )`,
+//                     mask: "radial-gradient(white 55%",
+//                     WebkitMask: "radial-gradient(white 55%)",
+//                 }}
+//             />
+//         </div>
+//     );
+// };
