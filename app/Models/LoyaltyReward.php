@@ -18,6 +18,7 @@ class LoyaltyReward extends Model
         'redeemed_at',
         'expires_at',
         'reserved_booking_id',
+        'reserved_token',
         'redemption_booking_id'
     ];
     protected $casts = [

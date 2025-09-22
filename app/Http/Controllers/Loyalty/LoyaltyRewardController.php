@@ -7,6 +7,7 @@ use App\Models\{Booking, LoyaltyReward};
 use App\Services\LoyaltyService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class LoyaltyRewardController extends Controller
 {
@@ -17,6 +18,8 @@ class LoyaltyRewardController extends Controller
             'booking_id' => ['nullable', 'integer'],
             'cart_key'   => ['nullable', 'string', 'max:64'],
         ]);
+
+        Log::info('[LOYALTY] Applying reward code', ['user_id' => $request->user()->id, 'code' => $validated['code'], 'booking_id' => $validated['booking_id'] ?? null, 'cart_key' => $validated['cart_key'] ?? null]);
 
         $user = $request->user();
         $code = strtoupper(trim($validated['code']));

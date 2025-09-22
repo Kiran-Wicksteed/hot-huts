@@ -233,7 +233,8 @@ class BookingController extends Controller
             $wantBySlot,
             $wantByEvent,
             $holdMinutes,
-            $now
+            $now,
+            $cartKey,
         ) {
             $created = [];
             $grand   = 0;
@@ -364,6 +365,13 @@ class BookingController extends Controller
                     }
 
                     if (! $voucherApplied && ! empty($cartKey)) {
+                        Log::info('[LOYALTY] Applying voucher', [
+                            'cart_key'     => $cartKey,
+                            'booking_id'   => $booking->id,
+                            'price_each'   => $priceEach,
+                            'total_before' => $total,
+                        ]);
+
                         // Look for a reward reserved to this cart
                         $reward = \App\Models\LoyaltyReward::where('status', \App\Models\LoyaltyReward::STATUS_RESERVED)
                             ->where('reserved_token', $cartKey)

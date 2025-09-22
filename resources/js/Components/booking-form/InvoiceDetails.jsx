@@ -145,6 +145,8 @@ export default function InvoiceDetails() {
             return;
         }
 
+        console.log("Applying coupon", { code, cartKey });
+
         router.post(
             route("loyalty.rewards.apply"),
             { code, cart_key: cartKey },
@@ -211,13 +213,43 @@ export default function InvoiceDetails() {
         setGlobalError(null);
         setItemErrors({});
 
-        // Build payload (include client_id so server can echo it back)
-        const payloadItems = items.map((it) => {
-            const addonsObj = it.addons ?? {};
-            const addonsArr = Object.entries(addonsObj)
-                .map(([code, qty]) => ({ code, qty: Number(qty) }))
-                .filter((a) => a.qty > 0);
+        const toInt = (v, d = 0) => {
+            const n = Number.parseInt(String(v), 10);
+            return Number.isFinite(n) ? n : d;
+        };
 
+        function extractAddons(it) {
+            // Case A: already an array of addon objects
+            if (Array.isArray(it.addons)) {
+                return it.addons
+                    .map((a) => ({
+                        code: a.code ?? a.id ?? a.sku ?? null,
+                        qty: toInt(a.qty ?? a.quantity ?? 1),
+                    }))
+                    .filter((a) => a.code && a.qty > 0);
+            }
+
+            // Case B: legacy object map { CODE: qty }
+            if (it.addons && typeof it.addons === "object") {
+                return Object.entries(it.addons)
+                    .map(([code, qty]) => ({ code, qty: toInt(qty, 0) }))
+                    .filter((a) => a.code && a.qty > 0);
+            }
+
+            // Case C: derive from line items if addons only live there
+            const lineAddons = (it.lines ?? []).filter((l) => {
+                const code = l.code || "";
+                return l.isAddon === true || /^ADDON_/.test(code);
+            });
+
+            return lineAddons
+                .map((l) => ({ code: l.code, qty: toInt(l.qty ?? 1) }))
+                .filter((a) => a.code && a.qty > 0);
+        }
+
+        const payloadItems = items.map((it) => {
+            const addonsArr = extractAddons(it);
+            console.log("payload addons →", addonsArr); // sanity check
             return {
                 client_id: it.id,
                 kind: it.kind, // 'sauna' | 'event'
@@ -225,7 +257,7 @@ export default function InvoiceDetails() {
                 event_occurrence_id:
                     it.kind === "event" ? it.event_occurrence_id : null,
                 people: it.people,
-                addons: addonsArr,
+                addons: addonsArr, // <-- now correctly populated
             };
         });
 
@@ -238,6 +270,8 @@ export default function InvoiceDetails() {
                 eventIdToItemId[it.event_occurrence_id] = it.id;
             }
         });
+
+        console.log("payloadItems", payloadItems);
 
         // 1) Preflight via Inertia (no navigation)
         router.post(
@@ -276,7 +310,7 @@ export default function InvoiceDetails() {
                         return;
                     }
 
-                    // Map per-item errors to UI
+                    //             // Map per-item errors to UI
                     const mapped = {};
                     (preflight.errors || []).forEach((e) => {
                         const itemId =
