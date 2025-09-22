@@ -53,7 +53,9 @@ export default function ContentSection({
                             />
                         )}
 
-                        <p className={`${styles.paragraph} !text-sm sm:!text-base text-black`}>
+                        <p
+                            className={`${styles.paragraph} !text-sm sm:!text-base text-black`}
+                        >
                             Good morning,{" "}
                             <span className="font-medium"> {user.name}</span>
                         </p>
@@ -244,10 +246,14 @@ const UpcomingSection = () => {
         return (
             <div className="border border-hh-gray px-4 sm:px-6 py-12 sm:py-16 rounded-md flex flex-col justify-center items-center shadow-md">
                 <CalendarIcon className="h-12 w-12 sm:h-16 sm:w-16 text-hh-gray" />
-                <h4 className={`${styles.h3} !text-base sm:!text-lg mt-4 font-medium text-black text-center`}>
+                <h4
+                    className={`${styles.h3} !text-base sm:!text-lg mt-4 font-medium text-black text-center`}
+                >
                     No upcoming bookings
                 </h4>
-                <p className={`${styles.paragraph} !text-sm text-hh-gray text-center`}>
+                <p
+                    className={`${styles.paragraph} !text-sm text-hh-gray text-center`}
+                >
                     Your upcoming bookings will appear here
                 </p>
                 <Link
@@ -264,13 +270,14 @@ const UpcomingSection = () => {
         const loc = b.timeslot.schedule.location;
         const start = dayjs(b.timeslot.starts_at);
         const oneLine = start.format("ddd, D MMM YYYY [at] h:mma");
+        console.log("b", b);
 
         return (
             <div
                 key={b.id}
                 className="border border-hh-gray bg-white/95 rounded-md shadow grid grid-cols-1 sm:grid-cols-3 overflow-hidden items-center mt-4 sm:mt-6"
             >
-                <div className="col-span-1 h-32 sm:h-auto">
+                <div className="col-span-1  sm:h-full">
                     <img
                         src={
                             loc.image_path
@@ -288,17 +295,39 @@ const UpcomingSection = () => {
                     >
                         {loc.name}
                     </h3>
-
-                    <p className={`${styles.paragraph} !text-xs sm:!text-sm text-black`}>
+                    <p
+                        className={`${styles.paragraph} !text-xs sm:!text-sm text-black`}
+                    >
                         {oneLine}
                     </p>
+                    {b.services.length > 0 &&
+                        b.services.map((service, index) => (
+                            <p
+                                key={index}
+                                className={`${styles.paragraph} !text-xs sm:!text-sm text-hh-orange mt-1 sm:mt-2`}
+                            >
+                                {service.name}
+                            </p>
+                        ))}
 
                     <p
-                        className={`${styles.paragraph} !text-xs sm:!text-sm text-hh-gray mt-1 sm:mt-2`}
+                        className={`${styles.paragraph} !text-xs sm:!text-sm text-hh-orange mt-1 sm:mt-2`}
                     >
-                        {/* first service line label */}
-                        {b.services[0]?.name ?? "Sauna Session"}
+                        Number of people: {b.people}
                     </p>
+                    {b.can_reschedule && (
+                        <Link
+                            href={route("my-bookings.reschedule", b.id)}
+                            className="mt-3 inline-block bg-hh-orange text-white py-2 px-4 rounded font-medium text-sm"
+                        >
+                            Reschedule
+                        </Link>
+                    )}
+                    {!b.can_reschedule && (
+                        <p className="mt-3 text-xs text-hh-gray">
+                            Cannot reschedule within 6 hours of start
+                        </p>
+                    )}
                 </div>
             </div>
         );
@@ -315,10 +344,14 @@ const PastSection = () => {
         return (
             <div className="border border-hh-gray px-4 sm:px-6 py-12 sm:py-16 rounded-md flex flex-col justify-center items-center shadow-md">
                 <CalendarIcon className="h-12 w-12 sm:h-16 sm:w-16 text-hh-gray" />
-                <h4 className={`${styles.h3} !text-base sm:!text-lg mt-4 font-medium text-black text-center`}>
+                <h4
+                    className={`${styles.h3} !text-base sm:!text-lg mt-4 font-medium text-black text-center`}
+                >
                     No past bookings
                 </h4>
-                <p className={`${styles.paragraph} !text-sm text-hh-gray text-center`}>
+                <p
+                    className={`${styles.paragraph} !text-sm text-hh-gray text-center`}
+                >
                     Your past bookings will appear here
                 </p>
                 <Link
@@ -360,7 +393,9 @@ const PastSection = () => {
                         {loc.name}
                     </h3>
 
-                    <p className={`${styles.paragraph} !text-xs sm:!text-sm text-black`}>
+                    <p
+                        className={`${styles.paragraph} !text-xs sm:!text-sm text-black`}
+                    >
                         {oneLine}
                     </p>
 

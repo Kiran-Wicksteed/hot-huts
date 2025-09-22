@@ -441,6 +441,34 @@ class BookingController extends Controller
             'booking_amounts'   => collect($bookings)->pluck('amount')->all(),
         ]);
 
+        if ($grandTotalCents <= 0) {
+            foreach ($bookings as $b) {
+                $b->forceFill([
+                    'status'          => 'paid',
+                    'payment_status'  => 'Voucher',
+                    'hold_expires_at' => null,
+                    'payment_method'  => 'Voucher',
+                ])->save();
+
+                // loyalty accrual / reward redemption
+                $service = app(\App\Services\LoyaltyService::class);
+                if ($reward = \App\Models\LoyaltyReward::where('reserved_booking_id', $b->id)
+                    ->where('status', \App\Models\LoyaltyReward::STATUS_RESERVED)
+                    ->first()
+                ) {
+                    $service->redeemRewardForBooking($reward, $b->id);
+                }
+                $service->accrueFromBooking($b);
+            }
+
+            $target = $bookings[0];
+            $url = route('bookings.show', $target) . '?order=' . urlencode('voucher-' . $target->id);
+
+            return redirect()->to($url);
+        }
+
+
+
         // ---------- 3) One Peach checkout for the entire cart ----------
         $peach    = new \Shaz3e\PeachPayment\Helpers\PeachPayment();
         $amount   = number_format($grandTotalCents / 100, 2, '.', '');

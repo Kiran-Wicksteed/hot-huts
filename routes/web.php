@@ -183,7 +183,7 @@ Route::middleware(['auth'])->group(
             return Inertia::render('locations/index');
         })->name('locations.index');
 
-        Route::get('/my-bookings', [UserDashboardController::class, 'index'])->name('user.dashboard');
+        // Route::get('/my-bookings', [UserDashboardController::class, 'index'])->name('user.dashboard');
 
         Route::middleware(['auth'])->group(function () {
             Route::post('/profile/change-organization', [ProfileController::class, 'changeUserOrganization'])->name('profile.change-organization.update');
@@ -194,6 +194,20 @@ Route::middleware(['auth'])->group(
         });
     }
 );
+
+Route::middleware('auth')->group(function () {
+    Route::get('/my-bookings', [UserDashboardController::class, 'index'])
+        ->name('user.dashboard');
+
+    Route::get('/bookings/{booking}/reschedule', [UserDashboardController::class, 'reschedule'])
+        ->name('my-bookings.reschedule');
+
+    Route::get('/bookings/{booking}/reschedule/options', [UserDashboardController::class, 'rescheduleOptions'])
+        ->name('my-bookings.reschedule.options');
+
+    Route::post('/bookings/{booking}/reschedule', [UserDashboardController::class, 'rescheduleStore'])
+        ->name('my-bookings.reschedule.store');
+});
 
 Route::get('/pending-approval', function () {
     return Inertia::render('PendingApproval');
@@ -249,5 +263,9 @@ Route::middleware(['auth', 'admin'])
         Route::post('services',       [ServiceController::class, 'store'])->name('services.store');
         Route::put('services/{service}', [ServiceController::class, 'update'])->name('services.update');
     });
+
+
+
+
 
 require __DIR__ . '/auth.php';
