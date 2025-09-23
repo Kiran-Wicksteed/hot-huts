@@ -27,20 +27,25 @@ class BookingController extends Controller
     {
         // 1) Figure out the "order" identifier (query param takes priority)
         $order = $request->query('order');
-        $fallbackOrderNo   = $booking->peach_payment_order_no;
-        $fallbackCheckout  = $booking->peach_payment_checkout_id;
+        $fallbackOrderNo  = $booking->peach_payment_order_no;
+        $fallbackCheckout = $booking->peach_payment_checkout_id;
+
+        Log::info('Booking.show: start', [
+            'booking_id'        => $booking->id,
+            'req_order_param'   => $order,
+            'fallback_order_no' => $fallbackOrderNo,
+            'fallback_checkout' => $fallbackCheckout,
+        ]);
 
         // 2) Build a query to fetch ALL bookings that belong to this order
         $siblingsQuery = Booking::query();
 
         if ($order) {
-            // From redirect: ?order=xxxx (can be order_no or checkout_id)
             $siblingsQuery->where(function ($q) use ($order) {
                 $q->where('peach_payment_order_no', $order)
                     ->orWhere('peach_payment_checkout_id', $order);
             });
         } elseif ($fallbackOrderNo || $fallbackCheckout) {
-            // Infer from the bound booking
             $siblingsQuery->where(function ($q) use ($fallbackOrderNo, $fallbackCheckout) {
                 if ($fallbackOrderNo) {
                     $q->orWhere('peach_payment_order_no', $fallbackOrderNo);
@@ -50,14 +55,13 @@ class BookingController extends Controller
                 }
             });
         } else {
-            // No shared order markers—just show the single booking
             $siblingsQuery->whereKey($booking->id);
         }
 
-        // 3) Eager-load everything the UI needs for ALL bookings in this order
+        // 3) Eager-load everything the UI needs
         $bookings = $siblingsQuery
             ->with([
-                'services',                      // includes pivot (quantity, price_each, line_total) if defined on relation
+                'services',
                 'timeslot.schedule.location',
                 'eventOccurrence.location',
                 'user',
@@ -65,13 +69,18 @@ class BookingController extends Controller
             ->orderBy('id')
             ->get();
 
-        // 4) Derive a display-friendly structure (keeps your page logic simple)
+        Log::info('Booking.show: siblings fetched', [
+            'booking_ids' => $bookings->pluck('id'),
+            'statuses'    => $bookings->pluck('status'),
+            'count'       => $bookings->count(),
+        ]);
+
+        // 4) Display map
         $display = $bookings->map(function (Booking $b) {
             $lines = $b->services->map(function ($svc) {
-                $qty        = (int) ($svc->pivot->quantity ?? 1);
-                $unitCents  = (int) ($svc->pivot->price_each ?? 0);
-                $lineCents  = (int) ($svc->pivot->line_total ?? ($qty * $unitCents));
-
+                $qty       = (int) ($svc->pivot->quantity ?? 1);
+                $unitCents = (int) ($svc->pivot->price_each ?? 0);
+                $lineCents = (int) ($svc->pivot->line_total ?? ($qty * $unitCents));
                 return [
                     'id'         => $svc->id,
                     'code'       => $svc->code ?? null,
@@ -82,10 +91,8 @@ class BookingController extends Controller
                 ];
             });
 
-            // Prefer persisted amount; fall back to summing line items
             $totalCents = (int) ($b->amount ?? $lines->sum('line_cents'));
 
-            // Try to extract nice context (location/date/time)
             $locName = optional(optional($b->timeslot)->schedule)->location->name
                 ?? optional($b->eventOccurrence)->location->name
                 ?? null;
@@ -98,26 +105,25 @@ class BookingController extends Controller
                 ?? $b->eventOccurrence?->end_at
                 ?? null;
 
-            // Normalise to strings (avoid TZ surprises in JS)
             $fmtTime = function ($v) {
                 if ($v instanceof \Carbon\CarbonInterface) return $v->toDateTimeString();
                 return $v ? (string) $v : null;
             };
 
             return [
-                'id'            => $b->id,
-                'status'        => $b->status,
+                'id'             => $b->id,
+                'status'         => $b->status,
                 'payment_status' => $b->payment_status,
-                'people'        => (int) $b->people,
-                'location_name' => $locName,
-                'starts_at'     => $fmtTime($startsAt),
-                'ends_at'       => $fmtTime($endsAt),
-                'lines'         => $lines,
-                'total_cents'   => $totalCents,
+                'people'         => (int) $b->people,
+                'location_name'  => $locName,
+                'starts_at'      => $fmtTime($startsAt),
+                'ends_at'        => $fmtTime($endsAt),
+                'lines'          => $lines,
+                'total_cents'    => $totalCents,
             ];
         });
 
-        // 5) Compute a simple summary for multi/single orders
+        // 5) Compute summary (DO THIS BEFORE using it!)
         $resolvedOrder = $order
             ?? $fallbackOrderNo
             ?? $fallbackCheckout
@@ -127,8 +133,13 @@ class BookingController extends Controller
             return (int) ($b->amount ?? 0);
         });
 
-        // 6) Keep backward compatibility: still pass the bound `$booking`,
-        //    but also pass `bookings` (array) + `summary` for multi-cart UI.
+        $summary = [
+            'order'             => $resolvedOrder,
+            'count'             => $bookings->count(),
+            'grand_total_cents' => $grandTotalCents ?: $display->sum('total_cents'),
+        ];
+
+        // 6) Ensure `$booking` has the same things for legacy props
         $booking->loadMissing([
             'services',
             'timeslot.schedule.location',
@@ -136,58 +147,85 @@ class BookingController extends Controller
             'user',
         ]);
 
+        // 7) Email dispatch (with detailed logs)
         try {
-            $resolvedOrder = $summary['order'] ?? null; // you already computed $summary below
+            $allPaid = $bookings->every(fn($b) => $b->status === 'paid');
 
-            if ($resolvedOrder) {
-                $allPaid = $bookings->every(fn($b) => $b->status === 'paid');
+            Log::info('Booking.show: mail gate check', [
+                'resolvedOrder'   => $resolvedOrder,
+                'allPaid'         => $allPaid,
+                'mailer_default'  => config('mail.default'),
+                'from_address'    => config('mail.from.address'),
+                'from_name'       => config('mail.from.name'),
+            ]);
 
-                if ($allPaid) {
-                    // Cache::add returns true only if the key did not exist (dedupe for 24h)
-                    if (Cache::add("order_mail_sent:{$resolvedOrder}", 1, now()->addDay())) {
-                        $booking->loadMissing('user'); // ensure we have the purchaser
-                        $user = $booking->user;
+            if ($resolvedOrder && $allPaid) {
+                $cacheKey = "order_mail_sent:{$resolvedOrder}";
+                $firstTime = Cache::add($cacheKey, 1, now()->addDay());
 
-                        if ($user && $user->email) {
-                            $emailSummary = [
-                                'order'             => $resolvedOrder,
-                                'count'             => $bookings->count(),
-                                'grand_total_cents' => $grandTotalCents ?: $display->sum('total_cents'),
-                            ];
+                Log::info('Booking.show: dedupe check', [
+                    'cache_key'  => $cacheKey,
+                    'will_send'  => $firstTime,
+                ]);
 
-                            // Queue so we don't slow down the redirect
-                            Mail::to($user->email)->send(
-                                new OrderConfirmedMail($user, $display, $emailSummary)
-                            );
-                        } else {
-                            Log::warning('Order confirmed but missing user/email for mail send', [
-                                'order' => $resolvedOrder,
-                                'booking_ids' => $bookings->pluck('id'),
-                            ]);
-                        }
+                if ($firstTime) {
+                    $user = $booking->user;
+
+                    if ($user && $user->email) {
+                        $emailSummary = [
+                            'order'             => $resolvedOrder,
+                            'count'             => $bookings->count(),
+                            'grand_total_cents' => $summary['grand_total_cents'],
+                        ];
+
+                        Log::info('Booking.show: attempting send', [
+                            'to'    => $user->email,
+                            'order' => $resolvedOrder,
+                        ]);
+
+                        Mail::to($user->email)->send(
+                            new OrderConfirmedMail($user, $display, $emailSummary)
+                        );
+
+                        Log::info('Booking.show: send completed', [
+                            'to'    => $user->email,
+                            'order' => $resolvedOrder,
+                        ]);
+                    } else {
+                        Log::warning('Booking.show: missing user/email; skip send', [
+                            'order'       => $resolvedOrder,
+                            'booking_ids' => $bookings->pluck('id'),
+                            'has_user'    => (bool) $booking->user,
+                        ]);
                     }
+                } else {
+                    Log::info('Booking.show: email already sent (deduped)', [
+                        'order' => $resolvedOrder,
+                    ]);
                 }
+            } else {
+                Log::info('Booking.show: mail gate blocked', [
+                    'reason' => $resolvedOrder ? 'not_all_paid' : 'no_resolved_order',
+                    'order'  => $resolvedOrder,
+                    'statuses' => $bookings->pluck('status'),
+                ]);
             }
         } catch (\Throwable $e) {
-            Log::error('Failed to dispatch OrderConfirmedMail', [
-                'error' => $e->getMessage(),
-                'order' => $summary['order'] ?? null,
+            Log::error('Booking.show: failed to send OrderConfirmedMail', [
+                'order'   => $resolvedOrder,
+                'error'   => $e->getMessage(),
+                'trace'   => $e->getTraceAsString(),
             ]);
         }
 
+        // 8) Render
         return Inertia::render('Booking/ConfirmedPage', [
-            // legacy single
             'booking'  => $booking,
-
-            // new multi-capable payload
-            'bookings' => $display, // array of items for this order (1..n)
-            'summary'  => [
-                'order'             => $resolvedOrder,
-                'count'             => $bookings->count(),
-                'grand_total_cents' => $grandTotalCents ?: $display->sum('total_cents'),
-            ],
+            'bookings' => $display,
+            'summary'  => $summary,
         ]);
     }
+
 
     /* --------------------------------------------------- store */
     public function store(Request $request)
