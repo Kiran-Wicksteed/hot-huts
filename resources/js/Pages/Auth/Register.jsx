@@ -6,6 +6,7 @@ import GuestLayout from "@/Layouts/GuestLayout";
 import { Head, Link, useForm } from "@inertiajs/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import styles from "../../../styles";
+import imageCompression from "browser-image-compression";
 
 export default function Register() {
     const { data, setData, post, processing, errors, reset } = useForm({
@@ -83,7 +84,7 @@ export default function Register() {
     }, [photoPreview]);
 
     // ---- Photo handlers ----
-    const handlePhotoChange = (e) => {
+    const handlePhotoChange = async (e) => {
         const file = e.target.files?.[0];
         if (!file) {
             setData("photo", null);
@@ -92,26 +93,80 @@ export default function Register() {
             return;
         }
 
-        const allowed = ["image/jpeg", "image/png", "image/gif"];
-        if (!allowed.includes(file.type)) {
-            setPhotoError("Please select a JPG, PNG, or GIF image.");
+        // Accept common types + HEIC/HEIF for better UX. Backend is authoritative.
+        const allowedMimes = [
+            "image/jpeg",
+            "image/png",
+            "image/gif",
+            "image/heic",
+            "image/heif",
+        ];
+        if (!allowedMimes.includes(file.type)) {
+            setPhotoError("Please select an image (JPG, PNG, GIF, or HEIC).");
             e.target.value = "";
             setData("photo", null);
             setPhotoPreview(null);
             return;
         }
 
-        if (file.size > 3 * 1024 * 1024) {
-            setPhotoError("The photo may not be greater than 3 MB.");
+        try {
+            let working = file;
+
+            // If HEIC/HEIF, try converting to JPEG client-side for speed/compat.
+            if (/image\/hei[cf]/i.test(file.type)) {
+                try {
+                    const heic2any = (await import("heic2any")).default;
+                    const blob = await heic2any({
+                        blob: file,
+                        toType: "image/jpeg",
+                        quality: 0.9,
+                    });
+                    working = new File(
+                        [blob],
+                        file.name.replace(/\.\w+$/, ".jpg"),
+                        {
+                            type: "image/jpeg",
+                        }
+                    );
+                } catch {
+                    // If conversion fails, fall back to uploading original; backend will convert.
+                }
+            }
+
+            // Pre-shrink to speed uploads (don’t rely on this for security; backend still validates)
+            const compressed = await imageCompression(working, {
+                maxWidthOrHeight: 1280, // big enough for an avatar; tiny upload size
+                maxSizeMB: 2.5, // aim under 3 MB to pass your client guard
+                useWebWorker: true,
+                initialQuality: 0.9,
+                // Keep type as-is after HEIC handling; backend will normalize to jpg/png.
+            });
+
+            // Client-side UX cap (soft). Backend enforces real limit.
+            if (compressed.size > 3 * 1024 * 1024) {
+                setPhotoError(
+                    "The photo may not be greater than 3 MB after optimization."
+                );
+                e.target.value = "";
+                setData("photo", null);
+                setPhotoPreview(null);
+                return;
+            }
+
+            setPhotoError("");
+            setData("photo", compressed);
+            // Revoke previous preview URL to avoid leaks
+            if (photoPreview) URL.revokeObjectURL(photoPreview);
+            setPhotoPreview(URL.createObjectURL(compressed));
+        } catch (err) {
+            console.error(err);
+            setPhotoError(
+                "Could not process that image. Please try a different one."
+            );
             e.target.value = "";
             setData("photo", null);
             setPhotoPreview(null);
-            return;
         }
-
-        setPhotoError("");
-        setData("photo", file);
-        setPhotoPreview(URL.createObjectURL(file));
     };
 
     const clearPhoto = () => {
@@ -201,7 +256,9 @@ export default function Register() {
                 <div className="flex flex-col h-full justify-between p-4 pt-12 sm:p-8 lg:p-14">
                     {/* top-right login link */}
                     <div className="flex justify-center lg:justify-end">
-                        <p className={`${styles.paragraph} !text-[#2C2C2C] text-center lg:text-right`}>
+                        <p
+                            className={`${styles.paragraph} !text-[#2C2C2C] text-center lg:text-right`}
+                        >
                             Already have an account?{" "}
                             <Link
                                 href="/login"
@@ -411,7 +468,8 @@ export default function Register() {
                                                         id="photo"
                                                         name="photo"
                                                         type="file"
-                                                        accept="image/png,image/jpeg,image/gif"
+                                                        accept="image/*"
+                                                        capture="environment"
                                                         onChange={
                                                             handlePhotoChange
                                                         }
@@ -419,7 +477,8 @@ export default function Register() {
                                                     />
                                                     <p className="mt-1 text-xs text-gray-500">
                                                         JPG, PNG or GIF. Max
-                                                        3&nbsp;MB.
+                                                        3&nbsp;MB after
+                                                        optimization.
                                                     </p>
                                                     {data.photo && (
                                                         <button
