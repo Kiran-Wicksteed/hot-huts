@@ -40,10 +40,14 @@
     },
     "scripts": {
         "post-install-cmd": [
-            "php artisan storage:link"
+            "@php -r \"is_link('public/storage') && unlink('public/storage');\"",
+            "@php -r \"!is_dir('storage/app/public') && mkdir('storage/app/public', 0775, true);\"",
+            "php artisan storage:link --relative || true"
         ],
         "post-update-cmd": [
-            "php artisan storage:link",
+            "@php -r \"is_link('public/storage') && unlink('public/storage');\"",
+            "@php -r \"!is_dir('storage/app/public') && mkdir('storage/app/public', 0775, true);\"",
+            "php artisan storage:link --relative || true",
             "@php artisan vendor:publish --tag=laravel-assets --ansi --force"
         ],
         "post-autoload-dump": [
