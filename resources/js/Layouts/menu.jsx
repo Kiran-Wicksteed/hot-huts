@@ -70,7 +70,7 @@ export default function Menu({ currentStep }) {
         <div
             className={`${styles.boxWidth} absolute top-0 left-0 w-full py-2 sm:py-4 px-2 sm:px-4 2xl:px-28 md:px-10 lg:px-16 xl:px-20`}
         >
-            <div className="border border-hh-orange bg-white/95 rounded-md shadow">
+            <div className="border border-hh-orange bg-white/95 rounded-md shadow px-2 lg:px-4 2xl:px-0">
                 <nav>
                     {/* Desktop Navigation */}
                     <ul className="hidden lg:flex justify-between max-w-6xl mx-auto items-center">
@@ -283,7 +283,7 @@ export default function Menu({ currentStep }) {
                                 className="h-10 w-auto"
                             />
                         </a>
-                        
+
                         <div className="flex items-center gap-3">
                             {/* Mobile Basket */}
                             <div className="relative">
@@ -291,7 +291,9 @@ export default function Menu({ currentStep }) {
                                     ref={btnRef}
                                     type="button"
                                     disabled={!hasItems}
-                                    onClick={() => hasItems && setOpen((v) => !v)}
+                                    onClick={() =>
+                                        hasItems && setOpen((v) => !v)
+                                    }
                                     className={`flex items-center gap-1 rounded py-2 px-2 ${
                                         hasItems
                                             ? "text-hh-orange hover:bg-orange-50"
@@ -326,12 +328,15 @@ export default function Menu({ currentStep }) {
                                                     <div className="flex justify-between items-start">
                                                         <div className="flex-1 min-w-0">
                                                             <p className="text-sm font-medium text-black truncate">
-                                                                {it.kind === "event"
+                                                                {it.kind ===
+                                                                "event"
                                                                     ? it.event_name
                                                                     : "Sauna session"}
                                                             </p>
                                                             <p className="text-xs text-black/60 truncate">
-                                                                {it.location_name}
+                                                                {
+                                                                    it.location_name
+                                                                }
                                                                 {it.date
                                                                     ? ` • ${it.date}`
                                                                     : ""}
@@ -339,7 +344,9 @@ export default function Menu({ currentStep }) {
                                                         </div>
                                                         <button
                                                             onClick={() =>
-                                                                removeItem(it.id)
+                                                                removeItem(
+                                                                    it.id
+                                                                )
                                                             }
                                                             className="text-xs text-red-600 hover:text-red-700 ml-2"
                                                             title="Remove"
@@ -348,16 +355,29 @@ export default function Menu({ currentStep }) {
                                                         </button>
                                                     </div>
                                                     <div className="mt-1 flex justify-between text-sm">
-                                                        <span className="text-black/60">Qty: {it.people ?? 1}</span>
-                                                        <span className="font-medium">R{Number(it.lineTotal || 0).toFixed(2)}</span>
+                                                        <span className="text-black/60">
+                                                            Qty:{" "}
+                                                            {it.people ?? 1}
+                                                        </span>
+                                                        <span className="font-medium">
+                                                            R
+                                                            {Number(
+                                                                it.lineTotal ||
+                                                                    0
+                                                            ).toFixed(2)}
+                                                        </span>
                                                     </div>
                                                 </div>
                                             ))}
                                         </div>
                                         <div className="border-t border-gray-200 p-3">
                                             <div className="flex justify-between mb-2">
-                                                <span className="text-sm text-black/60">Subtotal</span>
-                                                <span className="text-sm font-medium">R{subtotal.toFixed(2)}</span>
+                                                <span className="text-sm text-black/60">
+                                                    Subtotal
+                                                </span>
+                                                <span className="text-sm font-medium">
+                                                    R{subtotal.toFixed(2)}
+                                                </span>
                                             </div>
                                             <button
                                                 onClick={goToCheckout}
@@ -372,7 +392,9 @@ export default function Menu({ currentStep }) {
 
                             {/* Mobile Menu Button */}
                             <button
-                                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                                onClick={() =>
+                                    setMobileMenuOpen(!mobileMenuOpen)
+                                }
                                 className="text-hh-orange p-2"
                             >
                                 <Bars3Icon className="h-6 w-6" />
@@ -382,65 +404,93 @@ export default function Menu({ currentStep }) {
 
                     {/* Mobile Menu Overlay */}
                     {mobileMenuOpen && (
-                        <div className="lg:hidden fixed inset-0 z-50 bg-black/50" onClick={() => setMobileMenuOpen(false)}>
-                            <div className="fixed right-0 top-0 h-full w-64 bg-white shadow-lg" onClick={(e) => e.stopPropagation()}>
+                        <div
+                            className="lg:hidden fixed inset-0 z-50 bg-black/50"
+                            onClick={() => setMobileMenuOpen(false)}
+                        >
+                            <div
+                                className="fixed right-0 top-0 h-full w-64 bg-white shadow-lg"
+                                onClick={(e) => e.stopPropagation()}
+                            >
                                 <div className="p-4">
                                     <div className="flex justify-between items-center mb-6">
-                                        <h2 className="text-lg font-semibold text-hh-orange">Menu</h2>
+                                        <h2 className="text-lg font-semibold text-hh-orange">
+                                            Menu
+                                        </h2>
                                         <button
-                                            onClick={() => setMobileMenuOpen(false)}
+                                            onClick={() =>
+                                                setMobileMenuOpen(false)
+                                            }
                                             className="text-gray-500"
                                         >
                                             <XMarkIcon className="h-6 w-6" />
                                         </button>
                                     </div>
-                                    
+
                                     <div className="space-y-4">
-                                        <button 
+                                        <button
                                             onClick={() => goToStep(1)}
                                             className={`w-full flex items-center gap-3 p-3 rounded-lg transition-colors ${
-                                                currentStep === 1 ? "bg-hh-orange/10 text-hh-orange" : "text-gray-700 hover:bg-gray-50"
+                                                currentStep === 1
+                                                    ? "bg-hh-orange/10 text-hh-orange"
+                                                    : "text-gray-700 hover:bg-gray-50"
                                             }`}
                                         >
                                             <MapPinIcon className="h-5 w-5" />
-                                            <span className="font-medium">Locations</span>
+                                            <span className="font-medium">
+                                                Locations
+                                            </span>
                                         </button>
-                                        
-                                        <button 
+
+                                        <button
                                             onClick={() => goToStep(2)}
                                             className={`w-full flex items-center gap-3 p-3 rounded-lg transition-colors ${
-                                                currentStep === 2 ? "bg-hh-orange/10 text-hh-orange" : "text-gray-700 hover:bg-gray-50"
+                                                currentStep === 2
+                                                    ? "bg-hh-orange/10 text-hh-orange"
+                                                    : "text-gray-700 hover:bg-gray-50"
                                             }`}
                                         >
                                             <QueueListIcon className="h-5 w-5" />
-                                            <span className="font-medium">Services</span>
+                                            <span className="font-medium">
+                                                Services
+                                            </span>
                                         </button>
-                                        
-                                        <button 
+
+                                        <button
                                             onClick={() => goToStep(3)}
                                             className={`w-full flex items-center gap-3 p-3 rounded-lg transition-colors ${
-                                                currentStep === 3 ? "bg-hh-orange/10 text-hh-orange" : "text-gray-700 hover:bg-gray-50"
+                                                currentStep === 3
+                                                    ? "bg-hh-orange/10 text-hh-orange"
+                                                    : "text-gray-700 hover:bg-gray-50"
                                             }`}
                                         >
                                             <ClockIcon className="h-5 w-5" />
-                                            <span className="font-medium">Date & Time</span>
+                                            <span className="font-medium">
+                                                Date & Time
+                                            </span>
                                         </button>
-                                        
-                                        <button 
+
+                                        <button
                                             onClick={() => goToStep(4)}
                                             className={`w-full flex items-center gap-3 p-3 rounded-lg transition-colors ${
-                                                currentStep === 4 ? "bg-hh-orange/10 text-hh-orange" : "text-gray-700 hover:bg-gray-50"
+                                                currentStep === 4
+                                                    ? "bg-hh-orange/10 text-hh-orange"
+                                                    : "text-gray-700 hover:bg-gray-50"
                                             }`}
                                         >
                                             <ShoppingCartIcon className="h-5 w-5" />
-                                            <span className="font-medium">Check Out</span>
+                                            <span className="font-medium">
+                                                Check Out
+                                            </span>
                                         </button>
-                                        
+
                                         <div className="pt-4 border-t border-gray-200">
                                             <a
                                                 href="/my-bookings"
                                                 className="block w-full text-center border border-hh-orange text-hh-orange py-3 rounded-lg font-medium"
-                                                onClick={() => setMobileMenuOpen(false)}
+                                                onClick={() =>
+                                                    setMobileMenuOpen(false)
+                                                }
                                             >
                                                 My Bookings
                                             </a>

@@ -15,10 +15,39 @@ const weekdayNames = [
     "Saturday",
 ];
 
+function useIsMobile() {
+    const [isMobile, setIsMobile] = useState(false);
+    useEffect(() => {
+        if (typeof window === "undefined") return;
+        const mql = window.matchMedia("(max-width: 639px)");
+        const onChange = (e) => setIsMobile(e.matches);
+        setIsMobile(mql.matches);
+        // support older Safari
+        if (mql.addEventListener) mql.addEventListener("change", onChange);
+        else mql.addListener(onChange);
+        return () => {
+            if (mql.removeEventListener)
+                mql.removeEventListener("change", onChange);
+            else mql.removeListener(onChange);
+        };
+    }, []);
+    return isMobile;
+}
+
 export default function Locations({ nextStep, updateFormData, events }) {
     const [selected, setSelected] = useState(null); // { day, id, name }
     const [openings, setOpenings] = useState([]); // raw API rows
     const [schedule, setSchedule] = useState({}); // { Monday: [{id,name,windowsLabel,earliestStart}], ... }
+
+    const isMobile = useIsMobile();
+
+    const commitSelection = (sel) => {
+        updateFormData({
+            booking_type: "sauna",
+            location: { day: sel.day, name: sel.name, id: sel.id },
+        });
+        nextStep();
+    };
 
     dayjs.extend(isSameOrAfter);
     dayjs.extend(weekdayPlugin);
@@ -83,20 +112,16 @@ export default function Locations({ nextStep, updateFormData, events }) {
         setSchedule(out);
     }, [openings]);
 
-    const handleSelect = (day, item) =>
-        setSelected({ day, id: item.id, name: item.name });
+    const handleSelect = (day, item) => {
+        const sel = { day, id: item.id, name: item.name };
+        setSelected(sel);
+        // ⏩ on mobile, go straight to next step
+        if (isMobile) commitSelection(sel);
+    };
 
     const handleNext = () => {
         if (!selected) return;
-        updateFormData({
-            booking_type: "sauna",
-            location: {
-                day: selected.day, // e.g., "Monday" (TimeDate slices to 'mon' fine)
-                name: selected.name,
-                id: selected.id,
-            },
-        });
-        nextStep();
+        commitSelection(selected);
     };
 
     const UPCOMING_LIMIT = 5;

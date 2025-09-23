@@ -4,6 +4,25 @@ import { useState, useEffect, useMemo } from "react";
 import { MinusIcon, PlusIcon } from "@heroicons/react/24/solid";
 import dayjs from "dayjs";
 import { useCart } from "@/context/CartContext";
+import { ChevronDownIcon } from "@heroicons/react/24/solid";
+
+function useIsMobile() {
+    const [isMobile, setIsMobile] = useState(false);
+    useEffect(() => {
+        if (typeof window === "undefined") return;
+        const mql = window.matchMedia("(max-width: 639px)");
+        const onChange = (e) => setIsMobile(e.matches);
+        setIsMobile(mql.matches);
+        if (mql.addEventListener) mql.addEventListener("change", onChange);
+        else mql.addListener(onChange);
+        return () => {
+            if (mql.removeEventListener)
+                mql.removeEventListener("change", onChange);
+            else mql.removeListener(onChange);
+        };
+    }, []);
+    return isMobile;
+}
 
 const PERIOD_ORDER = ["morning", "afternoon", "evening", "night"];
 const nice = (s) => s.charAt(0).toUpperCase() + s.slice(1);
@@ -29,6 +48,27 @@ export default function TimeDate({
     const [selectedDate, setSelectedDate] = useState(null);
     const [selectedSlot, setSelectedSlot] = useState(null); // ← store the full slot
     const [slotCap, setSlotCap] = useState(8);
+
+    // Slots for the selected date
+    const slots = useMemo(() => {
+        if (!selectedDate || scheduleData.length === 0) {
+            return { morning: [], afternoon: [], evening: [], night: [] };
+        }
+        const dateString = selectedDate.format("YYYY-MM-DD");
+        const found = scheduleData.find((d) => d.date === dateString);
+        return found
+            ? found.slots
+            : { morning: [], afternoon: [], evening: [], night: [] };
+    }, [selectedDate, scheduleData]);
+
+    const isMobile = useIsMobile();
+
+    const firstOpenPeriod = useMemo(
+        () => PERIOD_ORDER.find((p) => (slots[p] ?? []).length > 0) || null,
+        [slots]
+    );
+    const [mobileOpen, setMobileOpen] = useState(firstOpenPeriod);
+    useEffect(() => setMobileOpen(firstOpenPeriod), [firstOpenPeriod]);
 
     const updateQuantity = (code, value) =>
         updateFormData({
@@ -93,18 +133,6 @@ export default function TimeDate({
                 .map((d) => dayjs(d.date)),
         [scheduleData]
     );
-
-    // Slots for the selected date
-    const slots = useMemo(() => {
-        if (!selectedDate || scheduleData.length === 0) {
-            return { morning: [], afternoon: [], evening: [], night: [] };
-        }
-        const dateString = selectedDate.format("YYYY-MM-DD");
-        const found = scheduleData.find((d) => d.date === dateString);
-        return found
-            ? found.slots
-            : { morning: [], afternoon: [], evening: [], night: [] };
-    }, [selectedDate, scheduleData]);
 
     // Reset time selection when day changes
     const handleDaySelect = (day) => {
@@ -203,17 +231,23 @@ export default function TimeDate({
             className={`${styles.boxWidth} bg-cover bg-center bg-no-repeat pb-10 sm:pb-28 pt-28 sm:pt-40 px-2 sm:px-4 2xl:px-28 md:px-10 lg:px-16 xl:px-20`}
             style={hero ? { backgroundImage: `url(${hero})` } : undefined}
         >
-            <h1
-                className={`${styles.h3} !text-lg sm:!text-xl lg:!text-2xl !text-white font-normal max-w-3xl mb-6 sm:mb-0`}
-            >
-                Feel the Chill, Embrace the Heat — sauna sessions by the sea.
-                <span className="text-hh-orange block">{location.name}</span>
-            </h1>
-
+            <div className=" border border-hh-orange bg-white/95 rounded-md shadow mb-6 sm:mb-0  flex items-center py-2 justify-center">
+                <h1
+                    className={`${styles.h3} !text-lg sm:!text-xl lg:!text-2xl !text-black text-center font-normal max-w-3xl mb-6 sm:mb-0`}
+                >
+                    Feel the Chill, Embrace the Heat — sauna sessions by the
+                    sea.
+                    <span className="text-hh-orange block">
+                        {location.name}
+                    </span>
+                </h1>
+            </div>
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-x-10 relative mt-6 sm:mt-10">
                 {/* left: calendar + slots */}
                 <div className="col-span-1 lg:col-span-2 bg-white/95 p-4 sm:p-6 lg:p-10 rounded-md shadow border-hh-orange border">
-                    <h3 className={`${styles.h2} !text-lg sm:!text-xl lg:!text-2xl text-black font-medium`}>
+                    <h3
+                        className={`${styles.h2} !text-lg sm:!text-xl lg:!text-2xl text-black font-medium`}
+                    >
                         Pick a slot on a{" "}
                         <span className="text-hh-orange font-semibold">
                             {selectedDate ? selectedDate.format("dddd") : "..."}
@@ -285,31 +319,25 @@ export default function TimeDate({
                                 {PERIOD_ORDER.some(
                                     (p) => (slots[p] ?? []).length > 0
                                 ) ? (
-                                    PERIOD_ORDER.map((p) =>
-                                        (slots[p] ?? []).length > 0 ? (
-                                            <div key={p} className="space-y-2">
-                                                <p
-                                                    className={`${styles.paragraph} mb-4 sm:mb-6 underline !text-base sm:!text-lg text-black font-medium`}
-                                                >
-                                                    {nice(p)} Slots
-                                                </p>
-                                                {(slots[p] ?? []).map(
-                                                    (slot) => (
-                                                        <TimeSlot
-                                                            key={slot.id}
-                                                            slot={slot}
-                                                            selectedTime={
-                                                                selectedSlot?.id
-                                                            }
-                                                            handleTimeSelect={
-                                                                handleTimeSelect
-                                                            }
-                                                        />
-                                                    )
-                                                )}
-                                            </div>
-                                        ) : null
-                                    )
+                                    PERIOD_ORDER.map((p) => {
+                                        const items = slots[p] ?? [];
+                                        if (items.length === 0) return null;
+
+                                        return (
+                                            <PeriodSection
+                                                key={p}
+                                                period={p}
+                                                items={items}
+                                                isMobile={isMobile}
+                                                mobileOpen={mobileOpen}
+                                                setMobileOpen={setMobileOpen}
+                                                selectedSlotId={
+                                                    selectedSlot?.id
+                                                }
+                                                onPick={handleTimeSelect}
+                                            />
+                                        );
+                                    })
                                 ) : (
                                     <p
                                         className={`${styles.paragraph} text-hh-gray`}
@@ -449,7 +477,9 @@ export default function TimeDate({
                                     onClick={prevStep}
                                     className="w-full sm:w-auto bg-white border border-hh-orange py-3 sm:py-2 px-6 sm:px-4 shadow text-hh-orange rounded font-medium"
                                 >
-                                    <span className={`${styles.paragraph} uppercase !text-sm`}>
+                                    <span
+                                        className={`${styles.paragraph} uppercase !text-sm`}
+                                    >
                                         go back
                                     </span>
                                 </button>
@@ -457,12 +487,14 @@ export default function TimeDate({
                                     onClick={onContinue}
                                     disabled={!selectedSlot || !agreed}
                                     className={`w-full sm:flex-1 py-3 sm:py-2 px-6 sm:px-4 shadow rounded font-medium ${
-                                        (!selectedSlot || !agreed)
+                                        !selectedSlot || !agreed
                                             ? "bg-gray-300 text-gray-500 cursor-not-allowed"
                                             : "bg-hh-orange text-white"
                                     }`}
                                 >
-                                    <span className={`${styles.paragraph} uppercase !text-sm`}>
+                                    <span
+                                        className={`${styles.paragraph} uppercase !text-sm`}
+                                    >
                                         Continue
                                     </span>
                                 </button>
@@ -483,14 +515,20 @@ function TimeSlot({ slot, selectedTime, handleTimeSelect }) {
                     ? "opacity-40 cursor-not-allowed"
                     : "cursor-pointer touch-manipulation"
             } ${
-                selectedTime === slot.id ? "border-hh-orange bg-orange-50" : "border-hh-gray"
+                selectedTime === slot.id
+                    ? "border-hh-orange bg-orange-50"
+                    : "border-hh-gray"
             }`}
             onClick={() => handleTimeSelect(slot)}
         >
-            <p className={`${styles.paragraph} !text-sm sm:!text-base text-black font-medium`}>
+            <p
+                className={`${styles.paragraph} !text-sm sm:!text-base text-black font-medium`}
+            >
                 {slot.starts_at} – {slot.ends_at}
             </p>
-            <p className={`${styles.paragraph} !text-xs sm:!text-sm uppercase text-[#999]`}>
+            <p
+                className={`${styles.paragraph} !text-xs sm:!text-sm uppercase text-[#999]`}
+            >
                 {slot.spots_left} slots left
             </p>
         </div>
@@ -500,7 +538,7 @@ function TimeSlot({ slot, selectedTime, handleTimeSelect }) {
 function QtyPicker({ code, qty, min, max, update }) {
     return (
         <div className="flex gap-x-2 items-center justify-center sm:justify-end">
-            <button 
+            <button
                 onClick={() => update(code, Math.max(min, qty - 1))}
                 className="touch-manipulation"
             >
@@ -511,12 +549,89 @@ function QtyPicker({ code, qty, min, max, update }) {
             >
                 {qty}
             </span>
-            <button 
+            <button
                 onClick={() => update(code, Math.min(max, qty + 1))}
                 className="touch-manipulation"
             >
                 <PlusIcon className="h-8 w-8 sm:h-6 sm:w-6 text-black bg-[#E2E2E2] rounded-lg p-1 sm:p-0.5" />
             </button>
+        </div>
+    );
+}
+
+function PeriodSection({
+    period,
+    items,
+    isMobile,
+    mobileOpen,
+    setMobileOpen,
+    selectedSlotId,
+    onPick,
+}) {
+    const title = `${nice(period)} Slots`;
+
+    if (!isMobile) {
+        // Desktop/tablet: unchanged section
+        return (
+            <div className="space-y-2">
+                <p
+                    className={`${styles.paragraph} mb-4 sm:mb-6 underline !text-base sm:!text-lg text-black font-medium`}
+                >
+                    {title}
+                </p>
+                {items.map((slot) => (
+                    <TimeSlot
+                        key={slot.id}
+                        slot={slot}
+                        selectedTime={selectedSlotId}
+                        handleTimeSelect={onPick}
+                    />
+                ))}
+            </div>
+        );
+    }
+
+    // Mobile: collapsible accordion
+    const open = mobileOpen === period;
+    const count = items.length;
+
+    return (
+        <div className="border border-hh-orange/60 rounded-lg overflow-hidden">
+            <button
+                type="button"
+                onClick={() => setMobileOpen(open ? null : period)}
+                className="w-full flex items-center justify-between px-3 py-3 bg-hh-orange text-white"
+                aria-expanded={open}
+            >
+                <span className="text-sm font-medium">
+                    {title} <span className="opacity-80">({count})</span>
+                </span>
+                <ChevronDownIcon
+                    className={`h-5 w-5 transition-transform duration-200 ${
+                        open ? "rotate-180" : ""
+                    }`}
+                />
+            </button>
+
+            {/* collapsible body */}
+            <div
+                className={`grid transition-[grid-template-rows] duration-200 ease-out ${
+                    open ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+                }`}
+            >
+                <div className="overflow-hidden">
+                    <div className="p-3 space-y-2 bg-white">
+                        {items.map((slot) => (
+                            <TimeSlot
+                                key={slot.id}
+                                slot={slot}
+                                selectedTime={selectedSlotId}
+                                handleTimeSelect={onPick}
+                            />
+                        ))}
+                    </div>
+                </div>
+            </div>
         </div>
     );
 }

@@ -97,13 +97,15 @@ export default function ServiceSection({
                 thumbSrc ? { backgroundImage: `url(${thumbSrc})` } : undefined
             }
         >
-            <h1
-                className={`${styles.h3} !text-lg sm:!text-xl lg:!text-2xl !text-black font-normal max-w-3xl mb-6 sm:mb-0`}
-            >
-                Cold dip, warm glow: dive into the Sea,&nbsp;then unwind in a
-                beachfront sauna at&nbsp;
-                <span className="text-hh-orange">{location.name}.</span>
-            </h1>
+            <div className=" border border-hh-orange bg-white/95 rounded-md shadow mb-6 sm:mb-0  flex items-center py-2 justify-center">
+                <h1
+                    className={`${styles.h3} !text-lg sm:!text-xl lg:!text-2xl !text-black font-normal max-w-3xl !mb-0 text-center`}
+                >
+                    Cold dip, warm glow: dive into the Sea,&nbsp;then unwind in
+                    a beachfront sauna at&nbsp;
+                    <span className="text-hh-orange">{location.name}.</span>
+                </h1>
+            </div>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
                 <div className="col-span-1 border border-hh-orange bg-white/95 rounded-md shadow grid grid-cols-3 overflow-hidden items-center mt-6 sm:mt-10">
                     {/* right panel */}
@@ -131,7 +133,9 @@ export default function ServiceSection({
                             )}
                         </div>
 
-                        <h3 className={`${styles.h2} !text-lg sm:!text-xl text-black font-medium`}>
+                        <h3
+                            className={`${styles.h2} !text-lg sm:!text-xl text-black font-medium`}
+                        >
                             Single Sauna Session
                         </h3>
 
@@ -325,7 +329,9 @@ export default function ServiceSection({
                                 {nextEventHere.event_name}
                             </h3>
 
-                            <p className="text-sm sm:text-base">{nextEventHere.description}</p>
+                            <p className="text-sm sm:text-base">
+                                {nextEventHere.description}
+                            </p>
 
                             {/* ----------------- ADD-ONS LIST ----------------- */}
                             <div className="space-y-2">

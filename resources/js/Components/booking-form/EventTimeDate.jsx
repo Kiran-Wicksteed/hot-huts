@@ -323,21 +323,27 @@ export default function EventTimeDate({
             className={`${styles.boxWidth} bg-cover bg-center bg-no-repeat pb-10 sm:pb-28 pt-20 sm:pt-40 px-2 sm:px-4 2xl:px-28 md:px-10 lg:px-16 xl:px-20`}
             style={hero ? { backgroundImage: `url(${hero})` } : undefined}
         >
-            <h1
-                className={`${styles.h3} !text-lg sm:!text-xl lg:!text-2xl !text-white font-normal max-w-3xl mb-6 sm:mb-0`}
-            >
-                Add a sauna session after your{" "}
-                <span className="text-hh-orange">{event_name}</span> at&nbsp;
-                {location.name}
-            </h1>
-
+            <div className=" border border-hh-orange bg-white/95 rounded-md shadow mb-6 sm:mb-0  flex items-center py-2 justify-center">
+                <h1
+                    className={`${styles.h3} !text-lg sm:!text-xl lg:!text-2xl !text-black text-center font-normal max-w-3xl mb-6 sm:mb-0`}
+                >
+                    Add a sauna session after your{" "}
+                    <span className="text-hh-orange">{event_name}</span>{" "}
+                    at&nbsp;
+                    {location.name}
+                </h1>
+            </div>
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-x-10 relative mt-6 sm:mt-10">
                 {/* LEFT: slot picker */}
                 <div className="col-span-1 lg:col-span-2 bg-white/95 p-4 sm:p-6 lg:p-10 rounded-md shadow border-hh-orange border">
-                    <h3 className={`${styles.h2} !text-lg sm:!text-xl lg:!text-2xl text-black font-medium mb-2`}>
+                    <h3
+                        className={`${styles.h2} !text-lg sm:!text-xl lg:!text-2xl text-black font-medium mb-2`}
+                    >
                         Choose a sauna slot on {prettyEventDate}
                     </h3>
-                    <p className={`${styles.paragraph} !text-sm sm:!text-base text-black mb-4 sm:mb-6`}>
+                    <p
+                        className={`${styles.paragraph} !text-sm sm:!text-base text-black mb-4 sm:mb-6`}
+                    >
                         After your event ({eventTimeRange}), pick a time that
                         suits you:
                     </p>
@@ -360,11 +366,15 @@ export default function EventTimeDate({
                                         onClick={() => handleSelectSlot(slot)}
                                         disabled={disabled}
                                         className={`w-full text-left border rounded shadow p-4 sm:p-6 flex flex-col sm:flex-row sm:justify-between gap-2 sm:gap-0 touch-manipulation ${
-                          disabled
-                              ? "opacity-40 cursor-not-allowed"
-                              : "cursor-pointer"
-                      }
-                      ${selected ? "border-hh-orange bg-orange-50" : "border-hh-gray"}`}
+                                            disabled
+                                                ? "opacity-40 cursor-not-allowed"
+                                                : "cursor-pointer"
+                                        }
+                      ${
+                          selected
+                              ? "border-hh-orange bg-orange-50"
+                              : "border-hh-gray"
+                      }`}
                                     >
                                         <p
                                             className={`${styles.paragraph} !text-sm sm:!text-base text-black font-medium`}
@@ -385,7 +395,9 @@ export default function EventTimeDate({
                 {/* RIGHT: summary */}
                 <div className="col-span-1 border border-hh-gray bg-white/95 rounded-md shadow h-fit lg:sticky lg:top-12">
                     <div className="p-4 sm:p-6 lg:p-8 space-y-4 sm:space-y-5">
-                        <h4 className={`${styles.h3} !text-lg sm:!text-xl lg:!text-2xl font-medium text-black`}>
+                        <h4
+                            className={`${styles.h3} !text-lg sm:!text-xl lg:!text-2xl font-medium text-black`}
+                        >
                             Summary
                         </h4>
 
@@ -604,16 +616,18 @@ export default function EventTimeDate({
                                     hardMaxGuests === 0
                                 }
                                 className={`w-full sm:flex-1 py-3 sm:py-2 px-6 sm:px-4 shadow rounded font-medium ${
-                                    (!selectedTimeId ||
-                                        !agreed ||
-                                        (Number.isFinite(hardMaxGuests) &&
-                                            guestQty > hardMaxGuests) ||
-                                        hardMaxGuests === 0)
+                                    !selectedTimeId ||
+                                    !agreed ||
+                                    (Number.isFinite(hardMaxGuests) &&
+                                        guestQty > hardMaxGuests) ||
+                                    hardMaxGuests === 0
                                         ? "bg-gray-300 text-gray-500 cursor-not-allowed"
                                         : "bg-hh-orange text-white"
                                 }`}
                             >
-                                <p className={`${styles.paragraph} uppercase !text-sm`}>
+                                <p
+                                    className={`${styles.paragraph} uppercase !text-sm`}
+                                >
                                     Continue
                                 </p>
                             </button>
