@@ -26,7 +26,7 @@ class BookingController extends Controller
     public function show(Request $request, Booking $booking)
     {
         // 1) Figure out the "order" identifier (query param takes priority)
-        $order = $request->query('order');
+        $order            = $request->query('order');
         $fallbackOrderNo  = $booking->peach_payment_order_no;
         $fallbackCheckout = $booking->peach_payment_checkout_id;
 
@@ -37,35 +37,23 @@ class BookingController extends Controller
             'fallback_checkout' => $fallbackCheckout,
         ]);
 
-        // 2) Build a query to fetch ALL bookings that belong to this order
+        // 2) Build siblings query
         $siblingsQuery = Booking::query();
-
         if ($order) {
-            $siblingsQuery->where(function ($q) use ($order) {
-                $q->where('peach_payment_order_no', $order)
-                    ->orWhere('peach_payment_checkout_id', $order);
-            });
+            $siblingsQuery->where(fn($q) => $q->where('peach_payment_order_no', $order)
+                ->orWhere('peach_payment_checkout_id', $order));
         } elseif ($fallbackOrderNo || $fallbackCheckout) {
             $siblingsQuery->where(function ($q) use ($fallbackOrderNo, $fallbackCheckout) {
-                if ($fallbackOrderNo) {
-                    $q->orWhere('peach_payment_order_no', $fallbackOrderNo);
-                }
-                if ($fallbackCheckout) {
-                    $q->orWhere('peach_payment_checkout_id', $fallbackCheckout);
-                }
+                if ($fallbackOrderNo)   $q->orWhere('peach_payment_order_no', $fallbackOrderNo);
+                if ($fallbackCheckout)  $q->orWhere('peach_payment_checkout_id', $fallbackCheckout);
             });
         } else {
             $siblingsQuery->whereKey($booking->id);
         }
 
-        // 3) Eager-load everything the UI needs
+        // 3) Eager-load
         $bookings = $siblingsQuery
-            ->with([
-                'services',
-                'timeslot.schedule.location',
-                'eventOccurrence.location',
-                'user',
-            ])
+            ->with(['services', 'timeslot.schedule.location', 'eventOccurrence.location', 'user'])
             ->orderBy('id')
             ->get();
 
@@ -75,7 +63,7 @@ class BookingController extends Controller
             'count'       => $bookings->count(),
         ]);
 
-        // 4) Display map
+        // 4) Display mapping
         $display = $bookings->map(function (Booking $b) {
             $lines = $b->services->map(function ($svc) {
                 $qty       = (int) ($svc->pivot->quantity ?? 1);
@@ -97,15 +85,10 @@ class BookingController extends Controller
                 ?? optional($b->eventOccurrence)->location->name
                 ?? null;
 
-            $startsAt = $b->timeslot?->starts_at
-                ?? $b->eventOccurrence?->start_at
-                ?? null;
+            $startsAt = $b->timeslot?->starts_at ?? $b->eventOccurrence?->start_at ?? null;
+            $endsAt   = $b->timeslot?->ends_at   ?? $b->eventOccurrence?->end_at   ?? null;
 
-            $endsAt = $b->timeslot?->ends_at
-                ?? $b->eventOccurrence?->end_at
-                ?? null;
-
-            $fmtTime = function ($v) {
+            $fmt = function ($v) {
                 if ($v instanceof \Carbon\CarbonInterface) return $v->toDateTimeString();
                 return $v ? (string) $v : null;
             };
@@ -116,22 +99,16 @@ class BookingController extends Controller
                 'payment_status' => $b->payment_status,
                 'people'         => (int) $b->people,
                 'location_name'  => $locName,
-                'starts_at'      => $fmtTime($startsAt),
-                'ends_at'        => $fmtTime($endsAt),
+                'starts_at'      => $fmt($startsAt),
+                'ends_at'        => $fmt($endsAt),
                 'lines'          => $lines,
                 'total_cents'    => $totalCents,
             ];
         });
 
-        // 5) Compute summary (DO THIS BEFORE using it!)
-        $resolvedOrder = $order
-            ?? $fallbackOrderNo
-            ?? $fallbackCheckout
-            ?? null;
-
-        $grandTotalCents = (int) $bookings->sum(function ($b) {
-            return (int) ($b->amount ?? 0);
-        });
+        // 5) Summary
+        $resolvedOrder = $order ?? $fallbackOrderNo ?? $fallbackCheckout ?? null;
+        $grandTotalCents = (int) $bookings->sum(fn($b) => (int) ($b->amount ?? 0));
 
         $summary = [
             'order'             => $resolvedOrder,
@@ -139,93 +116,104 @@ class BookingController extends Controller
             'grand_total_cents' => $grandTotalCents ?: $display->sum('total_cents'),
         ];
 
-        // 6) Ensure `$booking` has the same things for legacy props
-        $booking->loadMissing([
-            'services',
-            'timeslot.schedule.location',
-            'eventOccurrence.location',
-            'user',
-        ]);
+        // 6) Legacy load
+        $booking->loadMissing(['services', 'timeslot.schedule.location', 'eventOccurrence.location', 'user']);
 
-        // 7) Email dispatch (with detailed logs)
-        try {
-            $allPaid = $bookings->every(fn($b) => $b->status === 'paid');
-
-            Log::info('Booking.show: mail gate check', [
-                'resolvedOrder'   => $resolvedOrder,
-                'allPaid'         => $allPaid,
-                'mailer_default'  => config('mail.default'),
-                'from_address'    => config('mail.from.address'),
-                'from_name'       => config('mail.from.name'),
-            ]);
-
-            if ($resolvedOrder && $allPaid) {
-                $cacheKey = "order_mail_sent:{$resolvedOrder}";
-                $firstTime = Cache::add($cacheKey, 1, now()->addDay());
-
-                Log::info('Booking.show: dedupe check', [
-                    'cache_key'  => $cacheKey,
-                    'will_send'  => $firstTime,
-                ]);
-
-                if ($firstTime) {
-                    $user = $booking->user;
-
-                    if ($user && $user->email) {
-                        $emailSummary = [
-                            'order'             => $resolvedOrder,
-                            'count'             => $bookings->count(),
-                            'grand_total_cents' => $summary['grand_total_cents'],
-                        ];
-
-                        Log::info('Booking.show: attempting send', [
-                            'to'    => $user->email,
-                            'order' => $resolvedOrder,
-                        ]);
-
-                        Mail::to($user->email)->send(
-                            new OrderConfirmedMail($user, $display, $emailSummary)
-                        );
-
-                        Log::info('Booking.show: send completed', [
-                            'to'    => $user->email,
-                            'order' => $resolvedOrder,
-                        ]);
-                    } else {
-                        Log::warning('Booking.show: missing user/email; skip send', [
-                            'order'       => $resolvedOrder,
-                            'booking_ids' => $bookings->pluck('id'),
-                            'has_user'    => (bool) $booking->user,
-                        ]);
-                    }
-                } else {
-                    Log::info('Booking.show: email already sent (deduped)', [
-                        'order' => $resolvedOrder,
-                    ]);
-                }
-            } else {
-                Log::info('Booking.show: mail gate blocked', [
-                    'reason' => $resolvedOrder ? 'not_all_paid' : 'no_resolved_order',
-                    'order'  => $resolvedOrder,
-                    'statuses' => $bookings->pluck('status'),
-                ]);
-            }
-        } catch (\Throwable $e) {
-            Log::error('Booking.show: failed to send OrderConfirmedMail', [
-                'order'   => $resolvedOrder,
-                'error'   => $e->getMessage(),
-                'trace'   => $e->getTraceAsString(),
-            ]);
-        }
-
-        // 8) Render
-        return Inertia::render('Booking/ConfirmedPage', [
+        // 7) Prepare response first (so we can flush before sending mail)
+        $response = Inertia::render('Booking/ConfirmedPage', [
             'booking'  => $booking,
             'bookings' => $display,
             'summary'  => $summary,
         ]);
-    }
 
+        // 8) Decide if we should send
+        $shouldSend = false;
+        $sendWhy = '';
+        if (!$resolvedOrder) {
+            $sendWhy = 'no_resolved_order';
+        } else {
+            $allPaid = $bookings->every(fn($b) => $b->status === 'paid');
+            if (!$allPaid) {
+                $sendWhy = 'not_all_paid';
+            } else {
+                $cacheKey  = "order_mail_sent:{$resolvedOrder}";
+                $firstTime = Cache::add($cacheKey, 1, now()->addDay());
+                if (!$firstTime) {
+                    $sendWhy = 'deduped';
+                } else {
+                    $shouldSend = true;
+                    $sendWhy    = 'ok';
+                }
+            }
+        }
+
+        Log::info('Booking.show: mail decision', [
+            'resolvedOrder'  => $resolvedOrder,
+            'decision'       => $shouldSend ? 'send' : 'skip',
+            'reason'         => $sendWhy,
+            'mailer_default' => config('mail.default'),
+            'timeout'        => config('mail.mailers.smtp.timeout'),
+        ]);
+
+        // 9) If sending, do it AFTER flushing response to client to avoid timeouts
+        if ($shouldSend) {
+            $user = $booking->user;
+            if ($user && $user->email) {
+                // Send the response to the browser first
+                if (function_exists('fastcgi_finish_request')) {
+                    // Return headers/body now; continue work below
+                    $response->send(); // send Symfony response
+                    fastcgi_finish_request();
+                } else {
+                    // Fallback: just proceed (may still block if SMTP is slow)
+                }
+
+                $t0 = microtime(true);
+                try {
+                    Log::info('Booking.show: send begin', [
+                        'to'    => $user->email,
+                        'order' => $resolvedOrder,
+                    ]);
+
+                    $emailSummary = [
+                        'order'             => $resolvedOrder,
+                        'count'             => $bookings->count(),
+                        'grand_total_cents' => $summary['grand_total_cents'],
+                    ];
+
+                    Mail::to($user->email)->send(
+                        new OrderConfirmedMail($user, $display, $emailSummary)
+                    );
+
+                    $ms = (int) round((microtime(true) - $t0) * 1000);
+                    Log::info('Booking.show: send success', [
+                        'to' => $user->email,
+                        'ms' => $ms,
+                    ]);
+                } catch (\Throwable $e) {
+                    $ms = (int) round((microtime(true) - $t0) * 1000);
+                    Log::error('Booking.show: send failed', [
+                        'order' => $resolvedOrder,
+                        'ms'    => $ms,
+                        'err'   => $e->getMessage(),
+                    ]);
+                }
+
+                // If we flushed early, we MUST stop further Laravel processing
+                if (function_exists('fastcgi_finish_request')) {
+                    return; // response already sent
+                }
+            } else {
+                Log::warning('Booking.show: missing user/email; skip send', [
+                    'has_user' => (bool) $booking->user,
+                    'order'    => $resolvedOrder,
+                ]);
+            }
+        }
+
+        // 10) Normal return if we didn’t flush early
+        return $response;
+    }
 
     /* --------------------------------------------------- store */
     public function store(Request $request)
