@@ -66,10 +66,7 @@ export default function AuthenticatedLayout({ header, children }) {
     const page = usePage();
     const url = page.url;
 
-    const organization = auth.organization;
-    const [open, setOpen] = useState(false);
-
-    const canSeePayments = Boolean(Number(user?.is_family ?? 0));
+    const isDayStaff = Boolean(Number(user?.is_editor ?? 0));
 
     const asset = (path) => {
         return `/storage/${path}`;
@@ -477,7 +474,7 @@ export default function AuthenticatedLayout({ header, children }) {
                                                 Bookings
                                             </a>
                                         </li>
-                                        {canSeePayments && (
+                                        {!isDayStaff && (
                                             <li>
                                                 <a
                                                     href={route(
@@ -533,110 +530,122 @@ export default function AuthenticatedLayout({ header, children }) {
                                                 Customers
                                             </a>
                                         </li>
-                                        <li>
-                                            <a
-                                                href={route("services.index")}
-                                                className={classNames(
-                                                    route().current(
+                                        {!isDayStaff && (
+                                            <li>
+                                                <a
+                                                    href={route(
                                                         "services.index"
-                                                    )
-                                                        ? "bg-gray-100 text-hh-orange border-l-2 border-l-hh-orange"
-                                                        : "text-black hover:bg-gray-100 hover:",
-                                                    "group flex gap-x-3  p-1 sidebar-item !font-medium"
-                                                )}
-                                            >
-                                                <ServerStackIcon
-                                                    aria-hidden="true"
+                                                    )}
                                                     className={classNames(
                                                         route().current(
                                                             "services.index"
                                                         )
-                                                            ? ""
-                                                            : "text-black group-hover:",
-                                                        "h-6 w-6 shrink-0"
+                                                            ? "bg-gray-100 text-hh-orange border-l-2 border-l-hh-orange"
+                                                            : "text-black hover:bg-gray-100 hover:",
+                                                        "group flex gap-x-3  p-1 sidebar-item !font-medium"
                                                     )}
-                                                />
-                                                Services
-                                            </a>
-                                        </li>
-                                        <li>
-                                            <a
-                                                href={route("events.index")}
-                                                className={classNames(
-                                                    route().current(
-                                                        "events.index"
-                                                    )
-                                                        ? "bg-gray-100 text-hh-orange border-l-2 border-l-hh-orange"
-                                                        : "text-black hover:bg-gray-100 hover:",
-                                                    "group flex gap-x-3  p-1 sidebar-item !font-medium"
-                                                )}
-                                            >
-                                                <CalendarIcon
-                                                    aria-hidden="true"
+                                                >
+                                                    <ServerStackIcon
+                                                        aria-hidden="true"
+                                                        className={classNames(
+                                                            route().current(
+                                                                "services.index"
+                                                            )
+                                                                ? ""
+                                                                : "text-black group-hover:",
+                                                            "h-6 w-6 shrink-0"
+                                                        )}
+                                                    />
+                                                    Services
+                                                </a>
+                                            </li>
+                                        )}
+                                        {!isDayStaff && (
+                                            <li>
+                                                <a
+                                                    href={route("events.index")}
                                                     className={classNames(
                                                         route().current(
                                                             "events.index"
                                                         )
-                                                            ? ""
-                                                            : "text-black group-hover:",
-                                                        "h-6 w-6 shrink-0"
+                                                            ? "bg-gray-100 text-hh-orange border-l-2 border-l-hh-orange"
+                                                            : "text-black hover:bg-gray-100 hover:",
+                                                        "group flex gap-x-3  p-1 sidebar-item !font-medium"
                                                     )}
-                                                />
-                                                Events
-                                            </a>
-                                        </li>
-                                        <li>
-                                            <a
-                                                href={route("locations.index")}
-                                                className={classNames(
-                                                    route().current(
+                                                >
+                                                    <CalendarIcon
+                                                        aria-hidden="true"
+                                                        className={classNames(
+                                                            route().current(
+                                                                "events.index"
+                                                            )
+                                                                ? ""
+                                                                : "text-black group-hover:",
+                                                            "h-6 w-6 shrink-0"
+                                                        )}
+                                                    />
+                                                    Events
+                                                </a>
+                                            </li>
+                                        )}
+                                        {!isDayStaff && (
+                                            <li>
+                                                <a
+                                                    href={route(
                                                         "locations.index"
-                                                    )
-                                                        ? "bg-gray-100 text-hh-orange border-l-2 border-l-hh-orange"
-                                                        : "text-black hover:bg-gray-100 hover:",
-                                                    "group flex gap-x-3  p-1 sidebar-item !font-medium"
-                                                )}
-                                            >
-                                                <MapIcon
-                                                    aria-hidden="true"
+                                                    )}
                                                     className={classNames(
                                                         route().current(
                                                             "locations.index"
                                                         )
-                                                            ? ""
-                                                            : "text-black group-hover:",
-                                                        "h-6 w-6 shrink-0"
+                                                            ? "bg-gray-100 text-hh-orange border-l-2 border-l-hh-orange"
+                                                            : "text-black hover:bg-gray-100 hover:",
+                                                        "group flex gap-x-3  p-1 sidebar-item !font-medium"
                                                     )}
-                                                />
-                                                Locations
-                                            </a>
-                                        </li>
-                                        <li>
-                                            <a
-                                                href={route("saunas.index")}
-                                                className={classNames(
-                                                    route().current(
-                                                        "saunas.index"
-                                                    )
-                                                        ? "bg-gray-100 text-hh-orange border-l-2 border-l-hh-orange"
-                                                        : "text-black hover:bg-gray-100 hover:",
-                                                    "group flex gap-x-3  p-1 sidebar-item !font-medium"
-                                                )}
-                                            >
-                                                <MapPinIcon
-                                                    aria-hidden="true"
+                                                >
+                                                    <MapIcon
+                                                        aria-hidden="true"
+                                                        className={classNames(
+                                                            route().current(
+                                                                "locations.index"
+                                                            )
+                                                                ? ""
+                                                                : "text-black group-hover:",
+                                                            "h-6 w-6 shrink-0"
+                                                        )}
+                                                    />
+                                                    Locations
+                                                </a>
+                                            </li>
+                                        )}
+                                        {!isDayStaff && (
+                                            <li>
+                                                <a
+                                                    href={route("saunas.index")}
                                                     className={classNames(
                                                         route().current(
                                                             "saunas.index"
                                                         )
-                                                            ? ""
-                                                            : "text-black group-hover:",
-                                                        "h-6 w-6 shrink-0"
+                                                            ? "bg-gray-100 text-hh-orange border-l-2 border-l-hh-orange"
+                                                            : "text-black hover:bg-gray-100 hover:",
+                                                        "group flex gap-x-3  p-1 sidebar-item !font-medium"
                                                     )}
-                                                />
-                                                Territories
-                                            </a>
-                                        </li>
+                                                >
+                                                    <MapPinIcon
+                                                        aria-hidden="true"
+                                                        className={classNames(
+                                                            route().current(
+                                                                "saunas.index"
+                                                            )
+                                                                ? ""
+                                                                : "text-black group-hover:",
+                                                            "h-6 w-6 shrink-0"
+                                                        )}
+                                                    />
+                                                    Territories
+                                                </a>
+                                            </li>
+                                        )}
                                     </ul>
                                 </li>
                             </ul>

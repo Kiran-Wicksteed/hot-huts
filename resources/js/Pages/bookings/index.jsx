@@ -23,7 +23,7 @@ export default function BookingPage({
 }) {
     const { auth } = usePage().props;
     const user = auth.user;
-    const canSeePayments = Boolean(Number(user?.is_family ?? 0));
+    const canSeePayments = Boolean(Number(user?.is_editor ?? 0));
     /* ────────────────────────────────────────────────────────────
      1. local state / filters
   ──────────────────────────────────────────────────────────── */
@@ -60,7 +60,7 @@ export default function BookingPage({
                 {/* ════════════════════════════════════════════════════════
             ANALYTICS (unchanged – collapse if you want)
         ════════════════════════════════════════════════════════ */}
-                {canSeePayments && (
+                {!canSeePayments && (
                     <div className="grid grid-cols-3 gap-4">
                         <AnalyticsCard
                             label="Total bookings this month"

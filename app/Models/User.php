@@ -30,6 +30,8 @@ class User extends Authenticatable implements MustVerifyEmail
         'indemnity_consented_at',
         'indemnity_name',
         'indemnity_version',
+        'is_admin',
+        'is_editor',
     ];
 
     protected $casts = [

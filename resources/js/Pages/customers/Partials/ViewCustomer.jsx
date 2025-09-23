@@ -2,15 +2,23 @@
 import React, { useEffect, useState } from "react";
 import { useForm, router } from "@inertiajs/react";
 import styles from "../../../../styles";
+import { Link, usePage } from "@inertiajs/react";
 
 export default function ViewCustomer({ open, onClose, detail }) {
     const [editMode, setEditMode] = useState(false);
+    const { auth } = usePage().props;
+    const user = auth.user;
+
+    console.log("detail", detail);
+
+    const isDayStaff = Boolean(Number(user?.is_editor ?? 0));
 
     const { data, setData, processing, errors, clearErrors } = useForm({
         name: "",
         email: "",
         contact_number: "",
         is_admin: false,
+        is_editor: false,
         photo: null,
     });
 
@@ -23,6 +31,7 @@ export default function ViewCustomer({ open, onClose, detail }) {
             email: detail.email ?? "",
             contact_number: detail.contact_number ?? "",
             is_admin: !!detail.is_admin,
+            is_editor: !!detail.is_editor,
             photo: null,
         }));
         clearErrors();
@@ -105,6 +114,10 @@ export default function ViewCustomer({ open, onClose, detail }) {
                     );
 
                     setEditMode(false);
+                },
+                onError: (errors) => {
+                    // 422 shows here; for 403/500 you can also use onFinish and check flash or use a global error handler
+                    console.error(errors);
                 },
             }
         );
@@ -211,6 +224,7 @@ export default function ViewCustomer({ open, onClose, detail }) {
                                         contact_number:
                                             detail.contact_number ?? "",
                                         is_admin: !!detail.is_admin,
+                                        is_editor: !!detail.is_editor,
                                         photo: null,
                                     }));
                                     clearErrors();
@@ -238,6 +252,7 @@ export default function ViewCustomer({ open, onClose, detail }) {
                                             contact_number:
                                                 detail.contact_number ?? "",
                                             is_admin: !!detail.is_admin,
+                                            is_editor: !!detail.is_editor,
                                             photo: null,
                                         }));
                                         clearErrors();
@@ -310,6 +325,15 @@ export default function ViewCustomer({ open, onClose, detail }) {
                                                 : "Customer"
                                         }
                                     />
+
+                                    <Line
+                                        label="Admin level"
+                                        value={
+                                            detail.is_editor
+                                                ? "Day staff"
+                                                : "Full admin"
+                                        }
+                                    />
                                 </>
                             ) : (
                                 <form
@@ -369,34 +393,70 @@ export default function ViewCustomer({ open, onClose, detail }) {
                                             className="block w-full text-sm"
                                         />
                                     </Field>
-
-                                    <Field label="Role">
-                                        <div className="flex items-center justify-between">
-                                            <span className="text-sm">
-                                                Admin access
-                                            </span>
-                                            <label className="inline-flex items-center gap-2">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={!!data.is_admin}
-                                                    onChange={(e) =>
-                                                        setData(
-                                                            "is_admin",
-                                                            e.target.checked
-                                                        )
-                                                    }
-                                                    className="h-4 w-4"
-                                                />
-                                                <span className="text-sm text-gray-700">
-                                                    Make this user an admin
-                                                </span>
-                                            </label>
+                                    {!isDayStaff && (
+                                        <div>
+                                            <Field label="Role">
+                                                <div className="flex items-center justify-between">
+                                                    <span className="text-sm">
+                                                        Admin access
+                                                    </span>
+                                                    <label className="inline-flex items-center gap-2">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={
+                                                                !!data.is_admin
+                                                            }
+                                                            onChange={(e) =>
+                                                                setData(
+                                                                    "is_admin",
+                                                                    e.target
+                                                                        .checked
+                                                                )
+                                                            }
+                                                            className="h-4 w-4"
+                                                        />
+                                                        <span className="text-sm text-gray-700">
+                                                            Make this user an
+                                                            admin
+                                                        </span>
+                                                    </label>
+                                                </div>
+                                                <p className="text-xs text-gray-500 mt-1 max-w-xs">
+                                                    Admins can access the
+                                                    dashboard and manage other
+                                                    users.
+                                                </p>
+                                            </Field>
+                                            <Field>
+                                                <div className="flex items-center justify-between">
+                                                    <span className="text-sm">
+                                                        Day staff access
+                                                    </span>
+                                                    <label className="inline-flex items-center gap-2">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={
+                                                                !!data.is_editor
+                                                            }
+                                                            onChange={(e) =>
+                                                                setData(
+                                                                    "is_editor",
+                                                                    e.target
+                                                                        .checked
+                                                                )
+                                                            }
+                                                            className="h-4 w-4"
+                                                        />
+                                                        <span className="text-sm text-gray-700">
+                                                            Set the user as day
+                                                            staff (limited admin
+                                                            access)
+                                                        </span>
+                                                    </label>
+                                                </div>
+                                            </Field>
                                         </div>
-                                        <p className="text-xs text-gray-500 mt-1">
-                                            Admins can access the dashboard and
-                                            manage other users.
-                                        </p>
-                                    </Field>
+                                    )}
                                 </form>
                             )}
                         </div>

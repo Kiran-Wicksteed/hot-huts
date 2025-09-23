@@ -14,6 +14,8 @@ use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Shaz3e\PeachPayment\Helpers\PeachPayment;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Mail;
+use App\Mail\OrderConfirmedMail;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
@@ -133,6 +135,45 @@ class BookingController extends Controller
             'eventOccurrence.location',
             'user',
         ]);
+
+        try {
+            $resolvedOrder = $summary['order'] ?? null; // you already computed $summary below
+
+            if ($resolvedOrder) {
+                $allPaid = $bookings->every(fn($b) => $b->status === 'paid');
+
+                if ($allPaid) {
+                    // Cache::add returns true only if the key did not exist (dedupe for 24h)
+                    if (Cache::add("order_mail_sent:{$resolvedOrder}", 1, now()->addDay())) {
+                        $booking->loadMissing('user'); // ensure we have the purchaser
+                        $user = $booking->user;
+
+                        if ($user && $user->email) {
+                            $emailSummary = [
+                                'order'             => $resolvedOrder,
+                                'count'             => $bookings->count(),
+                                'grand_total_cents' => $grandTotalCents ?: $display->sum('total_cents'),
+                            ];
+
+                            // Queue so we don't slow down the redirect
+                            Mail::to($user->email)->queue(
+                                new OrderConfirmedMail($user, $display, $emailSummary)
+                            );
+                        } else {
+                            Log::warning('Order confirmed but missing user/email for mail send', [
+                                'order' => $resolvedOrder,
+                                'booking_ids' => $bookings->pluck('id'),
+                            ]);
+                        }
+                    }
+                }
+            }
+        } catch (\Throwable $e) {
+            Log::error('Failed to dispatch OrderConfirmedMail', [
+                'error' => $e->getMessage(),
+                'order' => $summary['order'] ?? null,
+            ]);
+        }
 
         return Inertia::render('Booking/ConfirmedPage', [
             // legacy single
@@ -434,12 +475,7 @@ class BookingController extends Controller
             return [$created, $grand];
         });
 
-        // quick audit log
-        Log::info('Cart checkout totals', [
-            'grand_total_cents' => $grandTotalCents,
-            'grand_total_rand'  => number_format($grandTotalCents / 100, 2, '.', ''),
-            'booking_amounts'   => collect($bookings)->pluck('amount')->all(),
-        ]);
+
 
         if ($grandTotalCents <= 0) {
             foreach ($bookings as $b) {
@@ -472,7 +508,7 @@ class BookingController extends Controller
         // ---------- 3) One Peach checkout for the entire cart ----------
         $peach    = new \Shaz3e\PeachPayment\Helpers\PeachPayment();
         $amount   = number_format($grandTotalCents / 100, 2, '.', '');
-        Log::info('CB URL being sent to Peach', ['cb' => $cbUrl, 'app_url' => config('app.url')]);
+
         $checkout = $peach->createCheckout($amount, $cbUrl);
 
         // Tag ALL bookings with the same checkout/order

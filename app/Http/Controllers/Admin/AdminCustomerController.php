@@ -152,6 +152,7 @@ class AdminCustomerController extends Controller
             'photo'          => $user->getAttribute('photo') ? asset('storage/' . $user->photo) : null,
             'created_at'     => $user->created_at,
             'is_admin' => (bool) $user->getAttribute('is_admin'),
+            'is_editor' => (bool) $user->getAttribute('is_editor'),
             'initials'       => collect(explode(' ', (string) $user->name))
                 ->map(fn($p) => mb_substr($p, 0, 1))
                 ->take(2)->implode('') ?: 'CU',
@@ -182,6 +183,7 @@ class AdminCustomerController extends Controller
                 'contact_number'  => ['nullable', 'string', 'max:20'],
                 'photo'           => ['nullable', 'file', 'mimes:jpg,png,gif', 'max:3072'],
                 'is_admin'        => ['sometimes', 'boolean'],
+                'is_editor'       => ['sometimes', 'boolean'],
             ],
             [
                 'photo.max'   => 'The photo may not be greater than 3 MB.',
@@ -220,6 +222,9 @@ class AdminCustomerController extends Controller
         if (\Illuminate\Support\Facades\Schema::hasColumn($user->getTable(), 'is_admin') && $request->has('is_admin')) {
             $actor = \Illuminate\Support\Facades\Auth::user();
 
+            // log the actor
+            \Illuminate\Support\Facades\Log::info('AdminCustomerController@update - actor', ['actor' => $actor ? (array) $actor : null]);
+
             if (!$actor || !$actor->is_admin) {
                 abort(403, 'Only admins can change admin access.');
             }
@@ -241,6 +246,17 @@ class AdminCustomerController extends Controller
             }
 
             $updates['is_admin'] = $desired;
+        }
+
+
+        // Day staff toggle (non-day-staff only)
+        if (\Illuminate\Support\Facades\Schema::hasColumn($user->getTable(), 'is_editor') && $request->has('is_editor')) {
+            $actor = \Illuminate\Support\Facades\Auth::user();
+            // If the actor is marked as day staff, forbid changing day staff access.
+            if ($actor && (bool)$actor->is_editor === true) {
+                abort(403, 'Day staff cannot change day staff access.');
+            }
+            $updates['is_editor'] = $request->boolean('is_editor');
         }
 
         $user->fill($updates)->save();

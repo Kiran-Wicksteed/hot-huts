@@ -4,7 +4,7 @@
 
 # Welcome, {{ $user->name }}!
 
-Thanks for joining HotHuts. You can now book saunas, view events, and manage your profile.
+Thanks for joining Hot Huts. You can now book saunas, view events, and manage your profile.
 
 @component('mail::button', ['url' => url('/')])
 Go to HotHuts
@@ -12,5 +12,5 @@ Go to HotHuts
 
 If you need help, just reply to this email.
 
-— The HotHuts Team
+— The Hot Huts Team
 @endcomponent
