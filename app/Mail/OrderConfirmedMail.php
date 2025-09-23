@@ -32,15 +32,7 @@ class OrderConfirmedMail extends Mailable
 
     public function content(): Content
     {
-        $logoCid = null;
 
-        $this->withSymfonyMessage(function ($message) use (&$logoCid) {
-            // same trick you use in WelcomeMail
-            $logoCid = $message->embedFromPath(
-                storage_path('app/public/images/hot-huts-logo.png'),
-                'hothuts-logo'
-            );
-        });
 
         return new Content(
             markdown: 'emails.order-confirmed',
@@ -48,7 +40,7 @@ class OrderConfirmedMail extends Mailable
                 'user'    => $this->user,
                 'items'   => collect($this->items),
                 'summary' => $this->summary,
-                'logoCid' => $logoCid,
+
             ]
         );
     }

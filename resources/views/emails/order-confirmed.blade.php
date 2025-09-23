@@ -35,9 +35,6 @@ $money = fn(int $cents) => 'R' . number_format($cents / 100, 2);
 
 @endforeach
 
-@component('mail::button', ['url' => url('/dashboard/bookings?order=' . urlencode($summary['order'] ?? ''))])
-View your booking
-@endcomponent
 
 If you didn’t make this booking or have questions, reply to this email and we’ll help.
 
