@@ -156,7 +156,7 @@ class BookingController extends Controller
                             ];
 
                             // Queue so we don't slow down the redirect
-                            Mail::to($user->email)->queue(
+                            Mail::to($user->email)->send(
                                 new OrderConfirmedMail($user, $display, $emailSummary)
                             );
                         } else {
