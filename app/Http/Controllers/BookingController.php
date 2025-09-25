@@ -153,7 +153,8 @@ class BookingController extends Controller
     {
         $holdMinutes = (int) config('booking.hold_minutes', 10);
         $entity      = config('peach-payment.entity_id');
-        $cbUrl = '/order/callback';
+        $base  = rtrim(config('app.url'), '/');
+        $cbUrl = $base . '/order/callback';
 
 
         $now         = now();
@@ -470,7 +471,23 @@ class BookingController extends Controller
 
 
 
-        $res = $peach->createCheckout($amount, $cbUrl);
+        try {
+            $res = (new \Shaz3e\PeachPayment\Helpers\PeachPayment())
+                ->createCheckout($amount, $cbUrl);
+        } catch (\Throwable $e) {
+            Log::error('Peach createCheckout threw before returning', [
+                'msg'   => $e->getMessage(),
+                'class' => get_class($e),
+                'trace' => $e->getTraceAsString(),
+                // Include what we sent (minus secrets)
+                'sent'  => ['amount' => $amount, 'callback' => $cbUrl, 'env' => config('peach-payment.environment')],
+            ]);
+
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'payment' => ['Payment provider error: ' . $e->getMessage()],
+            ]);
+        }
+
 
         // Log everything so we can see LIVE’s actual message
         Log::info('Peach LIVE createCheckout response', ['res' => $res]);
