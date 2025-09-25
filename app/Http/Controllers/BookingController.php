@@ -153,8 +153,7 @@ class BookingController extends Controller
     {
         $holdMinutes = (int) config('booking.hold_minutes', 10);
         $entity      = config('peach-payment.entity_id');
-        $base  = rtrim(config('app.url'), '/');
-        $cbUrl = $base . '/order/callback';
+        $cbUrl = '/order/callback';
 
 
         $now         = now();
@@ -469,61 +468,28 @@ class BookingController extends Controller
         $peach    = new \Shaz3e\PeachPayment\Helpers\PeachPayment();
         $amount   = number_format($grandTotalCents / 100, 2, '.', '');
 
-
-
-        try {
-            $res = $peach->createCheckout($amount, $cbUrl);
-        } catch (\Throwable $e) {
-            Log::error('Peach createCheckout threw before returning', [
-                'msg'   => $e->getMessage(),
-                'class' => get_class($e),
-                'trace' => $e->getTraceAsString(),
-                // Include what we sent (minus secrets)
-                'sent'  => ['amount' => $amount, 'callback' => $cbUrl, 'env' => config('peach-payment.environment')],
-            ]);
-
-            throw \Illuminate\Validation\ValidationException::withMessages([
-                'payment' => ['Payment provider error: ' . $e->getMessage()],
-            ]);
-        }
-
-
-        // Log everything so we can see LIVE’s actual message
-        Log::info('Peach LIVE createCheckout response', ['res' => $res]);
-
-        // Some Peach responses use "id" (Copy&Pay) vs "checkoutId".
-        // Accept either to be safe; the webhook seems to use "checkoutId".
-        $checkoutId = $res['checkoutId'] ?? $res['id'] ?? null;
-
-        // If no checkoutId/id, surface a clear error to the UI instead of 500
-        if (!$checkoutId) {
-            $code = $res['result']['code'] ?? $res['code'] ?? 'unknown';
-            $desc = $res['result']['description'] ?? $res['description'] ?? 'Unknown error from Peach';
-            throw \Illuminate\Validation\ValidationException::withMessages([
-                'payment' => ["Peach createCheckout failed ({$code}): {$desc}"],
-            ]);
-        }
+        $checkout = $peach->createCheckout($amount, $cbUrl);
 
         // Tag ALL bookings with the same checkout/order
         foreach ($bookings as $b) {
             $b->forceFill([
-                'peach_payment_checkout_id' => $res['checkoutId'],
-                'peach_payment_order_no'    => $res['order_number'],
+                'peach_payment_checkout_id' => $checkout['checkoutId'],
+                'peach_payment_order_no'    => $checkout['order_number'],
             ])->save();
         }
 
         // ---------- 3.1) Cache idempotency record (TTL ≈ holdMinutes) ----------
         Cache::put($cacheKey, [
             'booking_ids' => collect($bookings)->pluck('id')->all(),
-            'checkoutId'  => $res['checkoutId'],
-            'orderNumber' => $res['order_number'],
+            'checkoutId'  => $checkout['checkoutId'],
+            'orderNumber' => $checkout['order_number'],
             'grandCents'  => $grandTotalCents,
         ], now()->addMinutes(max($holdMinutes, 10)));
 
         // ---------- 4) Render payment page ----------
         return Inertia::render('Payment/RedirectToGateway', [
             'entityId'          => $entity,
-            'checkoutId'        => $res['checkoutId'],
+            'checkoutId'        => $checkout['checkoutId'],
             'checkoutScriptUrl' => config('peach-payment.' . config('peach-payment.environment') . '.embedded_checkout_url'),
         ]);
     }
