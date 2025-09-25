@@ -34,7 +34,7 @@ export default function Login({ status, canResetPassword }) {
 
             <div className="col-span-1 relative">
                 <img
-                    src="/storage/images/login-bg.png"
+                    src="/storage/images/signup-2.jpg"
                     alt="Picturee of beach"
                     className="h-full w-full absolute top-0 object-cover"
                 />
@@ -45,7 +45,7 @@ export default function Login({ status, canResetPassword }) {
                         className="h-16 sm:h-20 lg:h-24 w-auto"
                     />
                     <h1
-                        className={`${styles.h2} font-semibold !text-hh-orange mt-4 sm:mt-6 lg:mt-10 !text-2xl sm:!text-xl lg:!text-2xl`}
+                        className={`${styles.h2} font-semibold !text-white mt-4 sm:mt-6 lg:mt-10 !text-2xl sm:!text-xl lg:!text-2xl`}
                     >
                         Welcome Back to Your Seaside Sanctuary.
                     </h1>
@@ -55,7 +55,9 @@ export default function Login({ status, canResetPassword }) {
                 {" "}
                 <div className="flex flex-col h-full justify-between p-4 pt-8 sm:p-8 lg:p-14">
                     <div className="flex flex-col lg:flex-row lg:justify-end items-center lg:items-start">
-                        <p className={`${styles.paragraph} !text-[#2C2C2C] text-center lg:text-right`}>
+                        <p
+                            className={`${styles.paragraph} !text-[#2C2C2C] text-center lg:text-right`}
+                        >
                             New user?{" "}
                             <Link
                                 href="/register"

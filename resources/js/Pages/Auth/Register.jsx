@@ -234,7 +234,7 @@ export default function Register() {
 
             <div className="col-span-1 relative">
                 <img
-                    src="/storage/images/login-bg.png"
+                    src="/storage/images/signup-1.jpg"
                     alt="Picture of beach"
                     className="h-full w-full absolute top-0 object-cover"
                 />
