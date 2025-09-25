@@ -212,9 +212,15 @@ export default function Locations({ nextStep, updateFormData, events }) {
                                                 {item.name}
                                             </p>
                                             {item.windowsLabel && (
-                                                <p className="text-xs md:text-[11px] lg:text-xs text-black/60 text-center mt-1 normal-case leading-tight">
-                                                    {item.windowsLabel}
-                                                </p>
+                                                <div className="text-xs md:text-[11px] lg:text-xs text-black/60 text-center mt-1 normal-case leading-tight space-y-0.5">
+                                                    {item.windowsLabel
+                                                        .split(", ")
+                                                        .map((range) => (
+                                                            <div key={range}>
+                                                                {range}
+                                                            </div>
+                                                        ))}
+                                                </div>
                                             )}
                                         </div>
                                     );

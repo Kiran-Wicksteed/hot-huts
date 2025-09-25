@@ -29,7 +29,7 @@ export default function ConfirmedMenu() {
                         <li>
                             <a
                                 href="/"
-                                className={`${styles.paragraph} !font-medium !text-lg flex items-center gap-x-2 w-fit cursor-pointer transition-all`}
+                                className={`${styles.paragraph} !font-medium !lg:text-lg flex items-center lg:gap-x-2 w-fit cursor-pointer transition-all`}
                             >
                                 <ShoppingCartIcon className="h-6 w-6 " />
                                 <span>Book Now</span>
@@ -38,7 +38,7 @@ export default function ConfirmedMenu() {
                         <li>
                             <a
                                 href="/my-bookings"
-                                className={`${styles.paragraph} border border-hh-orange font-medium shadow !text-lg rounded p-4 text-hh-orange w-fit cursor-pointer transition-all`}
+                                className={`${styles.paragraph} border border-hh-orange font-medium shadow !lg:text-lg rounded lg:p-4 p-2 text-hh-orange w-fit cursor-pointer transition-all`}
                             >
                                 <span>My Bookings</span>
                             </a>
