@@ -472,8 +472,7 @@ class BookingController extends Controller
 
 
         try {
-            $res = (new \Shaz3e\PeachPayment\Helpers\PeachPayment())
-                ->createCheckout($amount, $cbUrl);
+            $res = $peach->createCheckout($amount, $cbUrl);
         } catch (\Throwable $e) {
             Log::error('Peach createCheckout threw before returning', [
                 'msg'   => $e->getMessage(),
