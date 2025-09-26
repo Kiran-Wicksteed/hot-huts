@@ -178,11 +178,20 @@ export default function ViewCustomer({ open, onClose, detail }) {
                 <div className="flex items-center justify-between p-6 border-b">
                     <div className="flex items-center gap-3">
                         {previewUrl ? (
-                            <img
-                                src={previewUrl}
-                                alt={detailName}
-                                className="h-10 w-10 rounded-full object-cover"
-                            />
+                            <div>
+                                <img
+                                    src={previewUrl}
+                                    alt={detailName}
+                                    className="h-10 w-10 rounded-full  object-cover"
+                                />
+                                <a
+                                    href={previewUrl}
+                                    target="_blank"
+                                    className={`${styles.paragraph} text-hh-orange underline text-xs`}
+                                >
+                                    View image
+                                </a>
+                            </div>
                         ) : (
                             <div className="bg-hh-orange/90 text-white h-10 w-10 rounded-full flex items-center justify-center">
                                 <span className="font-semibold">

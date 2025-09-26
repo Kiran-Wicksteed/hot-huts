@@ -17,6 +17,8 @@ use Illuminate\Support\Facades\Mail;
 use App\Mail\WelcomeMail;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Illuminate\Support\Carbon;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Log;
 
 
 class AdminCustomerController extends Controller
@@ -51,9 +53,20 @@ class AdminCustomerController extends Controller
         }
 
         // Photo upload (optional)
-        $path = null;
-        if ($request->hasFile('photo')) {
-            $path = $request->file('photo')->store('photos', 'public');
+        if ($request->hasFile('photo') && $request->file('photo') instanceof UploadedFile) {
+
+
+            try {
+                // Put the file on S3 with public visibility
+                $path = $request->file('photo')->storePublicly('hothuts/images/users', 's3');
+                $request['image_path'] = Storage::disk('s3')->url($path);
+                // If you prefer storing the key only, use:
+                // $fields['image_path'] = $path;
+
+            } catch (\Throwable $e) {
+                Log::error("S3 image upload failed: {$e->getMessage()}");
+                throw $e; // or add a validation error/response as you prefer
+            }
         }
 
         // Create the customer (do NOT log in — you remain admin)
@@ -63,7 +76,7 @@ class AdminCustomerController extends Controller
             'password'               => Hash::make($request->password),
             'title'                  => 'customer',
             'contact_number'         => $request->contact_number, // make sure this column exists
-            'photo'                  => $path,                    // make sure this column exists
+            'photo' => $request['image_path'] ?? null,                // make sure this column exists
 
             // Indemnity audit fields
             'indemnity_consented_at' => now(),
@@ -149,7 +162,7 @@ class AdminCustomerController extends Controller
             'name'           => $user->name,
             'email'          => $user->email,
             'contact_number' => $user->getAttribute('contact_number'), // safe if column absent
-            'photo'          => $user->getAttribute('photo') ? asset('storage/' . $user->photo) : null,
+            'photo' => $this->resolvePhotoUrl($user->getAttribute('photo')),
             'created_at'     => $user->created_at,
             'is_admin' => (bool) $user->getAttribute('is_admin'),
             'is_editor' => (bool) $user->getAttribute('is_editor'),
@@ -203,19 +216,39 @@ class AdminCustomerController extends Controller
 
         // Handle avatar upload (optional)
         if (
-            isset($validated['photo']) &&
             $request->hasFile('photo') &&
+            $request->file('photo') instanceof \Illuminate\Http\UploadedFile &&
             \Illuminate\Support\Facades\Schema::hasColumn($user->getTable(), 'photo')
         ) {
-            $path = $request->file('photo')->store('photos', 'public');
+            try {
+                // Upload to the same folder/disk as store()
+                $key = $request->file('photo')->storePublicly('hothuts/images/users', 's3');
+                $newUrl = \Illuminate\Support\Facades\Storage::disk('s3')->url($key);
 
-            // Delete old photo if present
-            $old = $user->getAttribute('photo');
-            if (!empty($old)) {
-                \Illuminate\Support\Facades\Storage::disk('public')->delete($old);
+                // (Optional) best-effort delete old photo (supports old public path or S3 URL)
+                $old = $user->getAttribute('photo');
+                if (!empty($old)) {
+                    try {
+                        if (str_starts_with($old, 'http')) {
+                            // old was a URL — extract key and delete from S3
+                            $oldKey = ltrim(parse_url($old, PHP_URL_PATH) ?: '', '/');
+                            \Illuminate\Support\Facades\Storage::disk('s3')->delete($oldKey);
+                        } else {
+                            // old was a local/public path
+                            \Illuminate\Support\Facades\Storage::disk('public')->delete($old);
+                        }
+                    } catch (\Throwable $del) {
+                        \Illuminate\Support\Facades\Log::warning('Old photo delete failed', ['error' => $del->getMessage()]);
+                    }
+                }
+
+                // Save the absolute URL exactly like store()
+                $updates['photo'] = $newUrl;
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::error("S3 image upload failed: {$e->getMessage()}");
+                // If you want this to be non-fatal, comment out the next line
+                // throw $e;
             }
-
-            $updates['photo'] = $path;
         }
 
         // Admin toggle (only admins can change; protect last admin; no self-demote)
@@ -318,5 +351,23 @@ class AdminCustomerController extends Controller
         };
 
         return response()->stream($callback, 200, $headers);
+    }
+
+    private function resolvePhotoUrl(?string $value): ?string
+    {
+        if (!$value) return null;
+
+        // Already an absolute URL? Use as-is.
+        if (str_starts_with($value, 'http://') || str_starts_with($value, 'https://')) {
+            return $value;
+        }
+
+        // Looks like an S3 key? (your keys start with hothuts/images/...)
+        if (str_starts_with($value, 'hothuts/')) {
+            return Storage::disk('s3')->url(ltrim($value, '/'));
+        }
+
+        // Fallback: treat as a legacy local/public path
+        return Storage::disk('public')->url(ltrim($value, '/'));
     }
 }

@@ -11,6 +11,8 @@ use Inertia\Inertia;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Http\UploadedFile;
 
 class LocationController extends Controller
 {
@@ -89,22 +91,26 @@ class LocationController extends Controller
 
         //upload image to temp location
 
-        // $imageId = strtoupper(Str::random(8));
-        // $filename = "hothuts/images/{$imageId}.pdf";
-        // $localPath = storage_path("app/tmp/{$filename}");
-        // if (!is_dir(dirname($localPath))) {
-        //     mkdir(dirname($localPath), 0755, true);
-        // }
-
-        // // Ensure the directory exists
-        // if (!is_dir(dirname($localPath))) {
-        //     mkdir(dirname($localPath), 0755, true);
-        // }
+        if ($r->hasFile('image') && $r->file('image') instanceof UploadedFile) {
 
 
-        if ($r->file('image')) {
-            $fields['image_path'] = $r->file('image')->store('locations', 'public');
+            try {
+                // Put the file on S3 with public visibility
+                $path = $r->file('image')->storePublicly('hothuts/images', 's3');
+                $fields['image_path'] = Storage::disk('s3')->url($path);
+                // If you prefer storing the key only, use:
+                // $fields['image_path'] = $path;
+
+            } catch (\Throwable $e) {
+                Log::error("S3 image upload failed: {$e->getMessage()}");
+                throw $e; // or add a validation error/response as you prefer
+            }
         }
+
+
+        // if ($r->file('image')) {
+        //     $fields['image_path'] = $r->file('image')->store('locations', 'public');
+        // }
 
         // ---------- normalize payload shape ----------
         // Preferred: day_times[weekday][period] = {start,end}

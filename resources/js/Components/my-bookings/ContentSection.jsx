@@ -26,7 +26,7 @@ export default function ContentSection({
     const loyaltyPoints = Number(loyalty.points ?? 0);
 
     const asset = (path) => {
-        return `/storage/${path}`;
+        return `${path}`;
     };
 
     return (
@@ -281,7 +281,7 @@ const UpcomingSection = () => {
                     <img
                         src={
                             loc.image_path
-                                ? asset(loc.image_path)
+                                ? loc.image_path
                                 : "/storage/images/placeholder.jpg"
                         }
                         alt={loc.name}
@@ -335,7 +335,7 @@ const UpcomingSection = () => {
 };
 const PastSection = () => {
     const asset = (path) => {
-        return `/storage/${path}`;
+        return `${path}`;
     };
     const { auth, upcoming = [], past = [] } = usePage().props;
     const user = auth.user;
@@ -378,7 +378,7 @@ const PastSection = () => {
                     <img
                         src={
                             loc.image_path
-                                ? asset(loc.image_path)
+                                ? loc.image_path
                                 : "/storage/images/placeholder.jpg"
                         }
                         alt={loc.name}

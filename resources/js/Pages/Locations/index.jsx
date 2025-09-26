@@ -91,7 +91,7 @@ export default function LocationsPage({ locations, saunas }) {
                                 <div className="col-span-2 ">
                                     {loc.image_path ? (
                                         <img
-                                            src={asset(loc.image_path)}
+                                            src={loc.image_path}
                                             alt={loc.name}
                                             className="h-12 w-12 object-cover rounded"
                                         />

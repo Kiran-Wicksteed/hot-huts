@@ -69,7 +69,7 @@ export default function AuthenticatedLayout({ header, children }) {
     const isDayStaff = Boolean(Number(user?.is_editor ?? 0));
 
     const asset = (path) => {
-        return `/storage/${path}`;
+        return `${path}`;
     };
 
     const [sidebarOpen, setSidebarOpen] = useState(false);

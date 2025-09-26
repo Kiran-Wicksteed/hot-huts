@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Facades\Log;
 use App\Notifications\UserApprovedNotification;
+use Illuminate\Http\UploadedFile;
 
 
 
@@ -26,24 +27,46 @@ class ProfileController extends Controller
     {
         $user = $request->user();
 
-        $validatedData = $request->validate([
-            'photo' => 'nullable|file|mimes:jpg,png,gif|max:3072',
+        $request->validate([
+            'photo' => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp,gif', 'max:3072'],
         ], [
-            'photo.max' => 'The photo may not be greater than 3 MB.',
-            'photo.mimes' => 'The photo must be a file of type: jpg, png, gif.',
+            'photo.max'   => 'The photo may not be greater than 3 MB.',
+            'photo.mimes' => 'The photo must be a file of type: jpg, jpeg, png, webp, gif.',
         ]);
 
-        if ($request->hasFile('photo')) {
-            // Delete the old photo if it exists
-            if ($user->photo) {
-                Storage::disk('public')->delete($user->photo);
+        if ($request->hasFile('photo') && $request->file('photo') instanceof UploadedFile) {
+            $old = $user->photo;
+
+            try {
+                // Upload to S3 (same folder/disk style as store())
+                $key = $request->file('photo')->storePublicly('hothuts/images/users', 's3');
+                $url = Storage::disk('s3')->url($key);
+
+                // Save absolute URL (matches your store() convention)
+                $user->photo = $url;
+
+                // Best-effort delete of previous image
+                if (!empty($old)) {
+                    try {
+                        if (str_starts_with($old, 'http://') || str_starts_with($old, 'https://')) {
+                            // Old was an S3 URL — extract key and delete from S3
+                            $oldKey = ltrim(parse_url($old, PHP_URL_PATH) ?: '', '/');
+                            Storage::disk('s3')->delete($oldKey);
+                        } else {
+                            // Old was a local/public path
+                            Storage::disk('public')->delete($old);
+                        }
+                    } catch (\Throwable $del) {
+                        Log::warning('Old photo delete failed', ['error' => $del->getMessage(), 'old' => $old]);
+                    }
+                }
+
+                Log::info('Photo uploaded to S3', ['key' => $key, 'url' => $url]);
+            } catch (\Throwable $e) {
+                Log::error('S3 image upload failed', ['error' => $e->getMessage()]);
+                // If you prefer this to be non-fatal, remove the throw
+                throw $e;
             }
-
-            // Store the new photo
-            $path = $request->file('photo')->store('photos', 'public');
-            $user->photo = $path;
-
-            Log::info('Photo uploaded:', ['path' => $path]);
         }
 
         $user->save();

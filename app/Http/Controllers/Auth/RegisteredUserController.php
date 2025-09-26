@@ -15,6 +15,8 @@ use Inertia\Response;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
 use App\Mail\WelcomeMail;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 
 class RegisteredUserController extends Controller
 {
@@ -47,12 +49,24 @@ class RegisteredUserController extends Controller
             'photo.mimes' => 'The photo must be a file of type: jpg, png, gif.',
         ]);
 
-        $path = null;
 
-        if ($request->hasFile('photo')) {
-            $path = $request->file('photo')->store('photos', 'public');
+
+
+        if ($request->hasFile('photo') && $request->file('photo') instanceof UploadedFile) {
+
+
+            try {
+                // Put the file on S3 with public visibility
+                $path = $request->file('photo')->storePublicly('hothuts/images/users', 's3');
+                $request['image_path'] = Storage::disk('s3')->url($path);
+                // If you prefer storing the key only, use:
+                // $fields['image_path'] = $path;
+
+            } catch (\Throwable $e) {
+                Log::error("S3 image upload failed: {$e->getMessage()}");
+                throw $e; // or add a validation error/response as you prefer
+            }
         }
-
 
 
         $user = User::create([
@@ -61,7 +75,7 @@ class RegisteredUserController extends Controller
             'password' => Hash::make($request->password),
             'title' => "customer",
             'contact_number' => $request->contact_number,
-            'photo' => $path,
+            'photo' => $request['image_path'] ?? null,
             'indemnity_consented_at' => now(),
             'indemnity_name'         => $request->indemnity_name,
             'indemnity_version'      => $request->indemnity_version,

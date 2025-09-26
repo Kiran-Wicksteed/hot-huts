@@ -40,7 +40,7 @@ export default function LoyaltyIndex({
         post(route("loyalty.redeem"));
     };
 
-    const asset = (path) => `/storage/${path}`;
+    const asset = (path) => `${path}`;
 
     return (
         <>

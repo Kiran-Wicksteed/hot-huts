@@ -56,7 +56,7 @@ export default function ServiceSection({
     }, [events, location.id]);
 
     const thumbSrc = currentLocation
-        ? `/storage/${currentLocation.image_path}` // path from DB
+        ? `${currentLocation.image_path}` // path from DB
         : "/storage/images/colourful-huts.png";
 
     /** ----------------------------------------------------------------
