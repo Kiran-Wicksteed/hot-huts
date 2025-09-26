@@ -13,6 +13,7 @@ use Illuminate\Validation\Rules;
 use Inertia\Inertia;
 use Inertia\Response;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Log;
 use App\Mail\WelcomeMail;
 
 class RegisteredUserController extends Controller
@@ -66,7 +67,15 @@ class RegisteredUserController extends Controller
             'indemnity_version'      => $request->indemnity_version,
         ]);
 
-        Mail::to($user->email)->send(new WelcomeMail($user));
+        try {
+            Mail::to($user->email)->send(new WelcomeMail($user));
+        } catch (\Throwable $e) {
+            Log::error('WelcomeMail failed', [
+                'user_id' => $user->id,
+                'email'   => $user->email,
+                'error'   => $e->getMessage(),
+            ]);
+        }
 
         Auth::login($user);
 

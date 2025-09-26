@@ -10,6 +10,7 @@ use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
 
 class LocationController extends Controller
 {
@@ -85,6 +86,21 @@ class LocationController extends Controller
             'image' => ['nullable', 'image', 'max:2048'],
             'sauna_id' => ['required', 'exists:saunas,id'],
         ]);
+
+        //upload image to temp location
+
+        // $imageId = strtoupper(Str::random(8));
+        // $filename = "hothuts/images/{$imageId}.pdf";
+        // $localPath = storage_path("app/tmp/{$filename}");
+        // if (!is_dir(dirname($localPath))) {
+        //     mkdir(dirname($localPath), 0755, true);
+        // }
+
+        // // Ensure the directory exists
+        // if (!is_dir(dirname($localPath))) {
+        //     mkdir(dirname($localPath), 0755, true);
+        // }
+
 
         if ($r->file('image')) {
             $fields['image_path'] = $r->file('image')->store('locations', 'public');
