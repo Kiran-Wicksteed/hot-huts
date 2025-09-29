@@ -413,7 +413,8 @@ export default function AuthenticatedLayout({ header, children }) {
 
                         <nav
                             className={`${
-                                user.is_approved === true
+                                user.is_approved === true &&
+                                user.is_admin === true
                                     ? `opacity-100 pointer-events-auto`
                                     : `opacity-50 pointer-events-none`
                             } flex flex-1 flex-col px-6`}

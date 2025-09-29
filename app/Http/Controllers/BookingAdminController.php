@@ -9,6 +9,7 @@ use Inertia\Inertia;
 use Illuminate\Http\Request;
 use App\Models\Location;
 use App\Models\Service;
+use Illuminate\Support\Facades\Auth;
 
 class BookingAdminController extends Controller
 {
@@ -19,6 +20,10 @@ class BookingAdminController extends Controller
      */
     public function index(Request $request)
     {
+
+        if (! Auth::user()->is_admin) {
+            return redirect('/');
+        }
         // --- Base Query ---
         $query = Booking::where('status', 'paid');
 
