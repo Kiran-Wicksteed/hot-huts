@@ -9,6 +9,7 @@ use Illuminate\Support\Str;
 use App\Models\Booking;
 use App\Services\LoyaltyService;
 use App\Models\LoyaltyReward;
+use Inertia\Inertia;
 
 class PaymentController extends Controller
 {
@@ -181,6 +182,11 @@ class PaymentController extends Controller
      */
     public function paymentFailed()
     {
-        return response()->json(['status' => 'order-failure'], 200);
+        // Optional: pull any flash message / reason you’ve stored earlier
+        $message = session('payment_error') ?? 'Your payment didn’t go through.';
+
+        return Inertia::render('Checkout/PaymentFailed', [
+            'message' => $message,
+        ]);
     }
 }
