@@ -21,6 +21,7 @@ use Inertia\Inertia;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\Admin\AdminCustomerController;
 use App\Http\Controllers\Loyalty\LoyaltyRewardController;
+use Illuminate\Support\Facades\Auth;
 
 Route::get('/welcome', function () {
     return Inertia::render('Welcome', [
@@ -163,7 +164,12 @@ Route::middleware('auth')->group(function () {
 Route::middleware(['auth'])->group(
     function () {
 
+
         Route::get('/dashboard', function () {
+            if (! Auth::user()->is_admin) {
+                return redirect('/');
+            }
+
             return Inertia::render('Dashboard');
         })->middleware(['auth'])->name('dashboard');
 
