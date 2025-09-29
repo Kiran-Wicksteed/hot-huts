@@ -103,13 +103,24 @@ class BookingAdminController extends Controller
         // ───────────────────────────────────────────────
         // Bookings for the selected date
         // ───────────────────────────────────────────────
+        $now = now();
+
         $bookingsForDate = Booking::with(['user', 'timeslot.schedule.location', 'services'])
             ->whereHas('timeslot.schedule', function ($q) use ($selectedDate) {
                 $q->whereDate('date', $selectedDate);
             })
             ->whereNull('event_occurrence_id')
+            ->where(function ($q) use ($now) {
+                $q->where('status', 'paid')
+                    ->orWhere(function ($q2) use ($now) {
+                        $q2->where('status', 'pending')
+                            ->whereNotNull('hold_expires_at')
+                            ->where('hold_expires_at', '<=', $now); // 👈 expired holds only
+                    });
+            })
             ->get()
             ->map(function ($booking) {
+                $isPending = $booking->status === 'pending';
                 return [
                     'id'          => $booking->id,
                     'timeslot_id' => $booking->timeslot_id,
@@ -120,6 +131,9 @@ class BookingAdminController extends Controller
                     'updated_via'      => $booking->updated_via,
                     'booking_type'    => $booking->booking_type,
                     'no_show' => (bool) $booking->no_show,
+                    'status'         => $booking->status,
+                    'is_pending'     => $isPending,
+                    'status_note'    => $isPending ? 'Pending payment — temporarily reserved' : null,
                     'user'        => ['name' => $booking->user?->name],
                     'services'    => $booking->services->map(fn($s) => [
                         'id'       => $s->id,

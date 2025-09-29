@@ -24,6 +24,8 @@ export default function BookingPage({
     const { auth } = usePage().props;
     const user = auth.user;
     const canSeePayments = Boolean(Number(user?.is_editor ?? 0));
+
+    console.log("bookingsToday", bookingsToday);
     /* ────────────────────────────────────────────────────────────
      1. local state / filters
   ──────────────────────────────────────────────────────────── */

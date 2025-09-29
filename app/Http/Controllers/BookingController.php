@@ -711,7 +711,15 @@ class BookingController extends Controller
             }
 
             // --- Capacity checks (still inside the transaction) ---
+
+
             $slotBooked = $slot->bookings()->sum('people');
+            Log::info('Admin booking capacity check', [
+                'slot_id'       => $slot->id,
+                'slot_capacity' => $slot->capacity,
+                'slot_booked'   => $slotBooked,
+                'requested'     => $validated['people'],
+            ]);
             if ($slotBooked + $validated['people'] > $slot->capacity) {
                 abort(409, 'Chosen sauna slot is already full.');
             }

@@ -51,7 +51,14 @@ function ConfirmUpdateDialog({
     );
 }
 
-function EditBookingModal({ open, onClose, booking, slot, addonServices }) {
+function EditBookingModal({
+    open,
+    onClose,
+    booking,
+    slot,
+    addonServices,
+    bookedInSlot,
+}) {
     const [saving, setSaving] = useState(false);
     const [people, setPeople] = useState(booking?.people ?? 1);
     const [paymentMethod, setPaymentMethod] = useState(
@@ -135,6 +142,11 @@ function EditBookingModal({ open, onClose, booking, slot, addonServices }) {
         );
     };
 
+    const maxPeopleAllowed = Math.max(
+        1,
+        (slot?.capacity ?? 1) - (bookedInSlot ?? 0) + (booking?.people ?? 0)
+    );
+
     if (!open) return null;
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -155,12 +167,22 @@ function EditBookingModal({ open, onClose, booking, slot, addonServices }) {
                         <input
                             type="number"
                             min="1"
+                            max={maxPeopleAllowed}
                             value={people}
                             onChange={(e) =>
-                                setPeople(parseInt(e.target.value, 10) || 1)
+                                setPeople(() => {
+                                    const v = parseInt(e.target.value, 10) || 1;
+                                    return Math.min(
+                                        Math.max(1, v),
+                                        maxPeopleAllowed
+                                    );
+                                })
                             }
                             className="w-full border rounded p-1"
                         />
+                        <p className="mt-1 text-[11px] text-gray-500">
+                            Max for this change: {maxPeopleAllowed}+{" "}
+                        </p>
                     </div>
 
                     <div>
@@ -415,9 +437,14 @@ export default function TodayBubbles({
         return map;
     };
 
-    const handleSubmit = (slotId) => {
+    const handleSubmit = (slot, remaining) => {
         if (!formData.user_id) {
             alert("Please select a user to attach this booking to.");
+            return;
+        }
+
+        if (formData.people > remaining) {
+            alert(`Only ${remaining} spot(s) left in this slot.`);
             return;
         }
 
@@ -425,8 +452,9 @@ export default function TodayBubbles({
             route("admin.bookings.store"),
             {
                 context: "sauna", // ← renamed from booking_type to avoid collision
-                timeslot_id: slotId,
+                timeslot_id: slot.id,
                 people: formData.people,
+                timeslot_id: slot.id,
                 user_id: formData.user_id,
                 payment_method: formData.payment_method || null,
                 services: buildServicesPayload(),
@@ -488,6 +516,7 @@ export default function TodayBubbles({
                 const list = bySlot.get(slot.id) ?? [];
                 const booked = list.reduce((t, b) => t + b.people, 0);
                 const full = booked >= slot.capacity;
+                const remaining = Math.max(0, slot.capacity - booked);
 
                 return (
                     <div
@@ -543,6 +572,20 @@ export default function TodayBubbles({
                                                 </p>
                                             )}
                                             <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
+                                                {b.is_pending && (
+                                                    <span
+                                                        className={[
+                                                            "inline-flex items-center px-2 py-0.5 mb-2 rounded-full border",
+                                                            b.booking_type?.toLowerCase() ===
+                                                            "walk in"
+                                                                ? "bg-amber-50 border-amber-200 text-amber-700"
+                                                                : "bg-blue-50 border-blue-200 text-blue-700",
+                                                        ].join(" ")}
+                                                        title="booking is pending"
+                                                    >
+                                                        {b.status_note}
+                                                    </span>
+                                                )}
                                                 {b.booking_type && (
                                                     <span
                                                         className={[
@@ -593,6 +636,7 @@ export default function TodayBubbles({
                                                         open: true,
                                                         booking: b,
                                                         slot,
+                                                        bookedInSlot: booked,
                                                     })
                                                 }
                                                 className="text-xs text-hh-orange hover:underline"
@@ -625,7 +669,7 @@ export default function TodayBubbles({
                                     <form
                                         onSubmit={(e) => {
                                             e.preventDefault();
-                                            handleSubmit(slot.id);
+                                            handleSubmit(slot, remaining);
                                         }}
                                         className="space-y-3 text-sm"
                                     >
@@ -646,21 +690,36 @@ export default function TodayBubbles({
                                             <input
                                                 type="number"
                                                 min="1"
-                                                max={slot.capacity - booked}
+                                                max={remaining}
                                                 value={formData.people}
                                                 onChange={(e) =>
-                                                    setFormData((f) => ({
-                                                        ...f,
-                                                        people:
+                                                    setFormData((f) => {
+                                                        const val =
                                                             parseInt(
                                                                 e.target.value,
                                                                 10
-                                                            ) || 1,
-                                                    }))
+                                                            ) || 1;
+                                                        const clamped =
+                                                            Math.min(
+                                                                Math.max(
+                                                                    1,
+                                                                    val
+                                                                ),
+                                                                remaining
+                                                            );
+                                                        return {
+                                                            ...f,
+                                                            people: clamped,
+                                                        };
+                                                    })
                                                 }
                                                 className="w-full border rounded p-1"
                                                 required
                                             />
+                                            <p className="mt-1 text-[11px] text-gray-500">
+                                                + Available in this slot:{" "}
+                                                {remaining}+{" "}
+                                            </p>
                                         </div>
 
                                         {addonServices?.length > 0 && (
@@ -779,6 +838,7 @@ export default function TodayBubbles({
                     setEditing({ open: false, booking: null, slot: null })
                 }
                 booking={editing.booking}
+                bookedInSlot={editing.bookedInSlot}
                 slot={editing.slot}
                 addonServices={addonServices}
             />

@@ -135,6 +135,27 @@ class PaymentController extends Controller
                     break;
                 }
                 sleep(1);
+
+                $paidCount = Booking::whereIn('id', $bookings->pluck('id'))
+                    ->where('status', 'paid')
+                    ->count();
+
+                if ($paidCount === $bookings->count()) {
+                    Log::info("Browser redirect confirmed all {$paidCount}/{$bookings->count()} booking(s) PAID for checkout {$orderNumber}.");
+                    $target = $bookings->first();
+                    $url = route('bookings.show', $target) . '?order=' . urlencode($orderNumber);
+                    return redirect()->to($url);
+                }
+
+                // optional: some paid, some not — treat as failure or pending per your business rules
+                if ($paidCount > 0) {
+                    Log::warning("Browser redirect: partial payment ({$paidCount}/{$bookings->count()}) for checkout {$orderNumber}.");
+                    return redirect()->route('payment.pending')->with('order', $orderNumber);
+                }
+
+                // none paid
+                Log::info("Browser redirect: no bookings PAID for checkout {$orderNumber}; sending to failed.");
+                return redirect()->route('payment.failed')->with('order', $orderNumber);
             }
 
             // Pick one booking to satisfy route-model binding; always pass ?order=...
