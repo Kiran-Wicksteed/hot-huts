@@ -18,6 +18,7 @@ export default function PaymentPage() {
     const { totalInvoices, totalRefunds, totalPaid, totalUnpaid } = stats;
 
     const { data, setData, get, processing } = useForm({
+        search: filters.search || "",
         location_id: filters.location_id || "",
         date_start: filters.date_start || "",
         date_end: filters.date_end || "",
@@ -89,61 +90,6 @@ export default function PaymentPage() {
                                 className={`${styles.paragraph} text-black !text-2xl text-center`}
                             >
                                 {totalInvoices}
-                            </p>
-                        </div>
-                    </div>
-                    <div className="flex justify-center items-center h-full flex-col space-y-4 mx-auto">
-                        <div className="relative h-36 w-36">
-                            <motion.svg
-                                className="h-full w-full"
-                                viewBox="0 0 64 64"
-                            >
-                                <circle
-                                    cx="32"
-                                    cy="32"
-                                    r="30"
-                                    fill="none"
-                                    stroke="#e0e0e0"
-                                    strokeWidth="4"
-                                />
-                                <motion.circle
-                                    cx="32"
-                                    cy="32"
-                                    r="30"
-                                    fill="none"
-                                    stroke="#FF7022"
-                                    strokeWidth="4"
-                                    strokeLinecap="round"
-                                    initial={{
-                                        strokeDasharray: 188,
-                                        strokeDashoffset: 188,
-                                    }}
-                                    animate={{
-                                        strokeDashoffset:
-                                            188 * (1 - totalRefunds / 500),
-                                    }}
-                                    transition={{ duration: 0.5 }}
-                                />
-                            </motion.svg>
-                            <div className="absolute inset-0 flex flex-col items-center justify-center">
-                                <ReceiptRefundIcon className="h-14 w-14 text-hh-orange" />
-                                <p
-                                    className={`${styles.paragraph} text-black !text-xs`}
-                                >
-                                    Refunds
-                                </p>
-                            </div>
-                        </div>
-                        <div>
-                            <p
-                                className={`${styles.paragraph} text-black text-center`}
-                            >
-                                Refunds
-                            </p>
-                            <p
-                                className={`${styles.paragraph} text-black !text-2xl text-center`}
-                            >
-                                {totalRefunds}
                             </p>
                         </div>
                     </div>
@@ -275,6 +221,14 @@ export default function PaymentPage() {
                             onSubmit={applyFilters}
                             className="flex gap-x-4 items-center mb-6"
                         >
+                            {/* Search Filter */}
+                            <input
+                                type="text"
+                                value={data.search}
+                                onChange={(e) => setData("search", e.target.value)}
+                                placeholder="Search by name..."
+                                className="bg-white shadow-md border border-hh-gray p-2 rounded"
+                            />
                             {/* Location Filter */}
                             <select
                                 value={data.location_id}
@@ -321,6 +275,7 @@ export default function PaymentPage() {
                             {/* Export */}
                             <a
                                 href={route("payments.export", {
+                                    search: data.search || undefined,
                                     location_id: data.location_id || undefined,
                                     date_start: data.date_start || undefined,
                                     date_end: data.date_end || undefined,
@@ -410,10 +365,8 @@ export default function PaymentPage() {
                                         </p>
                                     </div>
                                     <div className="col-span-1">
-                                        <p
-                                            className={`${styles.paragraph} !text-[#999999] !text-sm`}
-                                        >
-                                            R{invoice.amount}
+                                        <p className={`${styles.paragraph} !text-[#999999] !text-sm`}>
+                                            R{(invoice.amount / 100).toFixed(2)}
                                         </p>
                                     </div>
                                     <div className="col-span-1">
@@ -450,20 +403,39 @@ export default function PaymentPage() {
                                     </div>
                                 </div>
                                 {expandedRow === index && (
-                                    <div className="bg-white p-6 border border-hh-gray rounded mt-1">
-                                        <p className="text-sm">
-                                            Transaction ID:{" "}
-                                            {invoice.transactionId}
-                                        </p>
-                                        {/* Add more details if needed */}
+                                    <div className="bg-white p-6 border border-hh-gray rounded mt-1 grid grid-cols-3 gap-6">
+                                        <div className="col-span-2">
+                                            <h3 className="font-medium text-base text-gray-800">Order Details</h3>
+                                            {invoice.details && Object.keys(invoice.details).length > 0 ? (
+                                                <div className="mt-2 text-sm text-gray-600 space-y-2">
+                                                    <p className="text-sm text-gray-600"><strong>Type:</strong> {invoice.details.type}</p>
+                                                    <p className="text-sm text-gray-600"><strong>Service:</strong> {invoice.details.name}</p>
+                                                    <p className="text-sm text-gray-600"><strong>Location:</strong> {invoice.details.location}</p>
+                                                    <p className="text-sm text-gray-600"><strong>Date:</strong> {invoice.details.date}</p>
+                                                    <p className="text-sm text-gray-600"><strong>Time:</strong> {invoice.details.time}</p>
+                                                    <p className="text-sm text-gray-600"><strong>Guests:</strong> {invoice.details.people}</p>
+                                                </div>
+                                            ) : <p className="text-sm text-gray-500 mt-2">No details available.</p>}
+                                        </div>
+                                        <div>
+                                            <h3 className="font-medium text-base text-gray-800">Add-ons</h3>
+                                            {invoice.addOns && invoice.addOns.length > 0 ? (
+                                                <ul className="mt-2 text-sm text-gray-600 space-y-1">
+                                                    {invoice.addOns.map((item, i) => (
+                                                        <li key={i}>{item.quantity}x {item.name} - R{(item.price / 100).toFixed(2)}</li>
+                                                    ))}
+                                                </ul>
+                                            ) : <p className="text-sm text-gray-500 mt-2">No add-ons for this order.</p>}
+                                            <p className="text-sm text-gray-600 mt-4 border-t pt-2"><strong>Transaction ID:</strong> {invoice.transactionId || 'N/A'}</p>
+                                        </div>
                                     </div>
                                 )}
                             </div>
                         ))}
                     </div>
-                </div>
 
                 {/* GRAPH SECTION */}
+                </div>
             </div>
         </AuthenticatedLayout>
     );

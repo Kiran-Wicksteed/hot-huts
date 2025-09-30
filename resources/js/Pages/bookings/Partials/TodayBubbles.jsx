@@ -552,11 +552,24 @@ export default function TodayBubbles({
                                         <div>
                                             <p className="font-medium">
                                                 Booked under:{" "}
-                                                <span className="text-gray-700">
-                                                    {b.user?.name ||
-                                                        b.guest_name ||
-                                                        "Guest"}
-                                                </span>{" "}
+                                                {b.user?.id ? (
+                                                    <span 
+                                                        className="text-hh-orange cursor-pointer hover:underline"
+                                                        onClick={() => {
+                                                            router.get(route('customers.show', b.user.id), {}, {
+                                                                preserveScroll: true,
+                                                                preserveState: true,
+                                                                only: ['customerDetail'],
+                                                            });
+                                                        }}
+                                                    >
+                                                        {b.user.name}
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-gray-700">
+                                                        {b.guest_name || "Guest"}
+                                                    </span>
+                                                )}{" "}
                                                 x {b.people}
                                                 {b.no_show && (
                                                     <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full bg-red-50 border border-red-200 text-red-700 text-[11px]">

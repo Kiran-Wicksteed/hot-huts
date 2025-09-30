@@ -134,7 +134,11 @@ class BookingAdminController extends Controller
                     'status'         => $booking->status,
                     'is_pending'     => $isPending,
                     'status_note'    => $isPending ? 'Pending payment — temporarily reserved' : null,
-                    'user'        => ['name' => $booking->user?->name],
+                    'user'        => $booking->user ? [
+                        'id' => $booking->user->id,
+                        'name' => $booking->user->name,
+                        'email' => $booking->user->email,
+                    ] : null,
                     'services'    => $booking->services->map(fn($s) => [
                         'id'       => $s->id,
                         'name'     => $s->name,
