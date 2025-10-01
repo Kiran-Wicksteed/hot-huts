@@ -5,15 +5,19 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use App\Models\Booking;
 use Inertia\Inertia;
+use Illuminate\Http\Request;
 
 class CustomerController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
         $users = User::withCount(['bookings as total_appointments'])
             ->with(['bookings' => function ($q) {
                 $q->latest('created_at')->limit(1);
             }])
+            ->when($request->input('search'), function ($query, $search) {
+                $query->where('name', 'like', "%{$search}%");
+            })
             ->get()
             ->map(function ($user) {
                 return [
@@ -32,6 +36,7 @@ class CustomerController extends Controller
 
         return Inertia::render('customers/index', [
             'customers' => $users,
+            'filters' => ['search' => $request->input('search')],
             'customerDetail' => null,
         ]);
     }

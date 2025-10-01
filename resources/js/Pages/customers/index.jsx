@@ -1,8 +1,8 @@
 // resources/js/Pages/Customers/CustomerPage.jsx
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
 import styles from "../../../styles";
-import { usePage, router } from "@inertiajs/react";
-import React from "react";
+import { usePage, router, useForm } from "@inertiajs/react";
+import React, { useState, useEffect } from "react";
 import CreateCustomer from "./Partials/CreateCustomer";
 import ViewCustomer from "./Partials/ViewCustomer";
 
@@ -12,11 +12,21 @@ export default function CustomerPage() {
         customers = [], // <-- safe default
         auth = {},
         flash = {},
+        filters = {},
         customerDetail = null, // <-- safe default
     } = page.props ?? {};
 
     const [createOpen, setCreateOpen] = React.useState(false);
     const [viewOpen, setViewOpen] = React.useState(false);
+
+    const { data, setData, get } = useForm({
+        search: filters.search || '',
+    });
+
+    function submit(e) {
+        e.preventDefault();
+        get(route('customers.index', data));
+    }
 
     React.useEffect(() => {
         if (customerDetail?.id) setViewOpen(true); // only open for real records
@@ -64,11 +74,28 @@ export default function CustomerPage() {
             <div className="mx-auto ml-[256px]">
                 <div className="relative lg:col-span-full overflow-hidden pt-6 pb-12">
                     <div className="col-span-full mb-6 flex items-center justify-between">
-                        <h4
-                            className={`${styles.h3} !mb-0 font-medium text-black`}
-                        >
-                            Customer List
-                        </h4>
+                        <div>
+                            <h4
+                                className={`${styles.h3} !mb-0 font-medium text-black`}
+                            >
+                                Customer List
+                            </h4>
+                            <form onSubmit={submit} className="mt-2 flex items-center gap-2">
+                                <input
+                                    type="text"
+                                    value={data.search}
+                                    onChange={(e) => setData('search', e.target.value)}
+                                    placeholder="Search by name..."
+                                    className="bg-white shadow-md border border-hh-gray p-2 rounded"
+                                />
+                                <button
+                                    type="submit"
+                                    className="bg-hh-orange text-white px-4 py-2 rounded text-sm font-medium"
+                                >
+                                    Search
+                                </button>
+                            </form>
+                        </div>
                         <div className="flex items-center gap-2">
                             <a
                                 href={route("customers.export")}

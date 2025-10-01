@@ -43,7 +43,7 @@ class RegisteredUserController extends Controller
             'indemnity_agreed'   => ['accepted'],
             'indemnity_name'     => ['required', 'string', 'max:255'],
             'indemnity_version'  => ['required', 'string', 'max:32'],
-            'photo' => 'required|file|mimes:jpg,png,gif|max:3072'
+            'photo' => 'nullable|file|mimes:jpg,png,gif|max:3072'
         ], [
             'photo.max' => 'The photo may not be greater than 3 MB.',
             'photo.mimes' => 'The photo must be a file of type: jpg, png, gif.',

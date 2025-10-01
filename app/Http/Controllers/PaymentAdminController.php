@@ -11,7 +11,19 @@ class PaymentAdminController extends Controller
 {
     public function index(Request $request)
     {
-        $bookings = Booking::with(['user', 'timeslot.schedule.location'])
+        $bookings = Booking::with([
+            'user',
+            'timeslot.schedule.location',
+            'timeslot.schedule.sauna',
+            'eventOccurrence.event',
+            'eventOccurrence.location',
+            'services'
+        ])
+            ->when($request->search, function ($q) use ($request) {
+                $q->whereHas('user', function ($sub) use ($request) {
+                    $sub->where('name', 'like', '%' . $request->search . '%');
+                });
+            })
             ->when($request->location_id, function ($q) use ($request) {
                 $q->whereHas('timeslot.schedule.location', function ($sub) use ($request) {
                     $sub->where('id', $request->location_id);
@@ -34,16 +46,43 @@ class PaymentAdminController extends Controller
 
         // Map payments
         $payments = $bookings->map(function ($booking) {
+            $details = [];
+            if ($booking->eventOccurrence) {
+                $details = [
+                    'type' => 'Event',
+                    'name' => $booking->eventOccurrence->event->name,
+                    'location' => $booking->eventOccurrence->location->name,
+                    'date' => \Carbon\Carbon::parse($booking->eventOccurrence->occurs_on)->format('d M Y'),
+                    'time' => $booking->eventOccurrence->start_time . ' - ' . $booking->eventOccurrence->end_time,
+                    'people' => $booking->people,
+                ];
+            } elseif ($booking->timeslot) {
+                $details = [
+                    'type' => $booking->booking_type === 'walk in' ? 'Walk-in' : 'Sauna',
+                    'name' => $booking->timeslot->schedule->sauna->name ?? 'Sauna Session',
+                    'location' => $booking->timeslot->schedule->location->name,
+                    'date' => \Carbon\Carbon::parse($booking->timeslot->schedule->date)->format('d M Y'),
+                    'time' => \Carbon\Carbon::parse($booking->timeslot->starts_at)->format('H:i') . ' - ' . \Carbon\Carbon::parse($booking->timeslot->ends_at)->format('H:i'),
+                    'people' => $booking->people,
+                ];
+            }
+
             return [
                 'id' => $booking->id,
                 'customerInitials' => strtoupper(substr($booking->user->name, 0, 1) . substr(strrchr($booking->user->name, ' '), 1, 1)),
                 'customerName' => $booking->user->name,
                 'date' => $booking->created_at->format('d M Y, g:ia'),
-                'service' => $booking->timeslot?->schedule?->name ?? 'Unknown Service',
+                'service' => $details['name'] ?? 'Unknown Service',
                 'method' => $booking->payment_status ?? 'Unknown',
                 'amount' => (float) $booking->amount,
                 'status' => ucfirst($booking->status),
                 'transactionId' => $booking->payment_intent_id ?? $booking->peach_payment_checkout_id,
+                'details' => $details,
+                'addOns' => $booking->services->map(fn ($s) => [
+                    'name' => $s->name,
+                    'quantity' => $s->pivot->quantity,
+                    'price' => $s->pivot->price_each,
+                ]),
             ];
         });
 
@@ -59,6 +98,7 @@ class PaymentAdminController extends Controller
                 'totalUnpaid' => $totalUnpaid,
             ],
             'filters' => [
+                'search' => $request->search,
                 'location_id' => $request->location_id,
                 'date_start' => $request->date_start,
                 'date_end' => $request->date_end
@@ -69,8 +109,21 @@ class PaymentAdminController extends Controller
 
     public function export(Request $request)
     {
+    
         // Apply same filters as index
-        $bookings = Booking::with(['user', 'timeslot.schedule.location'])
+        $bookings = Booking::with([
+            'user',
+            'timeslot.schedule.location',
+            'timeslot.schedule.sauna',
+            'eventOccurrence.event',
+            'eventOccurrence.location',
+            'services'
+        ])
+            ->when($request->search, function ($q) use ($request) {
+                $q->whereHas('user', function ($sub) use ($request) {
+                    $sub->where('name', 'like', '%' . $request->search . '%');
+                });
+            })
             ->when($request->location_id, function ($q) use ($request) {
                 $q->whereHas('timeslot.schedule.location', function ($sub) use ($request) {
                     $sub->where('id', $request->location_id);
