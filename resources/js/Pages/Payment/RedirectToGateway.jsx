@@ -101,6 +101,14 @@ export default function RedirectToGateway({
         // Cleanup function to run when the component unmounts
         return () => {
             isMounted = false;
+
+            // Clear the style interval
+            if (paymentFormRef.current?.dataset.styleIntervalId) {
+                clearInterval(
+                    Number(paymentFormRef.current.dataset.styleIntervalId)
+                );
+            }
+
             if (observer.current) {
                 observer.current.disconnect();
             }
@@ -115,7 +123,7 @@ export default function RedirectToGateway({
 
     return (
         <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100">
-            <div className="w-full max-w-2xl p-4 sm:p-8 bg-white rounded-lg shadow-md">
+            <div className="w-full max-w-2xl p-4 sm:p-8 bg-white rounded-lg min-h-[80vh] shadow-md">
                 <h1 className="mb-4 text-xl sm:text-2xl font-bold text-center text-gray-800">
                     Complete Your Payment
                 </h1>
