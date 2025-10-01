@@ -9,6 +9,9 @@ use Inertia\Inertia;
 use Illuminate\Http\Request;
 use App\Models\Location;
 use App\Models\Service;
+use Illuminate\Validation\ValidationException;
+use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\DB;
 
 class BookingAdminController extends Controller
 {
@@ -105,21 +108,36 @@ class BookingAdminController extends Controller
         // ───────────────────────────────────────────────
         $now = now();
 
-        $bookingsForDate = Booking::with(['user', 'timeslot.schedule.location', 'services'])
+        // Clean up expired holds BEFORE fetching bookings
+        Booking::where('status', 'pending')
+            ->whereNotNull('hold_expires_at')
+            ->where('hold_expires_at', '<=', $now)
+            ->update([
+                'status'         => 'cancelled',
+                'payment_status' => DB::raw("COALESCE(payment_status, 'Hold expired')"),
+            ]);
+
+        $bookingsQuery = Booking::with(['user', 'timeslot.schedule.location', 'services'])
             ->whereHas('timeslot.schedule', function ($q) use ($selectedDate) {
                 $q->whereDate('date', $selectedDate);
             })
             ->whereNull('event_occurrence_id')
             ->where(function ($q) use ($now) {
+                // Show paid bookings OR active pending bookings (not expired)
                 $q->where('status', 'paid')
                     ->orWhere(function ($q2) use ($now) {
                         $q2->where('status', 'pending')
                             ->whereNotNull('hold_expires_at')
-                            ->where('hold_expires_at', '<=', $now); // 👈 expired holds only
+                            ->where('hold_expires_at', '>', $now); // Only non-expired holds
                     });
             })
-            ->get()
-            ->map(function ($booking) {
+            ->get();
+
+        // Collect service IDs from bookings BEFORE mapping
+        $usedServiceIds = $bookingsQuery->pluck('services')->flatten()->pluck('id')->unique();
+
+        // Now map bookings to array format
+        $bookingsForDate = $bookingsQuery->map(function ($booking) {
                 $isPending = $booking->status === 'pending';
                 return [
                     'id'          => $booking->id,
@@ -130,6 +148,7 @@ class BookingAdminController extends Controller
                     'payment_method'    => $booking->payment_method,
                     'updated_via'      => $booking->updated_via,
                     'booking_type'    => $booking->booking_type,
+                    'note'            => $booking->note,
                     'no_show' => (bool) $booking->no_show,
                     'status'         => $booking->status,
                     'is_pending'     => $isPending,
@@ -147,6 +166,12 @@ class BookingAdminController extends Controller
                 ];
             });
 
+        // Get all addon services - include both ADDON% codes and any services attached to bookings
+        $addonServices = Service::where(function ($q) use ($usedServiceIds) {
+            $q->where('code', 'like', 'ADDON%')
+              ->orWhereIn('id', $usedServiceIds);
+        })->get(['id', 'name', 'code']);
+
         return Inertia::render('bookings/index', [
             'stats' => [
                 'bookingsThisMonth' => $bookingsThisMonth,
@@ -158,8 +183,7 @@ class BookingAdminController extends Controller
             'filters'       => $request->only(['period', 'location_id', 'date']), // ✅ now includes date
             'slotsToday'    => $slotsForDate,   // could rename to "slotsForDate"
             'bookingsToday' => $bookingsForDate, // could rename to "bookingsForDate"
-            'addonServices' => Service::where('code', 'like', 'ADDON%')
-                ->get(['id', 'name', 'code']),
+            'addonServices' => $addonServices,
         ]);
     }
 
@@ -176,41 +200,53 @@ class BookingAdminController extends Controller
     public function update(Request $request, Booking $booking)
     {
         $data = $request->validate([
+            'timeslot_id'     => ['required', 'exists:timeslots,id'],
             'people'          => ['required', 'integer', 'min:1'],
-            'payment_method'  => ['nullable', 'string', 'max:120'],
             'booking_type'    => ['nullable', 'string', 'max:120'],
             'no_show'         => ['required', 'boolean'],
             'services'        => ['array'],          // payload: code => qty
             'services.*'      => ['integer', 'min:1'],
             'updated_via'     => ['required', 'string', 'max:50'],
+            'note'            => ['nullable', 'string'],
         ]);
 
-        // Update main fields
-        $booking->fill([
-            'people'         => $data['people'],
-            'payment_method' => $data['payment_method'] ?? null,
-            'booking_type'   => $data['booking_type']   ?? $booking->booking_type,
-            'no_show'        => $data['no_show'],
-            'updated_via'   => $data['updated_via'],
-        ])->save();
+        // If timeslot is changing, check capacity
+        if ($booking->timeslot_id != $data['timeslot_id']) {
+            $newSlot = Timeslot::find($data['timeslot_id']);
+            // Exclude the current booking's people from the calculation
+            $booked = Booking::where('timeslot_id', $newSlot->id)->where('id', '!=', $booking->id)->sum('people');
+            $available = $newSlot->capacity - $booked;
+
+            if ($data['people'] > $available) {
+                return back()->withErrors(['people' => 'Not enough space in the new timeslot.']);
+            }
+        }
+
+        $booking->update(Arr::except($data, ['services']));
 
         // Sync add-ons (expects services: { CODE: qty })
         if ($request->has('services')) {
             $codes = array_keys($data['services']);
-            $services = Service::whereIn('code', $codes)->get(['id', 'code']);
+            $services = Service::whereIn('code', $codes)->get(['id', 'code', 'price']);
             $sync = [];
             foreach ($services as $svc) {
                 $qty = (int) ($data['services'][$svc->code] ?? 0);
                 if ($qty > 0) {
-                    $sync[$svc->id] = ['quantity' => $qty];
+                    $sync[$svc->id] = [
+                        'quantity' => $qty,
+                        'price_each' => $svc->price,
+                        'line_total' => $qty * $svc->price,
+                    ];
                 }
             }
             $booking->services()->sync($sync);
+        } else {
+            // If no services are provided, detach all
+            $booking->services()->detach();
         }
 
         return back()->with('success', 'Booking updated.');
     }
-
 
     public function byOccurrence($eventId, $occurrenceId)
     {

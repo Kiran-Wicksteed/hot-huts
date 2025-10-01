@@ -1,55 +1,6 @@
-// TodayBubbles.jsx
+
 import React, { useState, useMemo, useEffect } from "react";
 import { router } from "@inertiajs/react";
-
-function ConfirmUpdateDialog({
-    open,
-    onCancel,
-    onConfirm,
-    value,
-    setValue,
-    saving,
-}) {
-    if (!open) return null;
-    return (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center">
-            <div className="absolute inset-0 bg-black/40" onClick={onCancel} />
-            <div className="relative bg-white rounded-lg shadow-xl w-full max-w-sm p-4">
-                <h3 className="font-semibold text-sm mb-2">Confirm update</h3>
-                <p className="text-xs text-gray-600 mb-3">
-                    Please enter the payment method used for this update (e.g.
-                    Cash, Card, EFT, Voucher).
-                </p>
-                <input
-                    type="text"
-                    value={value}
-                    onChange={(e) => setValue(e.target.value)}
-                    placeholder="Cash / Card / EFT …"
-                    className="w-full border rounded p-2 text-sm mb-4"
-                    autoFocus
-                />
-                <div className="flex justify-end gap-2">
-                    <button
-                        type="button"
-                        onClick={onCancel}
-                        className="px-3 py-1 text-xs bg-gray-200 rounded"
-                        disabled={saving}
-                    >
-                        Cancel
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => onConfirm(value.trim())}
-                        disabled={saving || !value.trim()}
-                        className="px-3 py-1 text-xs bg-hh-orange text-white rounded disabled:opacity-50"
-                    >
-                        {saving ? "Saving…" : "Confirm & Save"}
-                    </button>
-                </div>
-            </div>
-        </div>
-    );
-}
 
 function EditBookingModal({
     open,
@@ -58,50 +9,48 @@ function EditBookingModal({
     slot,
     addonServices,
     bookedInSlot,
+    allSlots = [], // <-- Default to empty array
+    formatTime,    // <-- Add formatTime to props
 }) {
     const [saving, setSaving] = useState(false);
     const [people, setPeople] = useState(booking?.people ?? 1);
-    const [paymentMethod, setPaymentMethod] = useState(
-        booking?.payment_method ?? ""
-    );
     const [bookingType, setBookingType] = useState(booking?.booking_type ?? "");
     const [noShow, setNoShow] = useState(booking?.no_show ?? false);
-    const [services, setServices] = useState(() => {
-        const map = new Map();
-        booking?.services?.forEach((s) => map.set(s.id, s.quantity));
-        return map;
-    });
-
-    // NEW: confirmation state
-    const [confirmOpen, setConfirmOpen] = useState(false);
-    const [updatedVia, setUpdatedVia] = useState("");
+    const [note, setNote] = useState(booking?.note ?? "");
+    const [newTimeslotId, setNewTimeslotId] = useState(booking?.timeslot_id);
+    const [services, setServices] = useState(new Map());
 
     useEffect(() => {
-        if (open) {
-            setPeople(booking?.people ?? 1);
-            setPaymentMethod(booking?.payment_method ?? "");
-            setBookingType(booking?.booking_type ?? "");
-            setNoShow(booking?.no_show ?? false);
-            const map = new Map();
-            booking?.services?.forEach((s) => map.set(s.id, s.quantity));
-            setServices(map);
-            setConfirmOpen(false);
-            setUpdatedVia("");
+        if (open && booking) {
+            setPeople(booking.people ?? 1);
+            setBookingType(booking.booking_type ?? "");
+            setNoShow(booking.no_show ?? false);
+            setNote(booking.note ?? "");
+            const initialServices = new Map();
+            booking.services?.forEach(service => {
+                const serviceId = parseInt(service.id);
+                const quantity = parseInt(service.quantity);
+                initialServices.set(serviceId, quantity);
+            });
+            setServices(initialServices);
+            setNewTimeslotId(booking.timeslot_id);
         }
-    }, [open, booking]);
+    }, [open, booking?.id, booking?.services]);
 
     const toggleService = (id) => {
+        const serviceId = parseInt(id);
         setServices((prev) => {
             const m = new Map(prev);
-            if (m.has(id)) m.delete(id);
-            else m.set(id, 1);
+            if (m.has(serviceId)) m.delete(serviceId);
+            else m.set(serviceId, 1);
             return m;
         });
     };
     const setQty = (id, qty) => {
+        const serviceId = parseInt(id);
         setServices((prev) => {
             const m = new Map(prev);
-            m.set(id, Math.max(1, qty || 1));
+            m.set(serviceId, Math.max(1, qty || 1));
             return m;
         });
     };
@@ -109,15 +58,17 @@ function EditBookingModal({
     const buildServicesPayload = () => {
         const out = {};
         addonServices.forEach((svc) => {
-            if (services.has(svc.id)) out[svc.code] = services.get(svc.id);
+            const svcId = parseInt(svc.id);
+            if (services.has(svcId)) out[svc.code] = services.get(svcId);
         });
         return out;
     };
 
     // Step 1: open confirm
-    const beginSave = () => setConfirmOpen(true);
+    const handleSave = () => {
+        handleConfirmAndSave("Admin Update");
+    };
 
-    // Step 2: actually save with updated_via
     const handleConfirmAndSave = (via) => {
         if (!via) return; // guard
         setSaving(true);
@@ -125,17 +76,17 @@ function EditBookingModal({
             route("admin.bookings.update", booking.id),
             {
                 people,
-                payment_method: paymentMethod || null,
+                timeslot_id: newTimeslotId, // <-- send the new timeslot ID
                 booking_type: bookingType || null,
                 no_show: !!noShow,
                 services: buildServicesPayload(),
                 updated_via: via, // 👈 send confirmation value
+                note: note,
             },
             {
                 preserveScroll: true,
                 onFinish: () => setSaving(false),
                 onSuccess: () => {
-                    setConfirmOpen(false);
                     onClose();
                 },
             }
@@ -181,22 +132,27 @@ function EditBookingModal({
                             className="w-full border rounded p-1"
                         />
                         <p className="mt-1 text-[11px] text-gray-500">
-                            Max for this change: {maxPeopleAllowed}+{" "}
+                            Max for this change: {maxPeopleAllowed}
                         </p>
                     </div>
 
                     <div>
                         <label className="block text-xs font-medium mb-1">
-                            Payment method
+                            Move to Timeslot
                         </label>
-                        <input
-                            type="text"
-                            value={paymentMethod}
-                            onChange={(e) => setPaymentMethod(e.target.value)}
-                            placeholder="Cash / Card / EFT …"
-                            className="w-full border rounded p-1"
-                        />
+                        <select
+                            value={newTimeslotId}
+                            onChange={(e) => setNewTimeslotId(e.target.value)}
+                            className="w-full border rounded p-1 text-sm"
+                        >
+                            {allSlots.map((s) => (
+                                <option key={s.id} value={s.id}>
+                                    {formatTime(s.starts_at)} - {formatTime(s.ends_at)}
+                                </option>
+                            ))}
+                        </select>
                     </div>
+
 
                     <div>
                         <label className="block text-xs font-medium mb-1">
@@ -209,6 +165,18 @@ function EditBookingModal({
                             placeholder="e.g. Walk in"
                             className="w-full border rounded p-1"
                         />
+                    </div>
+                    <div>
+                        <label className="block text-xs font-medium mb-1">
+                            Admin Note (optional)
+                        </label>
+                        <textarea
+                            value={note}
+                            onChange={(e) => setNote(e.target.value)}
+                            rows="2"
+                            className="w-full border rounded p-1"
+                            placeholder="Internal note for this booking..."
+                        ></textarea>
                     </div>
 
                     <div className="flex items-center gap-2">
@@ -229,7 +197,8 @@ function EditBookingModal({
                                 Add-on Services
                             </p>
                             {addonServices.map((svc) => {
-                                const selected = services.has(svc.id);
+                                const svcId = parseInt(svc.id);
+                                const selected = services.has(svcId);
                                 return (
                                     <div
                                         key={svc.id}
@@ -249,7 +218,7 @@ function EditBookingModal({
                                             <input
                                                 type="number"
                                                 min="1"
-                                                value={services.get(svc.id)}
+                                                value={services.get(svcId)}
                                                 onChange={(e) =>
                                                     setQty(
                                                         svc.id,
@@ -277,7 +246,7 @@ function EditBookingModal({
                         Cancel
                     </button>
                     <button
-                        onClick={beginSave}
+                        onClick={handleSave}
                         disabled={saving}
                         className="px-3 py-1 text-xs bg-hh-orange text-white rounded"
                     >
@@ -286,15 +255,6 @@ function EditBookingModal({
                 </div>
             </div>
 
-            {/* confirmation popup */}
-            <ConfirmUpdateDialog
-                open={confirmOpen}
-                onCancel={() => setConfirmOpen(false)}
-                onConfirm={handleConfirmAndSave}
-                value={updatedVia}
-                setValue={setUpdatedVia}
-                saving={saving}
-            />
         </div>
     );
 }
@@ -454,7 +414,6 @@ export default function TodayBubbles({
                 context: "sauna", // ← renamed from booking_type to avoid collision
                 timeslot_id: slot.id,
                 people: formData.people,
-                timeslot_id: slot.id,
                 user_id: formData.user_id,
                 payment_method: formData.payment_method || null,
                 services: buildServicesPayload(),
@@ -511,8 +470,9 @@ export default function TodayBubbles({
     }
 
     return (
-        <div className="grid grid-cols-2 gap-10">
-            {slots.map((slot) => {
+        <div>
+            <div className="grid grid-cols-2 gap-10">
+                {slots.map((slot) => {
                 const list = bySlot.get(slot.id) ?? [];
                 const booked = list.reduce((t, b) => t + b.people, 0);
                 const full = booked >= slot.capacity;
@@ -631,6 +591,12 @@ export default function TodayBubbles({
                                                     </span>
                                                 )}
                                             </div>
+                                            {b.note && (
+                                                <div className="mt-2 p-2 bg-gray-50 border-l-4 border-orange-400 text-yellow-800 w-full">
+                                                    <p className="text-sm">Note:</p>
+                                                    <p className="whitespace-pre-wrap text-sm pt-2">{b.note}</p>
+                                                </div>
+                                            )}
                                             {b.services?.length > 0 && (
                                                 <ul className="mt-1 text-xs text-gray-600 list-disc list-inside">
                                                     {b.services.map((s) => (
@@ -650,6 +616,7 @@ export default function TodayBubbles({
                                                         booking: b,
                                                         slot,
                                                         bookedInSlot: booked,
+                                                        allSlots: slots, // <-- pass all slots to modal
                                                     })
                                                 }
                                                 className="text-xs text-hh-orange hover:underline"
@@ -845,15 +812,16 @@ export default function TodayBubbles({
                     </div>
                 );
             })}
+            </div>
             <EditBookingModal
                 open={editing.open}
-                onClose={() =>
-                    setEditing({ open: false, booking: null, slot: null })
-                }
+                onClose={() => setEditing({ open: false })}
                 booking={editing.booking}
-                bookedInSlot={editing.bookedInSlot}
                 slot={editing.slot}
+                bookedInSlot={editing.bookedInSlot}
                 addonServices={addonServices}
+                allSlots={editing.allSlots}
+                formatTime={formatTime}
             />
         </div>
     );

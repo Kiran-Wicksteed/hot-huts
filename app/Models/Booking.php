@@ -25,7 +25,8 @@ class Booking extends Model
         'booking_type',
         'no_show',
         'updated_via',
-        'payment_method',    // UUID to group bookings in a cart
+        'payment_method',
+        'note',              // Optional admin note
     ];
 
     protected $casts = [

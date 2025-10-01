@@ -58,11 +58,11 @@ class PaymentAdminController extends Controller
                 ];
             } elseif ($booking->timeslot) {
                 $details = [
-                    'type' => 'Sauna',
+                    'type' => $booking->booking_type === 'walk in' ? 'Walk-in' : 'Sauna',
                     'name' => $booking->timeslot->schedule->sauna->name ?? 'Sauna Session',
                     'location' => $booking->timeslot->schedule->location->name,
                     'date' => \Carbon\Carbon::parse($booking->timeslot->schedule->date)->format('d M Y'),
-                    'time' => $booking->timeslot->start_time . ' - ' . $booking->timeslot->end_time,
+                    'time' => \Carbon\Carbon::parse($booking->timeslot->starts_at)->format('H:i') . ' - ' . \Carbon\Carbon::parse($booking->timeslot->ends_at)->format('H:i'),
                     'people' => $booking->people,
                 ];
             }
@@ -109,6 +109,7 @@ class PaymentAdminController extends Controller
 
     public function export(Request $request)
     {
+    
         // Apply same filters as index
         $bookings = Booking::with([
             'user',
