@@ -51,7 +51,7 @@ class AvailabilityController extends Controller
         $data = $r->validate([
             'location_id' => ['required', 'exists:locations,id'],
             'date'        => ['required', 'date'],
-            // Accept "HH:mm" or "HH:mm:ss"
+            // Accept "HH:mm" or "HH:mm:ss" – this is your "pivot" time
             'after'       => ['nullable', 'regex:/^\d{2}:\d{2}(:\d{2})?$/'],
         ]);
 
@@ -149,27 +149,42 @@ class AvailabilityController extends Controller
             ->sortBy(function ($s) { // chronological
                 [$h, $m] = array_map('intval', explode(':', $s['starts_at']));
                 return $h * 60 + $m;
-            });
+            })
+            ->values();
 
-        // 🔶 NEW: server-side "after event" filter (robust for TIME or DATETIME storage)
+        // Partition the day's slots into "before" and "after" relative to the provided time (same date)
+        $before = collect();
+        $after  = $slots;
+
         if ($afterTs) {
-            $slots = $slots->filter(function ($s) use ($afterTs, $data) {
+            $before = $slots->filter(function ($s) use ($afterTs, $data) {
+                $slotStart = \Carbon\Carbon::parse("{$data['date']} {$s['starts_at']}:00");
+                return $slotStart->lt($afterTs);
+            })->values();
+
+            $after = $slots->filter(function ($s) use ($afterTs, $data) {
                 $slotStart = \Carbon\Carbon::parse("{$data['date']} {$s['starts_at']}:00");
                 return $slotStart->greaterThanOrEqualTo($afterTs);
-            });
+            })->values();
         }
 
-        $slots = $slots->values();
-
         return response()->json([
-            'data' => $slots,
+            'data' => [
+                'all'    => $slots,   // full day, unchanged
+                'before' => $before,  // strictly before the pivot time (same day)
+                'after'  => $after,   // at/after the pivot time (same day)
+            ],
             'debug_meta' => [
-                'count' => $slots->count(),
-                'first' => $slots->first()['debug_raw'] ?? null,
-                'last'  => $slots->last()['debug_raw'] ?? null,
+                'all_count'    => $slots->count(),
+                'before_count' => $before->count(),
+                'after_count'  => $after->count(),
+                'first'        => $slots->first()['debug_raw'] ?? null,
+                'last'         => $slots->last()['debug_raw'] ?? null,
+                'pivot'        => $afterTs?->toDateTimeString(),
             ],
         ]);
     }
+
 
 
 

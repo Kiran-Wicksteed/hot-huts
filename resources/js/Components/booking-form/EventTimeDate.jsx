@@ -96,33 +96,70 @@ export default function EventTimeDate({
         if (!location?.id || !eventDate || !eventStartTime || !eventEndTime)
             return;
 
+        let ignore = false;
+
         (async () => {
             setLoading(true);
-            const res = await fetch(
-                route("availability.all", {
-                    location_id: location.id,
-                    date: eventDate,
-                    after: eventEndTime,
-                })
-            );
-            const json = await res.json();
+            try {
+                // 1) Get the full set for the day (no server-side cut)
+                const res = await fetch(
+                    route("availability.all", {
+                        location_id: location.id,
+                        date: eventDate,
+                        // remove "after" so we always get all slots for that date
+                    })
+                );
+                const json = await res.json();
+                console.log("fetched slots raw", json);
 
-            const eventEnd = parseOnDate(eventDate, eventEndTime);
-            const filtered = (json.data || [])
-                .filter((s) => {
-                    const slotStart = parseOnDate(eventDate, s.starts_at);
-                    if (!slotStart || !eventEnd) return false;
-                    return !slotStart.isBefore(eventEnd);
-                })
-                .sort((a, b) => {
-                    const aStart = parseOnDate(eventDate, a.starts_at);
-                    const bStart = parseOnDate(eventDate, b.starts_at);
-                    return aStart.valueOf() - bStart.valueOf();
-                });
+                const eventStart = parseOnDate(eventDate, eventStartTime);
+                const eventEnd = parseOnDate(eventDate, eventEndTime);
+                if (!eventStart || !eventEnd)
+                    throw new Error("Bad event times");
 
-            setSlots(filtered);
-            setLoading(false);
+                // Helper: normalise slot -> with concrete start/end on the same day
+                const normalise = (s) => {
+                    const start = parseOnDate(eventDate, s.starts_at);
+                    // Prefer ends_at if provided; else derive via period (minutes); else assume 0min duration
+                    const end = s.ends_at
+                        ? parseOnDate(eventDate, s.ends_at)
+                        : start
+                        ? start.add(Number(s.period ?? 0), "minute")
+                        : null;
+                    return { ...s, _start: start, _end: end ?? start };
+                };
+
+                const all = (json?.data?.all ?? json?.data ?? []) // supports {all: [...]} or bare array
+                    .map(normalise)
+                    .filter((s) => s._start && s._end);
+
+                // 2) Keep only non-overlapping slots:
+                //    - before: slotEnd <= eventStart
+                //    - after:  slotStart >= eventEnd
+                const result = all
+                    .filter(
+                        (s) =>
+                            s._end.isSame(eventStart) ||
+                            s._end.isBefore(eventStart) ||
+                            s._start.isSame(eventEnd) ||
+                            s._start.isAfter(eventEnd)
+                    )
+                    .sort((a, b) => a._start.valueOf() - b._start.valueOf())
+                    // strip the helper fields before setting state
+                    .map(({ _start, _end, ...rest }) => rest);
+
+                if (!ignore) setSlots(result);
+            } catch (err) {
+                console.error(err);
+                if (!ignore) setSlots([]);
+            } finally {
+                if (!ignore) setLoading(false);
+            }
         })();
+
+        return () => {
+            ignore = true;
+        };
     }, [location?.id, eventDate, eventStartTime, eventEndTime]);
 
     const prettyEventDate = useMemo(
@@ -327,7 +364,7 @@ export default function EventTimeDate({
                 <h1
                     className={`${styles.h3} !text-lg sm:!text-xl lg:!text-2xl !text-black text-center font-normal max-w-3xl mb-6 sm:mb-0`}
                 >
-                    Add a sauna session after your{" "}
+                    Add a sauna session before or after your{" "}
                     <span className="text-hh-orange">{event_name}</span>{" "}
                     at&nbsp;
                     {location.name}
@@ -344,8 +381,8 @@ export default function EventTimeDate({
                     <p
                         className={`${styles.paragraph} !text-sm sm:!text-base text-black mb-4 sm:mb-6`}
                     >
-                        After your event ({eventTimeRange}), pick a time that
-                        suits you:
+                        Before or after your event at <b>({eventTimeRange})</b>,
+                        pick a time that suits you:
                     </p>
 
                     <div className="h-[300px] sm:h-[400px] lg:h-[485px] overflow-y-scroll space-y-2">

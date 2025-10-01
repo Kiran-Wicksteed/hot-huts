@@ -297,6 +297,10 @@ export default function Locations({ nextStep, updateFormData, events }) {
                                                 {dayjs(ev.date).format(
                                                     "D MMM YYYY"
                                                 )}
+                                            </span>{" "}
+                                            —
+                                            <span>
+                                                {ev.start} - {ev.end}
                                             </span>
                                         </div>
                                     </div>
