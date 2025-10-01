@@ -32,19 +32,6 @@ export default function RedirectToGateway({
                 const checkout = window.Checkout.initiate({
                     key: entityId,
                     checkoutId: checkoutId,
-                    // Configure payment method ordering - lower numbers appear first
-                    options: {
-                        ordering: {
-                            APPLEPAY: 1,
-                            GOOGLEPAY: 2,
-                            SAMSUNGPAY: 3,
-                            CARD: 4,
-                        },
-                        // Optionally specify which payment methods to show
-                        // paymentMethods: {
-                        //     include: ["CARD", "APPLEPAY", "GOOGLEPAY"],
-                        // }
-                    },
                 });
 
                 const paymentFormDiv = paymentFormRef.current;
@@ -58,7 +45,7 @@ export default function RedirectToGateway({
                     const styleIframe = (iframe) => {
                         console.log("Found iframe, setting its height.");
                         iframe.style.width = "100%";
-                        iframe.style.height = "70vh";
+                        // iframe.style.height = "70vh";
                         iframe.style.border = "none";
                     };
 
