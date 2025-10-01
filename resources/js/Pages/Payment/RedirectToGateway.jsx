@@ -8,7 +8,7 @@ export default function RedirectToGateway({
 }) {
     // useRef to hold a reference to the observer so we can disconnect it
     const observer = useRef(null);
-    // --- FIX: Create a ref for the payment form div ---
+    // Create a ref for the payment form div
     const paymentFormRef = useRef(null);
 
     // The useEffect hook runs once when the component mounts.
@@ -32,9 +32,21 @@ export default function RedirectToGateway({
                 const checkout = window.Checkout.initiate({
                     key: entityId,
                     checkoutId: checkoutId,
+                    // Configure payment method ordering - lower numbers appear first
+                    options: {
+                        ordering: {
+                            APPLEPAY: 1,
+                            GOOGLEPAY: 2,
+                            SAMSUNGPAY: 3,
+                            CARD: 4,
+                        },
+                        // Optionally specify which payment methods to show
+                        // paymentMethods: {
+                        //     include: ["CARD", "APPLEPAY", "GOOGLEPAY"],
+                        // }
+                    },
                 });
 
-                // --- FIX: Use the ref's `current` property to get the DOM node ---
                 const paymentFormDiv = paymentFormRef.current;
                 if (paymentFormDiv) {
                     const fallback =
@@ -46,7 +58,7 @@ export default function RedirectToGateway({
                     const styleIframe = (iframe) => {
                         console.log("Found iframe, setting its height.");
                         iframe.style.width = "100%";
-                        iframe.style.height = "70vh"; // You can adjust this value as needed
+                        iframe.style.height = "70vh";
                         iframe.style.border = "none";
                     };
 
@@ -58,7 +70,7 @@ export default function RedirectToGateway({
                                         paymentFormDiv.querySelector("iframe");
                                     if (iframe) {
                                         styleIframe(iframe);
-                                        obs.disconnect(); // Stop observing once we've found and styled the iframe
+                                        obs.disconnect();
                                         return;
                                     }
                                 }
@@ -99,7 +111,7 @@ export default function RedirectToGateway({
                 document.head.removeChild(existingScript);
             }
         };
-    }, [checkoutScriptUrl, entityId, checkoutId]); // Rerun effect if props change
+    }, [checkoutScriptUrl, entityId, checkoutId]);
 
     return (
         <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100">
@@ -108,7 +120,6 @@ export default function RedirectToGateway({
                     Complete Your Payment
                 </h1>
 
-                {/* --- FIX: Attach the ref to the div --- */}
                 <div id="payment-form" ref={paymentFormRef}>
                     {/* Fallback content while the script loads */}
                     <div className="fallback-content flex flex-col items-center justify-center py-8">
