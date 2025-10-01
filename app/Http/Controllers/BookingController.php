@@ -712,14 +712,28 @@ class BookingController extends Controller
 
             // --- Capacity checks (still inside the transaction) ---
 
+            $now = now();
 
-            $slotBooked = $slot->bookings()->sum('people');
+
+            $slotBooked = $slot->bookings()
+                ->where(function ($q) use ($now) {
+                    $q->whereIn('status', ['paid', 'confirmed'])
+                        ->orWhere(function ($q2) use ($now) {
+                            $q2->where('status', 'pending')
+                                ->where('hold_expires_at', '>', $now); // only active holds count
+                        });
+                    // Note: cancelled/void/refunded implicitly excluded by the include list
+                })
+                ->lockForUpdate()                    // lock rows we are counting
+                ->sum('people');
+
             Log::info('Admin booking capacity check', [
                 'slot_id'       => $slot->id,
                 'slot_capacity' => $slot->capacity,
                 'slot_booked'   => $slotBooked,
                 'requested'     => $validated['people'],
             ]);
+
             if ($slotBooked + $validated['people'] > $slot->capacity) {
                 abort(409, 'Chosen sauna slot is already full.');
             }
@@ -728,8 +742,22 @@ class BookingController extends Controller
                 if (! $occ->is_active) {
                     abort(409, 'Event is no longer bookable.');
                 }
-                $occBooked = $occ->bookings()->sum('people');
-                $occCap    = $occ->effective_capacity ?? 8;
+                $occBooked = $occ->bookings()
+                    ->where(function ($q) use ($now) {
+                        $q->whereIn('status', ['paid', 'confirmed'])
+                            ->orWhere(function ($q2) use ($now) {
+                                $q2->where('status', 'pending')
+                                    ->where('hold_expires_at', '>', $now);
+                            });
+                    })
+                    ->lockForUpdate()
+                    ->sum('people');
+
+                $occCap = $occ->effective_capacity ?? 8;
+
+                if ($occBooked + $validated['people'] > $occCap) {
+                    abort(409, 'Event capacity reached.');
+                }
                 if ($occBooked + $validated['people'] > $occCap) {
                     abort(409, 'Event capacity reached.');
                 }

@@ -21,6 +21,7 @@ use Inertia\Inertia;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\Admin\AdminCustomerController;
 use App\Http\Controllers\Loyalty\LoyaltyRewardController;
+use Illuminate\Support\Facades\Auth;
 
 Route::get('/welcome', function () {
     return Inertia::render('Welcome', [
@@ -163,18 +164,29 @@ Route::middleware('auth')->group(function () {
 Route::middleware(['auth'])->group(
     function () {
 
+
         Route::get('/dashboard', function () {
+            if (! Auth::user()->is_admin) {
+                return redirect('/');
+            }
+
             return Inertia::render('Dashboard');
         })->middleware(['auth'])->name('dashboard');
 
-        Route::get('/bookings', [BookingAdminController::class, 'index'])
-            ->name('bookings.index');
+        Route::middleware(['auth', 'admin'])->group(
+            function () {
+                Route::get('/bookings', [BookingAdminController::class, 'index'])
+                    ->name('bookings.index');
+            }
+        );
+
+
 
         Route::middleware(['auth'])->get('/payments', [\App\Http\Controllers\PaymentAdminController::class, 'index'])->name('payments.index');
         // routes/web.php
         Route::get('/payments/export', [\App\Http\Controllers\PaymentAdminController::class, 'export'])->name('payments.export');
 
-        Route::middleware(['auth'])->group(function () {
+        Route::middleware(['auth', 'admin'])->group(function () {
             Route::get('/customers', [CustomerController::class, 'index'])->name('customers.index');
         });
 
