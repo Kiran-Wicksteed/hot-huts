@@ -128,7 +128,11 @@ export default function RedirectToGateway({
                     Complete Your Payment
                 </h1>
 
-                <div id="payment-form" ref={paymentFormRef}>
+                <div
+                    id="payment-form"
+                    className="h-[80vh]"
+                    ref={paymentFormRef}
+                >
                     {/* Fallback content while the script loads */}
                     <div className="fallback-content flex flex-col items-center justify-center py-8">
                         <svg
