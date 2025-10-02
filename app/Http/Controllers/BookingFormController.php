@@ -17,9 +17,9 @@ class BookingFormController extends Controller
         $services = Service::active()->get();
         $addons   = Service::addons()->active()->get();
 
-        $events = EventOccurrence::with([
+        $eventOccurrences = EventOccurrence::with([
             'event:id,default_capacity,name,description,default_price',
-            'location:id,name,image_path',
+            'location:id,name,address,image_path', // ← Added 'address' here
         ])
             ->where('is_active', true)
             ->withSum([
@@ -27,20 +27,25 @@ class BookingFormController extends Controller
             ], 'people')
             ->orderBy('occurs_on')
             ->orderBy('start_time')
-            ->get()
-            ->map(fn(EventOccurrence $o) => [
-                'id'             => $o->id,
-                'event_name'     => $o->event->name,
-                'description'    => $o->event->description,
-                'date'           => $o->occurs_on->toDateString(),
-                'start'          => $o->start_time->format('H:i'),
-                'end'            => $o->end_time->format('H:i'),
-                'location_id'    => $o->location_id,
-                'location'       => $o->location->name,
-                'location_image' => $o->location->image_path,
-                'price'          => $o->effective_price,
-                'capacity'       => $o->effective_capacity, // remaining seats
-            ]);
+            ->get();
+
+        // Map occurrences for frontend
+        $events = $eventOccurrences->map(fn(EventOccurrence $o) => [
+            'id'             => $o->id,
+            'event_id'       => $o->event_id,
+            'event_name'     => $o->event->name,
+            'description'    => $o->event->description,
+            'date'           => $o->occurs_on->toDateString(),
+            'start'          => $o->start_time->format('H:i'),
+            'end'            => $o->end_time->format('H:i'),
+            'location_id'    => $o->location_id,
+            'location'       => $o->location->name,
+            'address'        => $o->location->address,
+            'location_image' => $o->location->image_path,
+            'event_image'    => $o->event->image_path ?? null,
+            'price'          => $o->effective_price,
+            'capacity'       => $o->effective_capacity,
+        ]);
 
         return Inertia::render('Index', [
             'saunas'    => $saunas,

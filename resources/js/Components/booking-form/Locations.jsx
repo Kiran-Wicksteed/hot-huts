@@ -3,7 +3,11 @@ import styles from "../../../styles";
 import dayjs from "dayjs";
 import isSameOrAfter from "dayjs/plugin/isSameOrAfter";
 import weekdayPlugin from "dayjs/plugin/weekday";
-import { MapPinIcon, ClockIcon } from "@heroicons/react/24/outline";
+import {
+    MapPinIcon,
+    ClockIcon,
+    ChevronDownIcon,
+} from "@heroicons/react/24/outline";
 
 const weekdayNames = [
     "Sunday",
@@ -22,7 +26,6 @@ function useIsMobile() {
         const mql = window.matchMedia("(max-width: 639px)");
         const onChange = (e) => setIsMobile(e.matches);
         setIsMobile(mql.matches);
-        // support older Safari
         if (mql.addEventListener) mql.addEventListener("change", onChange);
         else mql.addListener(onChange);
         return () => {
@@ -35,9 +38,10 @@ function useIsMobile() {
 }
 
 export default function Locations({ nextStep, updateFormData, events }) {
-    const [selected, setSelected] = useState(null); // { day, id, name }
-    const [openings, setOpenings] = useState([]); // raw API rows
-    const [schedule, setSchedule] = useState({}); // { Monday: [{id,name,windowsLabel,earliestStart}], ... }
+    const [selected, setSelected] = useState(null);
+    const [openings, setOpenings] = useState([]);
+    const [schedule, setSchedule] = useState({});
+    const [selectedOccurrenceId, setSelectedOccurrenceId] = useState({});
 
     const isMobile = useIsMobile();
 
@@ -58,11 +62,9 @@ export default function Locations({ nextStep, updateFormData, events }) {
             .then(setOpenings);
     }, []);
 
-    // Build: one row per location per day, merge all time windows
     useEffect(() => {
         if (!openings.length) return;
 
-        // tmp[day][locId] = { id, name, windows:Set, earliestStart }
         const tmp = {};
         weekdayNames.forEach((d) => (tmp[d] = {}));
 
@@ -91,7 +93,6 @@ export default function Locations({ nextStep, updateFormData, events }) {
             }
         });
 
-        // Finalize to arrays, dedupe windows, sort by earliest start then name
         const out = {};
         Object.entries(tmp).forEach(([day, byLoc]) => {
             out[day] = Object.values(byLoc)
@@ -115,7 +116,6 @@ export default function Locations({ nextStep, updateFormData, events }) {
     const handleSelect = (day, item) => {
         const sel = { day, id: item.id, name: item.name };
         setSelected(sel);
-        // ⏩ on mobile, go straight to next step
         if (isMobile) commitSelection(sel);
     };
 
@@ -126,19 +126,105 @@ export default function Locations({ nextStep, updateFormData, events }) {
 
     const UPCOMING_LIMIT = 5;
 
-    const upcomingEvents = useMemo(() => {
+    // Group events by event_id + location_id + date, show earliest first
+    const groupedEvents = useMemo(() => {
         if (!events?.length) return [];
-        return events
-            .filter((e) => dayjs(e.date).isSameOrAfter(dayjs(), "day"))
-            .sort(
-                (a, b) =>
-                    dayjs(a.date).diff(dayjs(b.date)) ||
-                    dayjs(`1970-01-01 ${a.start_time}`).diff(
-                        dayjs(`1970-01-01 ${b.start_time}`)
-                    )
-            )
+
+        const now = dayjs();
+        const futureEvents = events.filter((e) =>
+            dayjs(e.date).isSameOrAfter(now, "day")
+        );
+
+        // Group by event_id + location_id + date
+        const groups = {};
+        futureEvents.forEach((ev) => {
+            const key = `${ev.event_id}-${ev.location_id}-${ev.date}`;
+            if (!groups[key]) {
+                groups[key] = {
+                    event_id: ev.event_id,
+                    event_name: ev.event_name,
+                    description: ev.description,
+                    date: ev.date,
+                    location_id: ev.location_id,
+                    location: ev.location,
+                    address: ev.address,
+                    location_image: ev.location_image,
+                    event_image: ev.event_image,
+                    occurrences: [],
+                };
+            }
+            groups[key].occurrences.push({
+                id: ev.id,
+                start: ev.start,
+                end: ev.end,
+                price: ev.price,
+                capacity: ev.capacity,
+            });
+        });
+
+        // Sort occurrences within each group by start time
+        Object.values(groups).forEach((group) => {
+            group.occurrences.sort((a, b) =>
+                dayjs(`1970-01-01 ${a.start}`).diff(
+                    dayjs(`1970-01-01 ${b.start}`)
+                )
+            );
+        });
+
+        // Sort groups by date, then earliest start time
+        return Object.values(groups)
+            .sort((a, b) => {
+                const dateDiff = dayjs(a.date).diff(dayjs(b.date));
+                if (dateDiff !== 0) return dateDiff;
+                return dayjs(`1970-01-01 ${a.occurrences[0].start}`).diff(
+                    dayjs(`1970-01-01 ${b.occurrences[0].start}`)
+                );
+            })
             .slice(0, UPCOMING_LIMIT);
     }, [events]);
+
+    // Initialize selected occurrence for each event group (first occurrence by default)
+    useEffect(() => {
+        const initial = {};
+        groupedEvents.forEach((group) => {
+            const key = `${group.event_id}-${group.location_id}-${group.date}`;
+            if (!selectedOccurrenceId[key] && group.occurrences.length > 0) {
+                initial[key] = group.occurrences[0].id;
+            }
+        });
+        if (Object.keys(initial).length > 0) {
+            setSelectedOccurrenceId((prev) => ({ ...prev, ...initial }));
+        }
+    }, [groupedEvents]);
+
+    const handleEventBooking = (group) => {
+        const key = `${group.event_id}-${group.location_id}-${group.date}`;
+        const occurrenceId = selectedOccurrenceId[key];
+        const occurrence = group.occurrences.find((o) => o.id === occurrenceId);
+
+        if (!occurrence) return;
+
+        updateFormData({
+            booking_type: "event",
+            event_occurrence_id: occurrence.id,
+            event_name: group.event_name,
+            event_description: group.description,
+            event_date: group.date,
+            event_time_range: `${occurrence.start} - ${occurrence.end}`,
+            event_price_per_person: occurrence.price,
+            event_capacity: occurrence.capacity,
+            event_people: 1,
+            date: group.date,
+            time: occurrence.start,
+            location: {
+                id: group.location_id,
+                name: group.location,
+                image: group.location_image,
+            },
+        });
+
+        nextStep();
+    };
 
     if (!Object.keys(schedule).length) {
         return <p>Loading calendar…</p>;
@@ -147,7 +233,6 @@ export default function Locations({ nextStep, updateFormData, events }) {
     const storageUrl = (path) => {
         if (!path) return null;
         if (/^https?:\/\//i.test(path)) return path;
-        // ensure it points at the /storage symlink
         return "/storage/" + String(path).replace(/^\/?(storage\/)?/i, "");
     };
 
@@ -171,14 +256,6 @@ export default function Locations({ nextStep, updateFormData, events }) {
                     our wood-fired beachfront sauna…
                 </p>
 
-                {/* Header */}
-                {/* <div className="flex gap-x-4 items-center mb-6 sm:mb-10">
-                    <p className="text-hh-orange font-medium text-xl sm:text-2xl lg:text-3xl">
-                        SAUNA SCHEDULE
-                    </p>
-                </div> */}
-
-                {/* Responsive grid: mobile stack, tablet 3 cols, desktop 7 cols */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-4 sm:gap-x-6">
                     {Object.entries(schedule).map(([day, items]) => (
                         <div
@@ -257,7 +334,7 @@ export default function Locations({ nextStep, updateFormData, events }) {
                     )}
                 </div>
 
-                {upcomingEvents.length > 0 && (
+                {groupedEvents.length > 0 && (
                     <div className="mt-8 sm:mt-16">
                         <h2
                             className={`${styles.h3} !text-lg sm:!text-xl !text-black mb-4`}
@@ -265,92 +342,113 @@ export default function Locations({ nextStep, updateFormData, events }) {
                             Upcoming Events
                         </h2>
                         <div className="space-y-3">
-                            {upcomingEvents.map((ev, i) => (
-                                <div
-                                    key={ev.id}
-                                    className={[
-                                        "flex flex-col sm:flex-row md:flex-col lg:flex-row sm:items-center md:items-start lg:items-center gap-3 sm:gap-x-4 md:gap-3 lg:gap-x-4 rounded-lg p-3 sm:px-4 sm:py-3 md:p-3 lg:px-4 lg:py-3 transition",
-                                        i === 0
-                                            ? "border border-hh-orange bg-white"
-                                            : "bg-[#f7f7f7] hover:bg-white",
-                                    ].join(" ")}
-                                >
-                                    <img
-                                        src={
-                                            ev.event_image ??
-                                            "/storage/images/hot-huts-logo.png"
-                                        }
-                                        alt={ev.event_name}
-                                        className="w-16 h-16 sm:w-14 sm:h-14 md:w-16 md:h-16 lg:w-14 lg:h-14 object-cover rounded mx-auto sm:mx-0 md:mx-auto lg:mx-0"
-                                    />
-                                    <div className="flex-1 text-center sm:text-left md:text-center lg:text-left">
-                                        <p className="font-medium text-sm sm:text-sm md:text-sm lg:text-sm text-black mb-1 sm:mb-0.5">
-                                            {ev.event_name}
-                                        </p>
-                                        <div className="flex flex-col sm:flex-row md:flex-col lg:flex-row sm:items-center md:items-center lg:items-center gap-2 sm:gap-x-4 md:gap-2 lg:gap-x-4 text-xs text-[#666]">
-                                            <span className="flex items-center justify-center sm:justify-start md:justify-center lg:justify-start gap-x-1">
-                                                <MapPinIcon className="w-4 h-4 text-hh-orange" />
-                                                {ev.location}
-                                            </span>
-                                            <span className="flex items-center justify-center sm:justify-start md:justify-center lg:justify-start gap-x-1">
-                                                <ClockIcon className="w-4 h-4 text-hh-orange" />
-                                                {dayjs(ev.date).format(
-                                                    "D MMM YYYY"
-                                                )}
-                                            </span>{" "}
-                                            —
-                                            <span>
-                                                {ev.start} - {ev.end}
-                                            </span>
-                                        </div>
-                                    </div>
-                                    <button
-                                        onClick={() => {
-                                            const start =
-                                                ev.start ?? ev.start_time;
-                                            const end = ev.end ?? ev.end_time;
+                            {groupedEvents.map((group, i) => {
+                                const key = `${group.event_id}-${group.location_id}-${group.date}`;
+                                const selectedOcc =
+                                    group.occurrences.find(
+                                        (o) =>
+                                            o.id === selectedOccurrenceId[key]
+                                    ) || group.occurrences[0];
 
-                                            updateFormData({
-                                                booking_type: "event",
-
-                                                // event meta
-                                                event_occurrence_id: ev.id,
-                                                event_name: ev.event_name,
-                                                event_description:
-                                                    ev.description,
-                                                event_date: ev.date,
-                                                event_time_range: `${start} - ${end}`,
-
-                                                // ✅ per-person price (let EventTimeDate treat this as unit)
-                                                event_price_per_person:
-                                                    ev.price,
-
-                                                // ✅ total remaining capacity for this occurrence (server gives this to index)
-                                                event_capacity: ev.capacity,
-
-                                                // initial qty
-                                                event_people: 1,
-
-                                                // generic fields some components use
-                                                date: ev.date,
-                                                time: start,
-
-                                                // location
-                                                location: {
-                                                    id: ev.location_id,
-                                                    name: ev.location,
-                                                    image: ev.location_image, // note: controller returns location_image
-                                                },
-                                            });
-
-                                            nextStep(); // step helper will skip ServiceSection for events
-                                        }}
-                                        className="bg-hh-orange text-white px-4 py-2 rounded-lg font-medium text-sm hover:bg-hh-orange/80 transition w-full sm:w-auto md:w-full lg:w-auto"
+                                return (
+                                    <div
+                                        key={key}
+                                        className={[
+                                            "flex flex-col sm:flex-row md:flex-col lg:flex-row sm:items-center md:items-start lg:items-center gap-3 sm:gap-x-4 md:gap-3 lg:gap-x-4 rounded-lg p-3 sm:px-4 sm:py-3 md:p-3 lg:px-4 lg:py-3 transition",
+                                            i === 0
+                                                ? "border border-hh-orange bg-white"
+                                                : "bg-[#f7f7f7] hover:bg-white",
+                                        ].join(" ")}
                                     >
-                                        Book Now
-                                    </button>
-                                </div>
-                            ))}
+                                        <img
+                                            src={
+                                                group.event_image ??
+                                                "/storage/images/hot-huts-logo.png"
+                                            }
+                                            alt={group.event_name}
+                                            className="w-16 h-16 sm:w-14 sm:h-14 md:w-16 md:h-16 lg:w-14 lg:h-14 object-cover rounded mx-auto sm:mx-0 md:mx-auto lg:mx-0"
+                                        />
+                                        <div className="flex-1 text-center sm:text-left md:text-center lg:text-left">
+                                            <p className="font-medium text-sm sm:text-sm md:text-sm lg:text-sm text-black mb-1 sm:mb-0.5">
+                                                {group.event_name}
+                                            </p>
+                                            <div className="flex flex-col sm:flex-row md:flex-col lg:flex-row sm:items-center md:items-center lg:items-center gap-2 sm:gap-x-4 md:gap-2 lg:gap-x-4 text-xs text-[#666]">
+                                                <span className="flex items-center justify-center sm:justify-start md:justify-center lg:justify-start gap-x-1">
+                                                    <MapPinIcon className="w-4 h-4 text-hh-orange" />
+                                                    {group.address}
+                                                </span>
+                                                <span className="flex items-center justify-center sm:justify-start md:justify-center lg:justify-start gap-x-1">
+                                                    <ClockIcon className="w-4 h-4 text-hh-orange" />
+                                                    {dayjs(group.date).format(
+                                                        "D MMM YYYY"
+                                                    )}
+                                                </span>
+                                            </div>
+
+                                            {/* Time slot dropdown */}
+                                            {group.occurrences.length > 1 ? (
+                                                <div className="relative mt-2">
+                                                    <select
+                                                        value={
+                                                            selectedOccurrenceId[
+                                                                key
+                                                            ]
+                                                        }
+                                                        onChange={(e) =>
+                                                            setSelectedOccurrenceId(
+                                                                (prev) => ({
+                                                                    ...prev,
+                                                                    [key]: parseInt(
+                                                                        e.target
+                                                                            .value
+                                                                    ),
+                                                                })
+                                                            )
+                                                        }
+                                                        className="appearance-none w-full sm:w-auto md:w-full lg:w-auto bg-white border border-hh-orange rounded px-3 py-1.5 text-xs text-black pr-8 focus:outline-none focus:ring-2 focus:ring-hh-orange/50"
+                                                        onClick={(e) =>
+                                                            e.stopPropagation()
+                                                        }
+                                                    >
+                                                        {group.occurrences.map(
+                                                            (occ) => (
+                                                                <option
+                                                                    key={occ.id}
+                                                                    value={
+                                                                        occ.id
+                                                                    }
+                                                                >
+                                                                    {occ.start}{" "}
+                                                                    - {occ.end}{" "}
+                                                                    (
+                                                                    {
+                                                                        occ.capacity
+                                                                    }{" "}
+                                                                    spots left)
+                                                                </option>
+                                                            )
+                                                        )}
+                                                    </select>
+                                                    {/* <ChevronDownIcon className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-hh-orange pointer-events-none" /> */}
+                                                </div>
+                                            ) : (
+                                                <div className="text-xs text-[#666] mt-1">
+                                                    {selectedOcc.start} -{" "}
+                                                    {selectedOcc.end}
+                                                </div>
+                                            )}
+                                        </div>
+                                        <button
+                                            onClick={() =>
+                                                handleEventBooking(group)
+                                            }
+                                            className="bg-hh-orange text-white px-4 py-2 rounded-lg font-medium text-sm hover:bg-hh-orange/80 transition w-full sm:w-auto md:w-full lg:w-auto"
+                                        >
+                                            Book Now
+                                        </button>
+                                    </div>
+                                );
+                            })}
                         </div>
                     </div>
                 )}
