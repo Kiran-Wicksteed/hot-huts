@@ -282,8 +282,10 @@ Route::middleware(['auth', 'admin'])
             ->name('services.destroy');
         Route::post('services',       [ServiceController::class, 'store'])->name('services.store');
         Route::put('services/{service}', [ServiceController::class, 'update'])->name('services.update');
-    });
 
+        Route::delete('/timeslots/{timeslot}', [TimeslotController::class, 'destroy'])
+            ->name('timeslots.destroy');
+    });
 
 
 

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useForm, Link /*, router, usePage */ } from "@inertiajs/react";
+import { useForm, Link, router } from "@inertiajs/react";
 
 const AuthenticatedLayout = ({ children }) => (
     <div className="bg-gray-100 min-h-screen">
@@ -20,6 +20,7 @@ export default function Slots({ schedule, sauna }) {
     const [currentTimeslots, setCurrentTimeslots] = useState(
         schedule?.timeslots || []
     );
+    const [deletingId, setDeletingId] = useState(null);
 
     // Initialise useForm with your single field
     const { data, setData, post, processing, errors, reset } = useForm({
@@ -53,6 +54,32 @@ export default function Slots({ schedule, sauna }) {
             onError: () => {
                 setSuccessMessage("Failed to update capacity.");
                 setTimeout(() => setSuccessMessage(""), 3000);
+            },
+        });
+    };
+
+    const handleDeleteTimeslot = (timeslotId) => {
+        if (!confirm("Are you sure you want to delete this timeslot?")) {
+            return;
+        }
+
+        setDeletingId(timeslotId);
+
+        router.delete(route("timeslots.destroy", timeslotId), {
+            preserveScroll: true,
+            onSuccess: () => {
+                // Remove from local state
+                setCurrentTimeslots(
+                    currentTimeslots.filter((ts) => ts.id !== timeslotId)
+                );
+                setSuccessMessage("Timeslot deleted successfully.");
+                setTimeout(() => setSuccessMessage(""), 3000);
+                setDeletingId(null);
+            },
+            onError: () => {
+                setSuccessMessage("Failed to delete timeslot.");
+                setTimeout(() => setSuccessMessage(""), 3000);
+                setDeletingId(null);
             },
         });
     };
@@ -128,23 +155,48 @@ export default function Slots({ schedule, sauna }) {
                                 <th>End</th>
                                 <th>Capacity</th>
                                 <th>Booked</th>
+                                <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {(currentTimeslots || []).map((ts, i) => (
-                                <tr key={ts.id ?? i} className="border-b">
-                                    <td className="py-2">Slot {i + 1}</td>
-                                    <td>{ts.starts_at?.slice(11, 16)}</td>
-                                    <td>{ts.ends_at?.slice(11, 16)}</td>
-                                    <td>{ts.capacity}</td>
-                                    <td>
-                                        {(ts.bookings || []).reduce(
-                                            (t, b) => t + (b.people ?? 0),
-                                            0
-                                        )}
-                                    </td>
-                                </tr>
-                            ))}
+                            {(currentTimeslots || []).map((ts, i) => {
+                                const bookedCount = (ts.bookings || []).reduce(
+                                    (t, b) => t + (b.people ?? 0),
+                                    0
+                                );
+                                const hasBookings = bookedCount > 0;
+
+                                return (
+                                    <tr key={ts.id ?? i} className="border-b">
+                                        <td className="py-2">Slot {i + 1}</td>
+                                        <td>{ts.starts_at?.slice(11, 16)}</td>
+                                        <td>{ts.ends_at?.slice(11, 16)}</td>
+                                        <td>{ts.capacity}</td>
+                                        <td>{bookedCount}</td>
+                                        <td>
+                                            <button
+                                                onClick={() =>
+                                                    handleDeleteTimeslot(ts.id)
+                                                }
+                                                disabled={
+                                                    hasBookings ||
+                                                    deletingId === ts.id
+                                                }
+                                                className="px-3 py-1 text-sm bg-red-500 text-white rounded hover:bg-red-600 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                                                title={
+                                                    hasBookings
+                                                        ? "Cannot delete timeslot with bookings"
+                                                        : "Delete timeslot"
+                                                }
+                                            >
+                                                {deletingId === ts.id
+                                                    ? "Deleting…"
+                                                    : "Delete"}
+                                            </button>
+                                        </td>
+                                    </tr>
+                                );
+                            })}
                         </tbody>
                     </table>
                 </div>
