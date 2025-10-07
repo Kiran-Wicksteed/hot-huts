@@ -153,9 +153,7 @@ class BookingController extends Controller
     {
         $holdMinutes = (int) config('booking.hold_minutes', 10);
         $entity      = config('peach-payment.entity_id');
-        $cbUrl = '/order/callback';
-
-
+        $cbUrl       = '/order/callback';
         $now         = now();
 
         // ---------- 0) Normalise payload to a cart of items ---------
@@ -163,15 +161,16 @@ class BookingController extends Controller
 
         if ($asCart) {
             $data = $request->validate([
-                'cart_key'                           => ['required', 'string', 'max:191'],
-                'items'                              => ['required', 'array', 'min:1'],
-                'items.*.kind'                       => ['required', Rule::in(['sauna', 'event'])],
-                'items.*.timeslot_id'                => ['nullable', 'required_if:items.*.kind,sauna', 'integer', 'exists:timeslots,id'],
-                'items.*.event_occurrence_id'        => ['nullable', 'required_if:items.*.kind,event', 'integer', 'exists:event_occurrences,id'],
-                'items.*.people'                     => ['required', 'integer', 'between:1,8'],
-                'items.*.addons'                     => ['array'],
-                'items.*.addons.*.code'              => ['required_with:items.*.addons', 'string'],
-                'items.*.addons.*.qty'               => ['required_with:items.*.addons', 'integer', 'min:0'],
+                'cart_key'                    => ['required', 'string', 'max:191'],
+                'items'                       => ['required', 'array', 'min:1'],
+                'items.*.kind'                => ['required', Rule::in(['sauna', 'event'])],
+                // Require a timeslot for BOTH sauna and event items
+                'items.*.timeslot_id'         => ['required', 'integer', 'exists:timeslots,id'],
+                'items.*.event_occurrence_id' => ['nullable', 'required_if:items.*.kind,event', 'integer', 'exists:event_occurrences,id'],
+                'items.*.people'              => ['required', 'integer', 'between:1,8'],
+                'items.*.addons'              => ['array'],
+                'items.*.addons.*.code'       => ['required_with:items.*.addons', 'string'],
+                'items.*.addons.*.qty'        => ['required_with:items.*.addons', 'integer', 'min:0'],
             ]);
             $cartKey = $data['cart_key'];
             $items   = $data['items'];
@@ -180,7 +179,8 @@ class BookingController extends Controller
             $data = $request->validate([
                 'cart_key'            => ['nullable', 'string', 'max:191'],
                 'booking_type'        => ['required', Rule::in(['sauna', 'event'])],
-                'timeslot_id'         => ['nullable', 'required_if:booking_type,sauna', 'exists:timeslots,id'],
+                // Always required because every booking sits on a sauna slot
+                'timeslot_id'         => ['required', 'exists:timeslots,id'],
                 'event_occurrence_id' => ['nullable', 'required_if:booking_type,event', 'exists:event_occurrences,id'],
                 'people'              => ['required', 'integer', 'between:1,8'],
                 'services'            => ['array'],
@@ -195,7 +195,7 @@ class BookingController extends Controller
             $cartKey = $data['cart_key'] ?: (string) Str::uuid();
             $items = [[
                 'kind'                => $data['booking_type'] === 'event' ? 'event' : 'sauna',
-                'timeslot_id'         => $data['timeslot_id'] ?? null,
+                'timeslot_id'         => (int) $data['timeslot_id'],
                 'event_occurrence_id' => $data['event_occurrence_id'] ?? null,
                 'people'              => (int) $data['people'],
                 'addons'              => $addons,
@@ -220,9 +220,12 @@ class BookingController extends Controller
         $wantBySlot  = [];
         $wantByEvent = [];
         foreach ($items as $it) {
-            if ($it['kind'] === 'sauna' && !empty($it['timeslot_id'])) {
+            // Count ALL items against their sauna timeslot capacity (sauna or event)
+            if (!empty($it['timeslot_id'])) {
                 $wantBySlot[(int) $it['timeslot_id']] = ($wantBySlot[(int) $it['timeslot_id']] ?? 0) + (int) $it['people'];
-            } elseif ($it['kind'] === 'event' && !empty($it['event_occurrence_id'])) {
+            }
+            // Also count event capacity per occurrence
+            if ($it['kind'] === 'event' && !empty($it['event_occurrence_id'])) {
                 $wantByEvent[(int) $it['event_occurrence_id']] = ($wantByEvent[(int) $it['event_occurrence_id']] ?? 0) + (int) $it['people'];
             }
         }
@@ -239,7 +242,7 @@ class BookingController extends Controller
             $created = [];
             $grand   = 0;
 
-            // 2A. Slot checks
+            // 2A. Slot checks (covers both sauna-only and event+sauna items)
             foreach (array_keys($wantBySlot) as $slotId) {
                 /** @var \App\Models\Timeslot $slot */
                 $slot = Timeslot::lockForUpdate()->findOrFail($slotId);
@@ -306,14 +309,23 @@ class BookingController extends Controller
             $voucherApplied = false;
 
             foreach ($items as $it) {
+                // Invariant: all items must have a timeslot_id
+                if (empty($it['timeslot_id'])) {
+                    abort(422, 'All bookings must include a sauna timeslot.');
+                }
+                if ($it['kind'] === 'event' && empty($it['event_occurrence_id'])) {
+                    abort(422, 'Event bookings must include an event occurrence.');
+                }
+
                 $people = (int) $it['people'];
                 $addons = (array) ($it['addons'] ?? []);
-                $slot = null;
-                $occ = null;
 
-                if ($it['kind'] === 'sauna') {
-                    $slot = Timeslot::lockForUpdate()->findOrFail($it['timeslot_id']);
-                } else {
+                // Always bind to a sauna timeslot
+                $slot = Timeslot::lockForUpdate()->findOrFail($it['timeslot_id']);
+
+                // Optionally bind an event occurrence (with checks)
+                $occ = null;
+                if ($it['kind'] === 'event') {
                     $occ = EventOccurrence::with('event')->lockForUpdate()->findOrFail($it['event_occurrence_id']);
                     if (!$occ->effective_price) abort(500, "Price missing for event occurrence #{$occ->id}");
                     if (!$occ->is_active) abort(409, 'Event is no longer bookable.');
@@ -321,14 +333,14 @@ class BookingController extends Controller
 
                 $booking = Booking::create([
                     'user_id'             => Auth::id(),
-                    'timeslot_id'         => $slot?->id,
-                    'event_occurrence_id' => $occ?->id,
+                    'timeslot_id'         => $slot->id,          // ALWAYS set
+                    'event_occurrence_id' => $occ?->id,          // set for events
                     'people'              => $people,
                     'status'              => 'pending',
                     'hold_expires_at'     => $now->copy()->addMinutes($holdMinutes),
                     'amount'              => 0,
-                    'booking_type' => "online",
-                    'payment_method' => "Peach Payment"
+                    'booking_type'        => "online",
+                    'payment_method'      => "Peach Payment",
                 ]);
 
                 $total = 0;
@@ -345,9 +357,7 @@ class BookingController extends Controller
                     ]);
                     $total += $line;
 
-
-
-                    // add-ons (use cents; fallback if legacy price field)
+                    // Add-ons (cents; fallback if legacy price field)
                     foreach ($addons as $a) {
                         $qty = (int) ($a['qty'] ?? 0);
                         if ($qty < 1) continue;
@@ -364,7 +374,8 @@ class BookingController extends Controller
                         $total += $line;
                     }
 
-                    if (! $voucherApplied && ! empty($cartKey)) {
+                    // Loyalty voucher (apply once per cart)
+                    if (!$voucherApplied && !empty($cartKey)) {
                         Log::info('[LOYALTY] Applying voucher', [
                             'cart_key'     => $cartKey,
                             'booking_id'   => $booking->id,
@@ -372,25 +383,20 @@ class BookingController extends Controller
                             'total_before' => $total,
                         ]);
 
-                        // Look for a reward reserved to this cart
                         $reward = \App\Models\LoyaltyReward::where('status', \App\Models\LoyaltyReward::STATUS_RESERVED)
                             ->where('reserved_token', $cartKey)
                             ->lockForUpdate()
                             ->first();
 
                         if ($reward) {
-                            // bind to this booking and clear the token
                             $reward->update([
-                                'reserved_token'     => null,
+                                'reserved_token'      => null,
                                 'reserved_booking_id' => $booking->id,
                             ]);
 
                             // discount exactly one sauna seat
                             $discount = min($priceEach, $total);
                             $total -= $discount;
-
-                            // (optional) persist a discount column if you have one
-                            // $booking->discount_amount = ($booking->discount_amount ?? 0) + $discount;
 
                             $voucherApplied = true;
                         }
@@ -427,6 +433,7 @@ class BookingController extends Controller
                 }
 
                 $booking->update(['amount' => $total]);
+
                 $created[] = $booking;
                 $grand    += $total;
             }
@@ -434,8 +441,7 @@ class BookingController extends Controller
             return [$created, $grand];
         });
 
-
-
+        // ---------- 2.5) Zero-amount flow (voucher fully covered) ----------
         if ($grandTotalCents <= 0) {
             foreach ($bookings as $b) {
                 $b->forceFill([
@@ -457,12 +463,10 @@ class BookingController extends Controller
             }
 
             $target = $bookings[0];
-            $url = route('bookings.show', $target) . '?order=' . urlencode('voucher-' . $target->id);
+            $url    = route('bookings.show', $target) . '?order=' . urlencode('voucher-' . $target->id);
 
             return redirect()->to($url);
         }
-
-
 
         // ---------- 3) One Peach checkout for the entire cart ----------
         $peach    = new \Shaz3e\PeachPayment\Helpers\PeachPayment();
@@ -493,6 +497,7 @@ class BookingController extends Controller
             'checkoutScriptUrl' => config('peach-payment.' . config('peach-payment.environment') . '.embedded_checkout_url'),
         ]);
     }
+
 
 
     public function preflight(Request $request)

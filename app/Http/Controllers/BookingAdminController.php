@@ -129,7 +129,6 @@ class BookingAdminController extends Controller
             ->whereHas('timeslot.schedule', function ($q) use ($selectedDate) {
                 $q->whereDate('date', $selectedDate);
             })
-            ->whereNull('event_occurrence_id')
             ->where(function ($q) use ($now) {
                 // Show paid bookings OR active pending bookings (not expired)
                 $q->where('status', 'paid')
@@ -146,38 +145,38 @@ class BookingAdminController extends Controller
 
         // Now map bookings to array format
         $bookingsForDate = $bookingsQuery->map(function ($booking) {
-                $isPending = $booking->status === 'pending';
-                return [
-                    'id'          => $booking->id,
-                    'timeslot_id' => $booking->timeslot_id,
-                    'people'      => $booking->people,
-                    'guest_name'  => $booking->guest_name,
-                    'guest_email' => $booking->guest_email,
-                    'payment_method'    => $booking->payment_method,
-                    'updated_via'      => $booking->updated_via,
-                    'booking_type'    => $booking->booking_type,
-                    'note'            => $booking->note,
-                    'no_show' => (bool) $booking->no_show,
-                    'status'         => $booking->status,
-                    'is_pending'     => $isPending,
-                    'status_note'    => $isPending ? 'Pending payment — temporarily reserved' : null,
-                    'user'        => $booking->user ? [
-                        'id' => $booking->user->id,
-                        'name' => $booking->user->name,
-                        'email' => $booking->user->email,
-                    ] : null,
-                    'services'    => $booking->services->map(fn($s) => [
-                        'id'       => $s->id,
-                        'name'     => $s->name,
-                        'quantity' => $s->pivot->quantity,
-                    ]),
-                ];
-            });
+            $isPending = $booking->status === 'pending';
+            return [
+                'id'          => $booking->id,
+                'timeslot_id' => $booking->timeslot_id,
+                'people'      => $booking->people,
+                'guest_name'  => $booking->guest_name,
+                'guest_email' => $booking->guest_email,
+                'payment_method'    => $booking->payment_method,
+                'updated_via'      => $booking->updated_via,
+                'booking_type'    => $booking->booking_type,
+                'note'            => $booking->note,
+                'no_show' => (bool) $booking->no_show,
+                'status'         => $booking->status,
+                'is_pending'     => $isPending,
+                'status_note'    => $isPending ? 'Pending payment — temporarily reserved' : null,
+                'user'        => $booking->user ? [
+                    'id' => $booking->user->id,
+                    'name' => $booking->user->name,
+                    'email' => $booking->user->email,
+                ] : null,
+                'services'    => $booking->services->map(fn($s) => [
+                    'id'       => $s->id,
+                    'name'     => $s->name,
+                    'quantity' => $s->pivot->quantity,
+                ]),
+            ];
+        });
 
         // Get all addon services - include both ADDON% codes and any services attached to bookings
         $addonServices = Service::where(function ($q) use ($usedServiceIds) {
             $q->where('code', 'like', 'ADDON%')
-              ->orWhereIn('id', $usedServiceIds);
+                ->orWhereIn('id', $usedServiceIds);
         })->get(['id', 'name', 'code']);
 
         return Inertia::render('bookings/index', [
