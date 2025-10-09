@@ -10,9 +10,13 @@ use App\Models\Booking;
 use App\Services\LoyaltyService;
 use App\Models\LoyaltyReward;
 use Inertia\Inertia;
+use App\Mail\OrderConfirmedMail;
+use Illuminate\Support\Facades\Mail;
+use App\Http\Controllers\Traits\SendsBookingConfirmationEmail;
 
 class PaymentController extends Controller
 {
+    use SendsBookingConfirmationEmail;
     public function pay()
     {
         return view('pay');
@@ -83,6 +87,9 @@ class PaymentController extends Controller
                         'payment_status'  => $resultDescription,
                         'hold_expires_at' => null,
                     ]);
+
+                $this->sendConfirmationEmail($bookings, $orderNumber);
+
 
                 $service = app(LoyaltyService::class);
 

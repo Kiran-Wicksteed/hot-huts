@@ -17,9 +17,13 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
+use App\Mail\OrderConfirmedMail;
+use Illuminate\Support\Facades\Mail;
+use App\Http\Controllers\Traits\SendsBookingConfirmationEmail;
 
 class BookingController extends Controller
 {
+    use SendsBookingConfirmationEmail;
     /* --------------------------------------------------- show */
     public function show(Request $request, Booking $booking)
     {
@@ -462,8 +466,11 @@ class BookingController extends Controller
                 $service->accrueFromBooking($b);
             }
 
+            $orderNumber = 'voucher-' . $bookings[0]->id;
+            $this->sendConfirmationEmail(collect($bookings), $orderNumber);
+
             $target = $bookings[0];
-            $url    = route('bookings.show', $target) . '?order=' . urlencode('voucher-' . $target->id);
+            $url    = route('bookings.show', $target) . '?order=' . urlencode($orderNumber);
 
             return redirect()->to($url);
         }
