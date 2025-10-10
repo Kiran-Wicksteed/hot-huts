@@ -95,6 +95,7 @@ Route::match(['get', 'post'], '/order/callback{slash?}', [PaymentController::cla
     ->name('payment.callback');
 Route::get('/order/success', [PaymentController::class, 'paymentSuccess'])->name('payment.success');
 Route::get('/order/failed', [PaymentController::class, 'paymentFailed'])->name('payment.failed');
+Route::get('/order/pending', [PaymentController::class, 'paymentPending'])->name('payment.pending');
 
 //Public routes
 Route::get('/services', [ServiceController::class, 'index'])->name('services.index');

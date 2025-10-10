@@ -11,6 +11,12 @@ trait SendsBookingConfirmationEmail
 {
     protected function sendConfirmationEmail(Collection $bookings, string $orderNumber): void
     {
+        // Ensure we have an Eloquent Collection so we can use load()
+        if (!method_exists($bookings, 'load')) {
+            // Convert plain Collection to Eloquent Collection
+            $bookings = Booking::query()->whereIn('id', $bookings->pluck('id'))->get();
+        }
+        
         $bookings->load(['services', 'timeslot.schedule.location', 'eventOccurrence.location', 'user']);
 
         $display = $bookings->map(function (Booking $b) {
@@ -72,7 +78,7 @@ trait SendsBookingConfirmationEmail
         $user = $bookings->first()->user;
 
         if ($user) {
-            Mail::to($user->email)->send(new OrderConfirmedMail($user, $display, $summary));
+            Mail::to($user->email)->queue(new OrderConfirmedMail($user, $display, $summary));
         }
     }
 }
