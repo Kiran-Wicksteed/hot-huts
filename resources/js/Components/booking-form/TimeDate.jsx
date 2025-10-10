@@ -63,12 +63,7 @@ export default function TimeDate({
 
     const isMobile = useIsMobile();
 
-    const firstOpenPeriod = useMemo(
-        () => PERIOD_ORDER.find((p) => (slots[p] ?? []).length > 0) || null,
-        [slots]
-    );
-    const [mobileOpen, setMobileOpen] = useState(firstOpenPeriod);
-    useEffect(() => setMobileOpen(firstOpenPeriod), [firstOpenPeriod]);
+    const [mobileOpen, setMobileOpen] = useState(null);
 
     const updateQuantity = (code, value) =>
         updateFormData({

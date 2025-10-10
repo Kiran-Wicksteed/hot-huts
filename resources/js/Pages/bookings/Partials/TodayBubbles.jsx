@@ -13,7 +13,7 @@ function EditBookingModal({
     formatTime,    // <-- Add formatTime to props
 }) {
     const [saving, setSaving] = useState(false);
-    const [people, setPeople] = useState(booking?.people ?? 1);
+    const [people, setPeople] = useState(String(booking?.people ?? 1));
     const [bookingType, setBookingType] = useState(booking?.booking_type ?? "");
     const [noShow, setNoShow] = useState(booking?.no_show ?? false);
     const [note, setNote] = useState(booking?.note ?? "");
@@ -22,7 +22,7 @@ function EditBookingModal({
 
     useEffect(() => {
         if (open && booking) {
-            setPeople(booking.people ?? 1);
+            setPeople(String(booking.people ?? 1));
             setBookingType(booking.booking_type ?? "");
             setNoShow(booking.no_show ?? false);
             setNote(booking.note ?? "");
@@ -75,7 +75,7 @@ function EditBookingModal({
         router.put(
             route("admin.bookings.update", booking.id),
             {
-                people,
+                people: parseInt(people, 10) || 1,
                 timeslot_id: newTimeslotId, // <-- send the new timeslot ID
                 booking_type: bookingType || null,
                 no_show: !!noShow,
@@ -95,7 +95,7 @@ function EditBookingModal({
 
     const maxPeopleAllowed = Math.max(
         1,
-        (slot?.capacity ?? 1) - (bookedInSlot ?? 0) + (booking?.people ?? 0)
+        Number(slot?.capacity ?? 1) - Number(bookedInSlot ?? 0) + Number(booking?.people ?? 0)
     );
 
     if (!open) return null;
@@ -117,18 +117,21 @@ function EditBookingModal({
                         </label>
                         <input
                             type="number"
-                            min="1"
-                            max={maxPeopleAllowed}
+                            step="1"
                             value={people}
-                            onChange={(e) =>
-                                setPeople(() => {
-                                    const v = parseInt(e.target.value, 10) || 1;
-                                    return Math.min(
-                                        Math.max(1, v),
-                                        maxPeopleAllowed
-                                    );
-                                })
-                            }
+                            onChange={(e) => {
+                                setPeople(e.target.value);
+                            }}
+                            onBlur={(e) => {
+                                const v = parseInt(e.target.value, 10);
+                                if (!Number.isFinite(v) || v < 1) {
+                                    setPeople("1");
+                                } else if (v > maxPeopleAllowed) {
+                                    setPeople(String(maxPeopleAllowed));
+                                } else {
+                                    setPeople(String(v));
+                                }
+                            }}
                             className="w-full border rounded p-1"
                         />
                         <p className="mt-1 text-[11px] text-gray-500">
@@ -383,7 +386,7 @@ export default function TodayBubbles({
     const [openFormSlot, setOpenFormSlot] = useState(null);
     const [formData, setFormData] = useState({
         user_id: null,
-        people: 1,
+        people: "1",
         services: [],
         payment_method: "",
     });
@@ -403,7 +406,11 @@ export default function TodayBubbles({
             return;
         }
 
-        if (formData.people > remaining) {
+        const pplParsed = parseInt(formData.people, 10);
+        const ppl = Number.isFinite(pplParsed) ? pplParsed : 1;
+        const clamped = Math.min(Math.max(1, ppl), remaining);
+
+        if (clamped > remaining) {
             alert(`Only ${remaining} spot(s) left in this slot.`);
             return;
         }
@@ -413,7 +420,7 @@ export default function TodayBubbles({
             {
                 context: "sauna", // ← renamed from booking_type to avoid collision
                 timeslot_id: slot.id,
-                people: formData.people,
+                people: clamped,
                 user_id: formData.user_id,
                 payment_method: formData.payment_method || null,
                 services: buildServicesPayload(),
@@ -424,7 +431,7 @@ export default function TodayBubbles({
                     setOpenFormSlot(null);
                     setFormData({
                         user_id: null,
-                        people: 1,
+                        people: "1",
                         services: [],
                         payment_method: "",
                     });
@@ -474,7 +481,7 @@ export default function TodayBubbles({
             <div className="grid grid-cols-2 gap-10">
                 {slots.map((slot) => {
                 const list = bySlot.get(slot.id) ?? [];
-                const booked = list.reduce((t, b) => t + b.people, 0);
+                const booked = list.reduce((t, b) => t + (parseInt(b.people, 10) || 0), 0);
                 const full = booked >= slot.capacity;
                 const remaining = Math.max(0, slot.capacity - booked);
 
@@ -669,30 +676,18 @@ export default function TodayBubbles({
                                             </label>
                                             <input
                                                 type="number"
-                                                min="1"
-                                                max={remaining}
+                                                step="1"
                                                 value={formData.people}
-                                                onChange={(e) =>
-                                                    setFormData((f) => {
-                                                        const val =
-                                                            parseInt(
-                                                                e.target.value,
-                                                                10
-                                                            ) || 1;
-                                                        const clamped =
-                                                            Math.min(
-                                                                Math.max(
-                                                                    1,
-                                                                    val
-                                                                ),
-                                                                remaining
-                                                            );
-                                                        return {
-                                                            ...f,
-                                                            people: clamped,
-                                                        };
-                                                    })
-                                                }
+                                                onChange={(e) => {
+                                                    setFormData((f) => ({ ...f, people: e.target.value }));
+                                                }}
+                                                onBlur={(e) => {
+                                                    const v = parseInt(e.target.value, 10);
+                                                    const clamped = !Number.isFinite(v) || v < 1
+                                                        ? 1
+                                                        : Math.min(v, remaining);
+                                                    setFormData((f) => ({ ...f, people: String(clamped) }));
+                                                }}
                                                 className="w-full border rounded p-1"
                                                 required
                                             />
