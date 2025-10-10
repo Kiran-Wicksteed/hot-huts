@@ -476,6 +476,28 @@ class BookingController extends Controller
         }
 
         // ---------- 3) One Peach checkout for the entire cart ----------
+        /* if (app()->isLocal()) {
+            $orderNumber = 'local-' . collect($bookings)->first()->id;
+            foreach ($bookings as $b) {
+                $b->forceFill([
+                    'status'          => 'paid',
+                    'payment_status'  => 'Bypassed in Local',
+                    'hold_expires_at' => null,
+                    'payment_method'  => 'Local Bypass',
+                    'peach_payment_order_no' => $orderNumber,
+                ])->save();
+
+                app(\App\Services\LoyaltyService::class)->accrueFromBooking($b);
+            }
+
+            $this->sendConfirmationEmail(collect($bookings), $orderNumber);
+
+            $targetUrl = route('bookings.show', ['booking' => collect($bookings)->first()->id]) . '?order=' . urlencode($orderNumber);
+
+            return redirect()->to($targetUrl);
+        }
+        */
+
         $peach    = new \Shaz3e\PeachPayment\Helpers\PeachPayment();
         $amount   = number_format($grandTotalCents / 100, 2, '.', '');
 
@@ -841,6 +863,9 @@ class BookingController extends Controller
 
             return $booking;
         });
+
+        // Accrue loyalty points for the user
+        app(\App\Services\LoyaltyService::class)->accrueFromBooking($booking);
 
         return back()->with('success', 'Admin booking created successfully.');
     }

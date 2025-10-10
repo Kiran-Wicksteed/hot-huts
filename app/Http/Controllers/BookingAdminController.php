@@ -73,7 +73,13 @@ class BookingAdminController extends Controller
             ->whereBetween('created_at', [$startOfMonth, $endOfMonth])
             ->sum('amount') / 100;
 
-        $recentBookings = $query->with(['user', 'timeslot.schedule.location', 'services'])
+        $recentBookings = $query->with([
+            'user:id,name',
+            'timeslot:id,sauna_schedule_id,starts_at,ends_at',
+            'timeslot.schedule:id,location_id,date',
+            'timeslot.schedule.location:id,name',
+            'services:id,name'
+        ])
             ->latest()
             ->paginate(10)
             ->withQueryString();
@@ -82,7 +88,7 @@ class BookingAdminController extends Controller
         // Timeslots for the selected date
         // ───────────────────────────────────────────────
         $slotsForDate = Timeslot::query()
-            ->with(['schedule.location'])
+            ->with(['schedule.location:id,name', 'bookings'])
             ->whereHas('schedule', function ($q) use ($selectedDate) {
                 $q->whereDate('date', $selectedDate);
             })
