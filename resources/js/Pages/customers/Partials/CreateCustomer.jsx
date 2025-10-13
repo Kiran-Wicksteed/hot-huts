@@ -472,42 +472,151 @@ export default function CreateCustomer({ onClose }) {
                                         </p>
 
                                         {/* Replace this with your full terms content */}
-                                        <div className="mt-3 h-40 overflow-y-auto rounded border border-gray-200 p-3 text-sm leading-6 text-gray-700 space-y-2">
-                                            <p>
-                                                <strong>
-                                                    Key Risks (summary):
-                                                </strong>
-                                            </p>
-                                            <ul className="list-disc pl-5 space-y-1">
-                                                <li>
-                                                    Use of sauna and related
-                                                    facilities is at your own
-                                                    risk.
-                                                </li>
-                                                <li>
-                                                    Heat exposure may be unsafe
-                                                    for certain medical
-                                                    conditions.
-                                                </li>
-                                                <li>
-                                                    You confirm you are
-                                                    medically fit to
-                                                    participate.
-                                                </li>
-                                                <li>
-                                                    You waive and indemnify
-                                                    HotHuts for ordinary
-                                                    negligence to the extent
-                                                    permitted by law.
-                                                </li>
-                                            </ul>
-                                            <p className="mt-2">
-                                                <strong>Full Terms:</strong> By
-                                                continuing, you acknowledge you
-                                                have read and accept the full
-                                                Indemnity &amp; Risk Terms.
-                                            </p>
-                                        </div>
+                                        <div className="mt-3 h-32 sm:h-40 overflow-y-auto rounded border border-gray-200 p-3 text-xs sm:text-sm leading-5 sm:leading-6 text-gray-700 space-y-2">
+                                                <p>
+                                                    <strong>
+                                                    Sauna Session Liability Waiver
+                                                    </strong>
+                                                </p>
+                                                <p className="mt-2">
+                                                    I hereby acknowledge and agree to the following terms and conditions regarding my
+                                                    use of the sauna facilities provided by Hot Huts Mobile Saunas Pty Ltd:
+                                                </p>
+                                                <p className="mt-2">
+                                                    <strong>Assumption of Risk:</strong>{" "}
+                                                    I understand and acknowledge that the use of sauna facilities
+                                                    involves inherent risks, including but not limited to, changes in body temperature,
+                                                    dehydration, and the potential for injury due to slips or falls.
+                                                </p>
+                                                <p className="mt-2">
+                                                    <strong>Health Considerations:</strong>{" "}
+                                                    I certify that I am in good health and have no medical
+                                                    conditions that would prohibit me from safely using the sauna. I understand that it is
+                                                    my responsibility to consult with a medical professional if I have any concerns about
+                                                    my ability to safely use the sauna.
+                                                </p>
+                                                <p className="mt-2">
+                                                    <strong>Contraindications:</strong>{" "}
+                                                    I acknowledge that sauna use may not be safe for individuals
+                                                    with certain medical conditions. Sauna use is not recommended if you:
+                                                </p>
+                                                <ul className="mt-2 list-disc pl-6">
+                                                    <li>Are pregnant or suspect you may be pregnant</li>
+                                                    <li>Have uncontrolled high or low blood pressure</li>
+                                                    <li>Have cardiovascular conditions (including heart disease, history of
+                                                        heart attack, or arrhythmia)</li>
+                                                    <li>Have respiratory conditions that may be worsened by heat</li>
+                                                    <li>Have a fever, open wounds, or skin infections</li>
+                                                    <li>Are under the influence of alcohol, drugs, or certain medications that
+                                                    impair sweating or heat regulation</li>
+                                                    <li>Have any condition that may be aggravated by heat exposure or
+                                                    dehydration</li>
+                                                </ul>
+                                                <p className="mt-2">
+                                                I confirm that none of the above apply to me, or that I have received medical
+                                                clearance to use the sauna despite such conditions.
+                                                </p>
+                                                <p className="mt-2">
+                                                    <strong>Release of Liability:</strong>{" "}
+                                                    In consideration of being permitted to use the sauna facilities, I
+                                                    hereby release and discharge Hot Huts Mobile Saunas Pty Ltd its owners,
+                                                    employees, and agents from any and all claims, liabilities, damages, or causes of
+                                                    action arising out of or related to my use of the sauna facilities.
+                                                </p>
+                                                <p className="mt-2">
+                                                    <strong>Indemnification:</strong>{" "}
+                                                    I agree to indemnify and hold harmless Hot Huts Mobile Saunas
+                                                    Pty Ltd, its owners, employees, and agents from any and all claims, liabilities,
+                                                    damages, or expenses, including attorney fees, arising out of or related to my use of
+                                                    the sauna facilities.
+                                                </p>
+                                                <p className="mt-2">
+                                                    <strong>Compliance with Rules:</strong>{" "}
+                                                    I agree to comply with all rules, regulations, and
+                                                    instructions provided by Hot Huts Mobile Saunas Pty Ltd regarding the use of the
+                                                    sauna facilities.
+                                                </p>
+                                                <p className="mt-2">
+                                                    <strong>Sauna Do’s and Don’ts:</strong>{" "}
+                                                </p>
+                                                <p>Do's</p>
+                                                <ul className="mt-2 list-disc pl-6">
+                                                    <li>Drink water before and after your sauna session.</li>
+                                                    <li>Shower before entering (for hygiene).</li>
+                                                    <li>Wear light clothing or a towel.</li>
+                                                    <li>Sit or lie on a towel to protect benches.</li>
+                                                    <li>Exit immediately if you feel dizzy, lightheaded, or unwell.</li>
+                                                </ul>
+                                                <p>Don'ts</p>
+                                                <ul className="mt-2 list-disc pl-6">
+                                                    <li>Don’t use the sauna if under the influence of alcohol or drugs.</li>
+                                                    <li>Don’t pour water or liquids on sauna heaters unless instructed.</li>
+                                                    <li>Don’t eat a heavy meal immediately before use.</li>
+                                                    <li>Don’t run, jump, or act recklessly inside the sauna.</li>
+                                                </ul>
+                                                <p className="mt-2">
+                                                    <strong>Group Bookings:</strong>{" "}
+                                                    I acknowledge that if I am booking on behalf of a group, I accept
+                                                    this waiver on behalf of all participants in the booking. I confirm that I have made all
+                                                    participants aware of the terms of this waiver, including the health considerations and
+                                                    contraindications, and by proceeding with the booking, I agree that all participants
+                                                    accept these terms and conditions.
+                                                </p>
+                                                <p className="mt-2">
+                                                    <strong>Under 18 Participants:</strong>{" "}
+                                                    I acknowledge that individuals under the age of 18 must
+                                                    have the consent of a parent or legal guardian to participate in sauna sessions. By
+                                                    signing this waiver, I confirm that such consent has been obtained where applicable.
+                                                    Parents/guardians accept responsibility for ensuring the minor’s safe use of the
+                                                    sauna facilities in accordance with this waiver.
+                                                </p>
+                                                <p className="mt-2">
+                                                    <strong>Voluntary Participation:</strong>{" "}
+                                                    I acknowledge that my participation in sauna sessions is
+                                                    voluntary and that I have not been coerced or pressured into using the sauna
+                                                    facilities.
+                                                </p>
+                                                <p className="mt-2">
+                                                    <strong>Full Understanding:</strong>{" "}
+                                                    I have read this waiver and fully understand its contents. I am
+                                                    aware that by signing this waiver, I am giving up certain legal rights, including the
+                                                    right to sue Hot Huts Mobile Saunas Pty Ltd for any injuries or damages resulting
+                                                    from my use of the sauna facilities.
+                                                </p>
+                                                <p className="mt-2">
+                                                    <strong>Photography &amp; Media:</strong>{" "}
+                                                    I acknowledge that photos and videos may be taken during
+                                                    sauna sessions and related events, and these may be used by Hot Huts Mobile
+                                                    Saunas Pty Ltd for promotional and marketing purposes. If I do not wish for my
+                                                    image to be used, I may request that it be excluded. While Hot Huts will make
+                                                    reasonable efforts to honour such requests, the final decision remains at the
+                                                    discretion of Hot Huts Mobile Saunas Pty Ltd.
+                                                </p>
+                                                <p className="mt-2">
+                                                    <strong>Cancellation &amp; Rescheduling Policy:</strong>{" "}
+                                                </p>
+                                                <p>1. Less than 4 business hours before session:</p>
+                                                <ul className="mt-2 list-disc pl-6">
+                                                    <li>Cancellation allowed</li>
+                                                    <li>No refund</li>
+                                                    <li>No reschedule (complete forfeit of session &amp; seats)</li>
+                                                </ul>
+                                                <p>2. Between 6 business hours and 24 hours before session:</p>
+                                                <ul className="mt-2 list-disc pl-6">
+                                                    <li>Cancellation allowed</li>
+                                                    <li>50% refund</li>
+                                                    <li>Reschedule permitted at no penalty</li>
+                                                </ul>
+                                                <p>3. More than 24 hours before session:</p>
+                                                <ul className="mt-2 list-disc pl-6">
+                                                    <li>Cancellation allowed</li>
+                                                    <li>Full refund</li>
+                                                    <li>Reschedule permitted at no penalty</li>
+                                                </ul>
+                                                <p>I hereby acknowledge that I have read and understand this waiver and voluntarily
+                                                agree to its terms.</p>
+
+                                            </div>
 
                                         {/* Inline sentence with checkbox + name input */}
                                         <div className="mt-4">

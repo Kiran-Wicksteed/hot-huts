@@ -9,6 +9,7 @@ export default function InvoiceDetails() {
 
     const [itemErrors, setItemErrors] = useState({}); // { [itemId]: "message" }
     const [globalError, setGlobalError] = useState(null);
+    const [agreed, setAgreed] = useState(false);
 
     // ---------- COUPON STATE ----------
     const [coupon, setCoupon] = useState("");
@@ -210,6 +211,11 @@ export default function InvoiceDetails() {
     };
 
     const proceedToPayment = () => {
+        if (!agreed) {
+            setGlobalError("Please agree to the Terms of Use and Privacy Policy before proceeding.");
+            return;
+        }
+        
         setGlobalError(null);
         setItemErrors({});
 
@@ -614,18 +620,34 @@ export default function InvoiceDetails() {
                             )}
                         </div>
 
-                        <div className="space-y-2">
-                            <button
-                                onClick={proceedToPayment}
-                                className="shadow border border-hh-orange w-full py-3 sm:py-2 text-white bg-hh-orange rounded font-medium touch-manipulation"
-                            >
-                                <span
-                                    className={`${styles.paragraph} !text-sm sm:!text-base font-medium`}
-                                >
-                                    Proceed to payment
-                                </span>
-                            </button>
+                        {/* Agreement Checkbox */}
+                            <div className="bg-white border rounded shadow p-4 mt-4">
+                                <div className="flex items-start gap-x-3">
+                                    <input
+                                        type="checkbox"
+                                        id="consent"
+                                        name="consent"
+                                        checked={agreed}
+                                        onChange={(e) => setAgreed(e.target.checked)}
+                                        className="h-4 w-4 mt-0.5 text-hh-orange ring-white border-hh-orange ring focus:ring-hh-orange rounded bg-white shrink-0 cursor-pointer"
+                                    />
+                                    <label
+                                        htmlFor="consent"
+                                        className={`${styles.paragraph} !text-xs sm:!text-sm text-black/60`}
+                                    >
+                                        I agree that I have read and accepted the{" "}
+                                        <a href="/terms" target="_blank" className="!text-xs sm:!text-sm text-hh-orange underline hover:text-orange-600">
+                                            Terms of Use
+                                        </a>
+                                        {" "}and{" "}
+                                        <a href="/privacy" target="_blank" className="!text-xs sm:!text-sm text-hh-orange underline hover:text-orange-600">
+                                            Privacy Policy
+                                        </a>
+                                    </label>
+                                </div>
+                            </div>
 
+                        <div className="space-y-2">
                             <button
                                 onClick={bookAnother}
                                 className="bg-black shadow w-full py-3 sm:py-2 text-white rounded font-medium touch-manipulation"
@@ -634,6 +656,23 @@ export default function InvoiceDetails() {
                                     className={`${styles.paragraph} !text-sm sm:!text-base font-medium`}
                                 >
                                     Book another service
+                                </span>
+                            </button>
+                        
+                            
+                            <button
+                                onClick={proceedToPayment}
+                                disabled={!agreed}
+                                className={`shadow border w-full py-3 sm:py-2 rounded font-medium touch-manipulation ${
+                                    !agreed
+                                        ? "bg-gray-300 text-gray-500 cursor-not-allowed border-gray-300"
+                                        : "bg-hh-orange text-white border-hh-orange hover:bg-orange-600"
+                                }`}
+                            >
+                                <span
+                                    className={`${styles.paragraph} !text-sm sm:!text-base font-medium`}
+                                >
+                                    Proceed to payment
                                 </span>
                             </button>
                         </div>

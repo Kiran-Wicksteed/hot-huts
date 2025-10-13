@@ -77,7 +77,9 @@ Route::middleware(['auth', 'verified'])
     ->prefix('admin')
     ->group(function () {
         Route::get('/customers/{user}', [AdminCustomerController::class, 'show'])
-            ->name('customers.show'); // add this
+            ->name('customers.show');
+        Route::post('/customers/{user}/loyalty-points', [AdminCustomerController::class, 'adjustLoyaltyPoints'])
+            ->name('customers.adjustLoyaltyPoints');
     });
 
 //Admin Search Customers Route

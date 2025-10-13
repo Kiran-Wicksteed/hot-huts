@@ -1,6 +1,7 @@
 
 import React, { useState, useMemo, useEffect } from "react";
 import { router } from "@inertiajs/react";
+import CustomerDetailModal from "@/Components/CustomerDetailModal";
 
 function EditBookingModal({
     open,
@@ -373,6 +374,8 @@ export default function TodayBubbles({
         booking: null,
         slot: null,
     });
+    
+    const [customerModalUserId, setCustomerModalUserId] = useState(null);
 
     const bySlot = useMemo(() => {
         const map = new Map();
@@ -522,13 +525,7 @@ export default function TodayBubbles({
                                                 {b.user?.id ? (
                                                     <span 
                                                         className="text-hh-orange cursor-pointer hover:underline"
-                                                        onClick={() => {
-                                                            router.get(route('customers.show', b.user.id), {}, {
-                                                                preserveScroll: true,
-                                                                preserveState: true,
-                                                                only: ['customerDetail'],
-                                                            });
-                                                        }}
+                                                        onClick={() => setCustomerModalUserId(b.user.id)}
                                                     >
                                                         {b.user.name}
                                                     </span>
@@ -818,6 +815,13 @@ export default function TodayBubbles({
                 allSlots={editing.allSlots}
                 formatTime={formatTime}
             />
+            
+            {customerModalUserId && (
+                <CustomerDetailModal
+                    userId={customerModalUserId}
+                    onClose={() => setCustomerModalUserId(null)}
+                />
+            )}
         </div>
     );
 }

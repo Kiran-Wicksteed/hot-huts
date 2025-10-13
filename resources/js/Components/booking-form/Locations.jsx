@@ -116,12 +116,8 @@ export default function Locations({ nextStep, updateFormData, events }) {
     const handleSelect = (day, item) => {
         const sel = { day, id: item.id, name: item.name };
         setSelected(sel);
-        if (isMobile) commitSelection(sel);
-    };
-
-    const handleNext = () => {
-        if (!selected) return;
-        commitSelection(selected);
+        // Immediately proceed to next step for all devices
+        commitSelection(sel);
     };
 
     const UPCOMING_LIMIT = 5;
@@ -311,27 +307,6 @@ export default function Locations({ nextStep, updateFormData, events }) {
                             </div>
                         </div>
                     ))}
-                </div>
-
-                <div className="mt-6 sm:mt-8">
-                    {selected && (
-                        <div className="flex flex-col sm:flex-row md:flex-col lg:flex-row gap-3 sm:gap-0 md:gap-3 lg:gap-0">
-                            <div className="bg-gray-50 p-3 rounded-lg mb-3 sm:mb-0 md:mb-3 lg:mb-0 sm:mr-4 md:mr-0 lg:mr-4 flex-1">
-                                <p className="text-sm text-gray-600">
-                                    Selected:
-                                </p>
-                                <p className="font-medium text-hh-orange">
-                                    {selected.name} - {selected.day}
-                                </p>
-                            </div>
-                            <button
-                                onClick={handleNext}
-                                className={`bg-hh-orange text-white py-3 px-6 rounded-lg hover:bg-hh-orange/80 transition font-medium w-full sm:w-auto md:w-full lg:w-auto ${styles.paragraph}`}
-                            >
-                                Next Step
-                            </button>
-                        </div>
-                    )}
                 </div>
 
                 {groupedEvents.length > 0 && (

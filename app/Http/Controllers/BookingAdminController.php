@@ -131,6 +131,8 @@ class BookingAdminController extends Controller
                 'payment_status' => DB::raw("COALESCE(payment_status, 'Hold expired')"),
             ]);
 
+        
+
         $bookingsQuery = Booking::with(['user', 'timeslot.schedule.location', 'services'])
             ->whereHas('timeslot.schedule', function ($q) use ($selectedDate) {
                 $q->whereDate('date', $selectedDate);
@@ -152,9 +154,25 @@ class BookingAdminController extends Controller
         // Now map bookings to array format
         $bookingsForDate = $bookingsQuery->map(function ($booking) {
             $isPending = $booking->status === 'pending';
+            
+            // Format starts_at to HH:mm for frontend filtering
+            $startsAt = $booking->timeslot->starts_at;
+            if ($startsAt instanceof \Carbon\CarbonInterface) {
+                $startsAt = $startsAt->format('H:i');
+            } elseif (is_string($startsAt) && preg_match('/\d{2}:\d{2}(:\d{2})?$/', $startsAt, $m)) {
+                $startsAt = substr($m[0], 0, 5);
+            } else {
+                try {
+                    $startsAt = Carbon::parse($startsAt)->format('H:i');
+                } catch (\Throwable $e) {
+                    $startsAt = (string) $startsAt;
+                }
+            }
+            
             return [
                 'id'          => $booking->id,
                 'timeslot_id' => $booking->timeslot_id,
+                'starts_at'   => $startsAt,
                 'people'      => $booking->people,
                 'guest_name'  => $booking->guest_name,
                 'guest_email' => $booking->guest_email,
@@ -193,9 +211,9 @@ class BookingAdminController extends Controller
             ],
             'bookings'      => $recentBookings,
             'locations'     => Location::all(),
-            'filters'       => $request->only(['period', 'location_id', 'date']), // ✅ now includes date
+            'filters'       => $request->only(['period', 'location_id', 'date']),
             'slotsToday'    => $slotsForDate,   // could rename to "slotsForDate"
-            'bookingsToday' => $bookingsForDate, // could rename to "bookingsForDate"
+            'bookingsForDate' => $bookingsForDate, // could rename to "bookingsForDate"
             'addonServices' => $addonServices,
         ]);
     }

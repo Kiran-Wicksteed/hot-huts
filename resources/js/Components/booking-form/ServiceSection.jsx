@@ -172,7 +172,7 @@ export default function ServiceSection({
                 thumbSrc ? { backgroundImage: `url(${thumbSrc})` } : undefined
             }
         >
-            <div className=" border border-hh-orange bg-white/95 rounded-md shadow mb-6 sm:mb-0  flex items-center py-2 justify-center">
+            {/* <div className=" border border-hh-orange bg-white/95 rounded-md shadow mb-6 sm:mb-0  flex items-center py-2 justify-center">
                 <h1
                     className={`${styles.h3} !text-lg sm:!text-xl lg:!text-2xl !text-black font-normal max-w-3xl !mb-0 text-center`}
                 >
@@ -180,7 +180,7 @@ export default function ServiceSection({
                     a beachfront sauna at&nbsp;
                     <span className="text-hh-orange">{location.name}.</span>
                 </h1>
-            </div>
+            </div> */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
                 <div className="col-span-1 border border-hh-orange bg-white/95 rounded-md shadow grid grid-cols-3 overflow-hidden items-center mt-6 sm:mt-10">
                     {/* right panel */}

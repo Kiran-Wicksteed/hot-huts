@@ -3,6 +3,7 @@ import React, { useEffect, useState } from "react";
 import { useForm, router } from "@inertiajs/react";
 import styles from "../../../../styles";
 import { Link, usePage } from "@inertiajs/react";
+import axios from "axios";
 
 export default function ViewCustomer({ open, onClose, detail }) {
     const [editMode, setEditMode] = useState(false);
@@ -12,6 +13,12 @@ export default function ViewCustomer({ open, onClose, detail }) {
     console.log("detail", detail);
 
     const isDayStaff = Boolean(Number(user?.is_editor ?? 0));
+    
+    // Loyalty points state
+    const [showLoyaltyForm, setShowLoyaltyForm] = useState(false);
+    const [loyaltyPoints, setLoyaltyPoints] = useState("");
+    const [submittingLoyalty, setSubmittingLoyalty] = useState(false);
+    const [loyaltyData, setLoyaltyData] = useState(detail?.loyalty || null);
 
     const { data, setData, processing, errors, clearErrors } = useForm({
         name: "",
@@ -34,6 +41,7 @@ export default function ViewCustomer({ open, onClose, detail }) {
             is_editor: !!detail.is_editor,
             photo: null,
         }));
+        setLoyaltyData(detail?.loyalty || null);
         clearErrors();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [detail?.id, editMode]);
@@ -121,6 +129,40 @@ export default function ViewCustomer({ open, onClose, detail }) {
                 },
             }
         );
+    };
+
+    const handleAdjustLoyaltyPoints = async (e) => {
+        e.preventDefault();
+        
+        if (!loyaltyPoints || loyaltyPoints === "0") {
+            alert("Please enter a valid number of points");
+            return;
+        }
+
+        setSubmittingLoyalty(true);
+
+        try {
+            const response = await axios.post(
+                route("customers.adjustLoyaltyPoints", detail.id),
+                {
+                    points: parseInt(loyaltyPoints),
+                }
+            );
+
+            // Update loyalty data
+            setLoyaltyData(response.data.loyalty);
+
+            // Reset form
+            setLoyaltyPoints("");
+            setShowLoyaltyForm(false);
+            
+            alert(response.data.message);
+        } catch (err) {
+            console.error(err);
+            alert(err.response?.data?.message || "Failed to adjust loyalty points");
+        } finally {
+            setSubmittingLoyalty(false);
+        }
     };
 
     // ----- Render guards -----
@@ -312,6 +354,71 @@ export default function ViewCustomer({ open, onClose, detail }) {
                             }
                         />
                     </div>
+
+                    {/* Loyalty Points Section */}
+                    {loyaltyData && (
+                        <div className="border rounded-xl p-6 space-y-4">
+                            <div className="flex items-center justify-between">
+                                <h4 className={`${styles.h5} !mb-0`}>
+                                    Loyalty Points
+                                </h4>
+                                <button
+                                    onClick={() => setShowLoyaltyForm(!showLoyaltyForm)}
+                                    className="text-sm font-medium text-hh-orange hover:text-orange-600 transition-colors"
+                                >
+                                    {showLoyaltyForm ? "Cancel" : "Adjust Points"}
+                                </button>
+                            </div>
+                            
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg p-4 border border-orange-200">
+                                    <p className="text-sm text-orange-800 font-medium">
+                                        Current Balance
+                                    </p>
+                                    <p className="text-3xl font-bold text-hh-orange mt-1">
+                                        {loyaltyData.points_balance}
+                                    </p>
+                                </div>
+                                <div className="bg-gray-50 rounded-lg p-4 border">
+                                    <p className="text-sm text-gray-600 font-medium">
+                                        Lifetime Points
+                                    </p>
+                                    <p className="text-3xl font-bold text-gray-900 mt-1">
+                                        {loyaltyData.lifetime_points}
+                                    </p>
+                                </div>
+                            </div>
+
+                            {showLoyaltyForm && (
+                                <form onSubmit={handleAdjustLoyaltyPoints} className="bg-gray-50 rounded-lg p-4 space-y-3 border">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                            Points to Add/Remove
+                                        </label>
+                                        <input
+                                            type="number"
+                                            value={loyaltyPoints}
+                                            onChange={(e) => setLoyaltyPoints(e.target.value)}
+                                            placeholder="e.g., 100 or -50"
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-hh-orange"
+                                            disabled={submittingLoyalty}
+                                            required
+                                        />
+                                        <p className="text-xs text-gray-500 mt-1">
+                                            Use positive numbers to add, negative to remove
+                                        </p>
+                                    </div>
+                                    <button
+                                        type="submit"
+                                        disabled={submittingLoyalty}
+                                        className="w-full px-4 py-2 bg-hh-orange text-white rounded-md hover:bg-orange-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                                    >
+                                        {submittingLoyalty ? "Updating..." : "Update Points"}
+                                    </button>
+                                </form>
+                            )}
+                        </div>
+                    )}
 
                     {/* Contact / Quick Edit */}
                     <div className="grid grid-cols-2 gap-6">
