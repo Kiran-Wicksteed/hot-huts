@@ -145,6 +145,10 @@ Route::delete('/admin/bookings/{booking}', [BookingAdminController::class, 'dest
 Route::put('/admin/bookings/{booking}', [\App\Http\Controllers\BookingAdminController::class, 'update'])
     ->name('admin.bookings.update');
 
+Route::post('/admin/bookings/{booking}/cancel', [\App\Http\Controllers\BookingCancellationController::class, 'adminCancel'])
+    ->middleware(['auth', 'admin'])
+    ->name('admin.bookings.cancel');
+
 
 Route::get('/events/{event}/occurrences/{occurrence}/bookings', [BookingAdminController::class, 'byOccurrence'])
     ->name('events.occurrences.bookings');
@@ -167,7 +171,7 @@ Route::middleware(['auth'])->group(
 
         Route::get('/dashboard', function () {
             if (! Auth::user()->is_admin) {
-                return redirect('/');
+                return redirect()->route('user.dashboard');
             }
 
             return Inertia::render('Dashboard');
@@ -211,8 +215,6 @@ Route::middleware('auth')->group(function () {
     Route::get('/my-bookings', [UserDashboardController::class, 'index'])
         ->name('user.dashboard');
 
-
-
     Route::get('/bookings/{booking}/reschedule', [UserDashboardController::class, 'reschedule'])
         ->name('my-bookings.reschedule');
 
@@ -221,6 +223,26 @@ Route::middleware('auth')->group(function () {
 
     Route::post('/bookings/{booking}/reschedule', [UserDashboardController::class, 'rescheduleStore'])
         ->name('my-bookings.reschedule.store');
+
+    // Booking cancellation routes
+    Route::get('/bookings/{booking}/cancel/preview', [\App\Http\Controllers\BookingCancellationController::class, 'preview'])
+        ->name('bookings.cancel.preview');
+    
+    Route::post('/bookings/{booking}/cancel', [\App\Http\Controllers\BookingCancellationController::class, 'cancel'])
+        ->name('bookings.cancel');
+
+    // Coupon routes
+    Route::post('/coupons/apply', [\App\Http\Controllers\CouponController::class, 'apply'])
+        ->name('coupons.apply');
+    
+    Route::delete('/coupons/remove', [\App\Http\Controllers\CouponController::class, 'remove'])
+        ->name('coupons.remove');
+    
+    Route::post('/coupons/validate', [\App\Http\Controllers\CouponController::class, 'validate'])
+        ->name('coupons.validate');
+    
+    Route::get('/coupons', [\App\Http\Controllers\CouponController::class, 'index'])
+        ->name('coupons.index');
 
     Route::get('/loyalty', [UserDashboardController::class, 'loyaltyIndex'])
         ->name('loyalty.index');

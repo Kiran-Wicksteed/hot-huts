@@ -6,6 +6,7 @@ import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import dayjs from "dayjs";
 import ProgressCircle from "@/Components/common/ProgressCircle";
+import CancelBookingModal from "@/Components/CancelBookingModal";
 
 import {
     ClockIcon,
@@ -242,6 +243,13 @@ const UpcomingSection = () => {
     };
     const { auth, upcoming = [], past = [] } = usePage().props;
     const user = auth.user;
+    const [cancelModalOpen, setCancelModalOpen] = useState(false);
+    const [selectedBooking, setSelectedBooking] = useState(null);
+
+    const handleCancelClick = (booking) => {
+        setSelectedBooking(booking);
+        setCancelModalOpen(true);
+    };
 
     if (upcoming.length === 0) {
         return (
@@ -267,71 +275,92 @@ const UpcomingSection = () => {
         );
     }
 
-    return upcoming.map((b) => {
-        const loc = b.timeslot.schedule.location;
-        const start = dayjs(b.timeslot.starts_at);
-        const oneLine = start.format("ddd, D MMM YYYY [at] h:mma");
+    return (
+        <>
+            {upcoming.map((b) => {
+                const loc = b.timeslot.schedule.location;
+                const start = dayjs(b.timeslot.starts_at);
+                const oneLine = start.format("ddd, D MMM YYYY [at] h:mma");
 
-        return (
-            <div
-                key={b.id}
-                className="border border-hh-gray bg-white/95 rounded-md shadow grid grid-cols-1 sm:grid-cols-3 overflow-hidden items-center mt-4 sm:mt-6"
-            >
-                <div className="col-span-1  sm:h-full">
-                    <img
-                        src={
-                            loc.image_path
-                                ? loc.image_path
-                                : "/storage/images/placeholder.jpg"
-                        }
-                        alt={loc.name}
-                        className="w-full h-full object-cover"
-                    />
-                </div>
+                return (
+                    <div
+                        key={b.id}
+                        className="border border-hh-gray bg-white/95 rounded-md shadow grid grid-cols-1 sm:grid-cols-3 overflow-hidden items-center mt-4 sm:mt-6"
+                    >
+                        <div className="col-span-1  sm:h-full">
+                            <img
+                                src={
+                                    loc.image_path
+                                        ? loc.image_path
+                                        : "/storage/images/placeholder.jpg"
+                                }
+                                alt={loc.name}
+                                className="w-full h-full object-cover"
+                            />
+                        </div>
 
-                <div className="col-span-1 sm:col-span-2 p-4 sm:p-6">
-                    <h3
-                        className={`${styles.paragraph} !text-sm sm:!text-base text-black font-medium`}
-                    >
-                        {loc.name}
-                    </h3>
-                    <p
-                        className={`${styles.paragraph} !text-xs sm:!text-sm text-black`}
-                    >
-                        {oneLine}
-                    </p>
-                    {b.services.length > 0 &&
-                        b.services.map((service, index) => (
+                        <div className="col-span-1 sm:col-span-2 p-4 sm:p-6">
+                            <h3
+                                className={`${styles.paragraph} !text-sm sm:!text-base text-black font-medium`}
+                            >
+                                {loc.name}
+                            </h3>
                             <p
-                                key={index}
+                                className={`${styles.paragraph} !text-xs sm:!text-sm text-black`}
+                            >
+                                {oneLine}
+                            </p>
+                            {b.services.length > 0 &&
+                                b.services.map((service, index) => (
+                                    <p
+                                        key={index}
+                                        className={`${styles.paragraph} !text-xs sm:!text-sm text-hh-orange mt-1 sm:mt-2`}
+                                    >
+                                        {service.name}
+                                    </p>
+                                ))}
+
+                            <p
                                 className={`${styles.paragraph} !text-xs sm:!text-sm text-hh-orange mt-1 sm:mt-2`}
                             >
-                                {service.name}
+                                Number of people: {b.people}
                             </p>
-                        ))}
-
-                    <p
-                        className={`${styles.paragraph} !text-xs sm:!text-sm text-hh-orange mt-1 sm:mt-2`}
-                    >
-                        Number of people: {b.people}
-                    </p>
-                    {b.can_reschedule && (
-                        <Link
-                            href={route("my-bookings.reschedule", b.id)}
-                            className="mt-3 inline-block bg-hh-orange text-white py-2 px-4 rounded font-medium text-sm"
-                        >
-                            Reschedule
-                        </Link>
-                    )}
-                    {!b.can_reschedule && (
-                        <p className="mt-3 text-xs text-hh-gray">
-                            Cannot reschedule within 6 hours of start
-                        </p>
-                    )}
-                </div>
-            </div>
-        );
-    });
+                            <div className="mt-3 flex flex-wrap gap-2">
+                                {b.can_reschedule && (
+                                    <Link
+                                        href={route("my-bookings.reschedule", b.id)}
+                                        className="inline-block bg-hh-orange text-white py-2 px-4 rounded font-medium text-sm"
+                                    >
+                                        Reschedule
+                                    </Link>
+                                )}
+                                <button
+                                    onClick={() => handleCancelClick(b)}
+                                    className="inline-block bg-white border border-red-600 text-red-600 py-2 px-4 rounded font-medium text-sm hover:bg-red-50"
+                                >
+                                    Cancel Booking
+                                </button>
+                            </div>
+                            {!b.can_reschedule && (
+                                <p className="mt-2 text-xs text-hh-gray">
+                                    Cannot reschedule within 6 hours of start
+                                </p>
+                            )}
+                        </div>
+                    </div>
+                );
+            })}
+            
+            <CancelBookingModal
+                booking={selectedBooking}
+                isOpen={cancelModalOpen}
+                onClose={() => {
+                    setCancelModalOpen(false);
+                    setSelectedBooking(null);
+                }}
+            />
+        </>
+    );
 };
 const PastSection = () => {
     const asset = (path) => {

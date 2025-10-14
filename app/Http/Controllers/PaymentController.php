@@ -105,6 +105,40 @@ class PaymentController extends Controller
                     // 2) Accrue points (people => points) & auto-issue vouchers
                     $service->accrueFromBooking($booking);
                 }
+<<<<<<< Updated upstream
+=======
+                
+                // 3) Redeem any applied coupon (only for the first booking to avoid double redemption)
+                $firstBooking = $bookings->first();
+                if ($firstBooking && $firstBooking->cart_key) {
+                    $couponCacheKey = "cart_coupon:{$firstBooking->cart_key}";
+                    if (\Illuminate\Support\Facades\Cache::has($couponCacheKey)) {
+                        $couponData = \Illuminate\Support\Facades\Cache::get($couponCacheKey);
+                        $coupon = \App\Models\Coupon::find($couponData['coupon_id'] ?? null);
+                        
+                        if ($coupon && $coupon->isValid()) {
+                            // Calculate how much was actually discounted
+                            $totalPaid = (int) ($bookings->sum('amount') * 100);
+                            $couponDiscount = min($coupon->remaining_value_cents, $couponData['discount_applied'] ?? $coupon->remaining_value_cents);
+                            
+                            if ($couponDiscount > 0) {
+                                $coupon->redeem($couponDiscount, $firstBooking->id);
+                                \Illuminate\Support\Facades\Cache::forget($couponCacheKey);
+                                
+                                Log::info('[WEBHOOK] Coupon redeemed', [
+                                    'coupon_id' => $coupon->id,
+                                    'amount_cents' => $couponDiscount,
+                                    'booking_id' => $firstBooking->id,
+                                ]);
+                            }
+                        }
+                    }
+                }
+
+                // Send one confirmation for all
+                $this->sendConfirmationEmail($bookings, $orderNumber);
+
+>>>>>>> Stashed changes
                 Log::info("Checkout {$orderNumber}: marked PAID for {$bookings->count()} booking(s).");
             } else {
                 Log::info("Checkout {$orderNumber}: intermediate/unsuccessful webhook.", [

@@ -27,12 +27,19 @@ class Booking extends Model
         'updated_via',
         'payment_method',
         'note',              // Optional admin note
+        'cancelled_at',
+        'cancelled_by',
+        'cancellation_reason',
+        'refund_amount_cents',
+        'refund_type',
     ];
 
     protected $casts = [
         'people' => 'integer',
         'amount' => 'decimal:2',
         'no_show' => 'boolean',
+        'cancelled_at' => 'datetime',
+        'refund_amount_cents' => 'integer',
     ];
 
     /* ----------------------------------------------------------
@@ -59,6 +66,21 @@ class Booking extends Model
         return $this->belongsToMany(Service::class)
             ->withPivot(['quantity', 'price_each', 'line_total'])
             ->withTimestamps();
+    }
+
+    public function cancelledBy()
+    {
+        return $this->belongsTo(User::class, 'cancelled_by');
+    }
+
+    public function refundCoupon()
+    {
+        return $this->hasOne(\App\Models\Coupon::class, 'source_booking_id');
+    }
+
+    public function couponRedemptions()
+    {
+        return $this->hasMany(\App\Models\CouponRedemption::class);
     }
 
     /* ----------------------------------------------------------

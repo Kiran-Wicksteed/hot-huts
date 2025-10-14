@@ -148,7 +148,7 @@ export default function InvoiceDetails() {
         console.log("Applying coupon", { code, cartKey });
 
         router.post(
-            route("loyalty.rewards.apply"),
+            route("coupons.apply"),
             { code, cart_key: cartKey },
             {
                 preserveScroll: true,
@@ -166,12 +166,12 @@ export default function InvoiceDetails() {
                     if (flash?.success) {
                         setCouponApplied(true);
                         setCouponMsg(
-                            flash.success || "Free sauna applied to this cart."
+                            flash.success || "Coupon applied to your cart."
                         );
                     } else {
                         // Some backends redirect without flash; assume success if no errors
                         setCouponApplied(true);
-                        setCouponMsg("Free sauna applied to this cart.");
+                        setCouponMsg("Coupon applied to your cart.");
                     }
                 },
                 onError: (errors) => {
@@ -193,8 +193,8 @@ export default function InvoiceDetails() {
             return;
         }
 
-        router.delete(route("loyalty.rewards.remove"), {
-            data: { cart_key: cartKey }, // backend should accept cart_key for cart-level unreserve
+        router.delete(route("coupons.remove"), {
+            data: { cart_key: cartKey },
             preserveScroll: true,
             preserveState: true,
             replace: true,
@@ -607,9 +607,8 @@ export default function InvoiceDetails() {
                             )}
                             {couponApplied && !couponErr && (
                                 <p className="text-xs text-black/60 mt-1">
-                                    This voucher reserves one free sauna seat.
-                                    The discount is applied on the checkout
-                                    step.
+                                    This coupon will be applied to your booking.
+                                    Any remaining balance will be saved for future use.
                                 </p>
                             )}
                         </div>

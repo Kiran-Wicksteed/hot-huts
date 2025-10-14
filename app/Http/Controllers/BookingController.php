@@ -445,14 +445,41 @@ class BookingController extends Controller
             return [$created, $grand];
         });
 
-        // ---------- 2.5) Zero-amount flow (voucher fully covered) ----------
+        // ---------- 2.5) Apply refund coupons if available ----------
+        // Note: $bookings and $grandTotalCents are already unpacked from the transaction above (line 238)
+        $grand = $grandTotalCents; // Rename for clarity in coupon logic
+        $couponDiscount = 0;
+        $appliedCoupon = null;
+        
+        $couponCacheKey = "cart_coupon:{$cartKey}";
+        if (Cache::has($couponCacheKey)) {
+            $couponData = Cache::get($couponCacheKey);
+            $coupon = \App\Models\Coupon::find($couponData['coupon_id'] ?? null);
+            
+            if ($coupon && $coupon->isValid() && $coupon->user_id === Auth::id()) {
+                // Apply coupon to reduce the grand total
+                $couponDiscount = min($coupon->remaining_value_cents, $grand);
+                $appliedCoupon = $coupon;
+                $grand -= $couponDiscount;
+                
+                Log::info('Coupon applied to cart', [
+                    'coupon_id' => $coupon->id,
+                    'discount_cents' => $couponDiscount,
+                    'new_total_cents' => $grand,
+                ]);
+            }
+        }
+        
+        $grandTotalCents = $grand;
+
+        // ---------- 2.6) Zero-amount flow (voucher/coupon fully covered) ----------
         if ($grandTotalCents <= 0) {
             foreach ($bookings as $b) {
                 $b->forceFill([
                     'status'          => 'paid',
-                    'payment_status'  => 'Voucher',
+                    'payment_status'  => $appliedCoupon ? 'Coupon' : 'Voucher',
                     'hold_expires_at' => null,
-                    'payment_method'  => 'Voucher',
+                    'payment_method'  => $appliedCoupon ? 'Coupon' : 'Voucher',
                 ])->save();
 
                 // loyalty accrual / reward redemption
@@ -465,8 +492,14 @@ class BookingController extends Controller
                 }
                 $service->accrueFromBooking($b);
             }
+            
+            // Redeem the coupon for the first booking
+            if ($appliedCoupon && $couponDiscount > 0) {
+                $appliedCoupon->redeem($couponDiscount, $bookings[0]->id);
+                Cache::forget($couponCacheKey);
+            }
 
-            $orderNumber = 'voucher-' . $bookings[0]->id;
+            $orderNumber = ($appliedCoupon ? 'coupon-' : 'voucher-') . $bookings[0]->id;
             $this->sendConfirmationEmail(collect($bookings), $orderNumber);
 
             $target = $bookings[0];
