@@ -17,7 +17,7 @@ export default function BookingPage({
     bookings, // paginated list
     locations, // [{id,name}]
     filters, // {location_id, period}
-    bookingsToday, // today’s sauna‑only bookings (already eager‑loaded in controller)
+    bookingsForDate, // today's sauna‑only bookings (already eager‑loaded in controller)
     slotsToday, // ALL sauna time‑slots for today (+ schedule/location)
     addonServices,
 }) {
@@ -25,7 +25,6 @@ export default function BookingPage({
     const user = auth.user;
     const canSeePayments = Boolean(Number(user?.is_editor ?? 0));
 
-    console.log("bookingsToday", bookingsToday);
     /* ────────────────────────────────────────────────────────────
      1. local state / filters
   ──────────────────────────────────────────────────────────── */
@@ -40,21 +39,69 @@ export default function BookingPage({
     const [dateFilter, setDateFilter] = useState(
         filters.date || new Date().toISOString().slice(0, 10)
     );
+    const [timeFilter, setTimeFilter] = useState("all");
 
     /* ────────────────────────────────────────────────────────────
-     2. helper: format “09:20” etc.  Accepts either ISO or “HH:MM:SS”.
+     2. helper: format "09:20" etc.  Accepts either ISO or "HH:MM:SS".
   ──────────────────────────────────────────────────────────── */
     const formatTime = (t) => t.slice(0, 5);
 
     /* ────────────────────────────────────────────────────────────
-     3. derive today’s slots after location filter
+     3. derive today's slots after location and time filters
   ──────────────────────────────────────────────────────────── */
     const filteredSlots = useMemo(() => {
-        if (!locationFilter) return slotsToday;
-        return slotsToday.filter(
-            (slot) => String(slot.location_id) === locationFilter
-        );
-    }, [slotsToday, locationFilter]);
+        let slots = slotsToday;
+        
+        // Filter by location
+        if (locationFilter) {
+            slots = slots.filter(
+                (slot) => String(slot.location_id) === locationFilter
+            );
+        }
+        
+        // Filter by time of day
+        if (timeFilter !== "all") {
+            slots = slots.filter((slot) => {
+                if (!slot.starts_at) return false;
+                
+                // Parse the time string to get hour
+                const [hourStr] = slot.starts_at.split(':');
+                const hour = parseInt(hourStr, 10);
+                
+                if (timeFilter === "morning") {
+                    return hour < 12;
+                }
+                if (timeFilter === "afternoon") {
+                    return hour >= 12;
+                }
+                return true;
+            });
+        }
+        
+        return slots;
+    }, [slotsToday, locationFilter, timeFilter]);
+
+    const filteredBookings = useMemo(() => {
+        if (timeFilter === "all") return bookingsForDate;
+        
+        const filtered = bookingsForDate.filter((booking) => {
+            if (!booking.starts_at) return false;
+
+            // Parse the time string to get hour
+            const [hourStr] = booking.starts_at.split(':');
+            const hour = parseInt(hourStr, 10);
+
+            if (timeFilter === "morning") {
+                return hour < 12;
+            }
+            if (timeFilter === "afternoon") {
+                return hour >= 12;
+            }
+            return true;
+        });
+        
+        return filtered;
+    }, [bookingsForDate, timeFilter]);
 
     return (
         <AuthenticatedLayout>
@@ -83,17 +130,27 @@ export default function BookingPage({
             BOOKINGS TODAY – bubble grid
         ════════════════════════════════════════════════════════ */}
                 <section className="mt-12">
-                    <div className="flex items-center justify-between mb-6">
+                    <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
                         <h4 className={`${styles.h3} font-medium`}>
                             Bookings for {dateFilter}
                         </h4>
-                        <div>
+                        <div className="flex items-center gap-3 flex-wrap">
                             <select
                                 value={locationFilter}
-                                onChange={(e) =>
-                                    setLocationFilter(e.target.value)
-                                }
-                                className="border rounded p-2 bg-white w-fit"
+                                onChange={(e) => {
+                                    const newLocationId = e.target.value;
+                                    setLocationFilter(newLocationId);
+                                    router.get(
+                                        route("bookings.index"),
+                                        {
+                                            location_id: newLocationId,
+                                            period: periodFilter,
+                                            date: dateFilter,
+                                        },
+                                        { preserveState: true, replace: true }
+                                    );
+                                }}
+                                className="border rounded p-2 bg-white text-sm"
                             >
                                 {locations.map((l) => (
                                     <option key={l.id} value={l.id}>
@@ -117,14 +174,35 @@ export default function BookingPage({
                                         { preserveState: true, replace: true }
                                     );
                                 }}
-                                className="border rounded p-2 bg-white ml-4"
+                                className="border rounded p-2 bg-white text-sm"
                             />
+
+                            <div className="inline-flex items-center gap-2 bg-gray-100 rounded p-1">
+                                <button
+                                    type="button"
+                                    onClick={() => setTimeFilter("all")}
+                                    className={`px-3 py-1 rounded text-sm font-medium transition-all ${timeFilter === "all" ? "bg-hh-orange text-white shadow-sm" : "bg-transparent text-gray-700 hover:bg-white"}`}>
+                                    All
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setTimeFilter("morning")}
+                                    className={`px-3 py-1 rounded text-sm font-medium transition-all ${timeFilter === "morning" ? "bg-hh-orange text-white shadow-sm" : "bg-transparent text-gray-700 hover:bg-white"}`}>
+                                    Morning
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setTimeFilter("afternoon")}
+                                    className={`px-3 py-1 rounded text-sm font-medium transition-all ${timeFilter === "afternoon" ? "bg-hh-orange text-white shadow-sm" : "bg-transparent text-gray-700 hover:bg-white"}`}>
+                                    Afternoon
+                                </button>
+                            </div>
                         </div>
                     </div>
 
                     <TodayBubbles
                         slots={filteredSlots}
-                        bookings={bookingsToday}
+                        bookings={filteredBookings}
                         formatTime={formatTime}
                         addonServices={addonServices}
                     />

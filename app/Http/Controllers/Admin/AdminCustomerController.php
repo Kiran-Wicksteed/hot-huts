@@ -19,6 +19,8 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 use Illuminate\Support\Carbon;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Log;
+use App\Models\LoyaltyAccount;
+use App\Models\LoyaltyLedger;
 
 
 class AdminCustomerController extends Controller
@@ -112,8 +114,14 @@ class AdminCustomerController extends Controller
     }
 
 
-    public function show(User $user)
+    public function show(User $user, Request $request)
     {
+        // Get or create loyalty account
+        $loyaltyAccount = LoyaltyAccount::firstOrCreate(
+            ['user_id' => $user->id],
+            ['points_balance' => 0, 'lifetime_points' => 0]
+        );
+
         // Base query for this user's bookings
         $q = Booking::with(['timeslot.schedule.location']) // keep if these relations exist
             ->where('user_id', $user->id);
@@ -174,8 +182,18 @@ class AdminCustomerController extends Controller
                 'last_booking_at' => $lastBookingAt,
                 'no_show_count'   => (int) $noShowCount,
             ],
+            'loyalty' => [
+                'account_id'      => $loyaltyAccount->id,
+                'points_balance'  => (int) $loyaltyAccount->points_balance,
+                'lifetime_points' => (int) $loyaltyAccount->lifetime_points,
+            ],
             'recent_bookings' => $recent,
         ];
+
+        // If this is an AJAX/modal request (explicitly check for the header we set), return JSON
+        if ($request->header('X-Requested-With') === 'XMLHttpRequest' && $request->expectsJson()) {
+            return response()->json($detail);
+        }
 
         return Inertia::render('customers/index', [
             'customerDetail' => $detail,
@@ -351,6 +369,59 @@ class AdminCustomerController extends Controller
         };
 
         return response()->stream($callback, 200, $headers);
+    }
+
+    public function adjustLoyaltyPoints(Request $request, User $user)
+    {
+        $validated = $request->validate([
+            'points' => ['required', 'integer', 'min:-10000', 'max:10000'],
+        ]);
+
+        // Get or create loyalty account
+        $account = LoyaltyAccount::firstOrCreate(
+            ['user_id' => $user->id],
+            ['points_balance' => 0, 'lifetime_points' => 0]
+        );
+
+        $points = (int) $validated['points'];
+        $notes = 'Admin adjustment';
+
+        // Create ledger entry
+        // Use microtime-based unique ID to avoid duplicate constraint violations
+        // when the same admin adjusts points multiple times
+        $uniqueSourceId = (int) (microtime(true) * 10000);
+        
+        LoyaltyLedger::create([
+            'account_id' => $account->id,
+            'type' => LoyaltyLedger::TYPE_ADJUST,
+            'points' => $points,
+            'source_type' => 'Admin',
+            'source_id' => $uniqueSourceId,
+            'notes' => $notes . ' (by admin #' . Auth::id() . ')',
+            'occurred_at' => now(),
+        ]);
+
+        // Update account balance
+        $account->points_balance += $points;
+        
+        // Update lifetime points (only if adding points)
+        if ($points > 0) {
+            $account->lifetime_points += $points;
+        }
+        
+        $account->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => $points > 0 
+                ? "Added {$points} loyalty points" 
+                : "Removed " . abs($points) . " loyalty points",
+            'loyalty' => [
+                'account_id' => $account->id,
+                'points_balance' => (int) $account->points_balance,
+                'lifetime_points' => (int) $account->lifetime_points,
+            ],
+        ]);
     }
 
     private function resolvePhotoUrl(?string $value): ?string

@@ -1,6 +1,6 @@
+import React, { useState, useEffect, useMemo } from "react";
 import { MapPinIcon } from "@heroicons/react/24/outline";
 import styles from "../../../styles";
-import { useState, useEffect, useMemo } from "react";
 import { MinusIcon, PlusIcon } from "@heroicons/react/24/solid";
 import dayjs from "dayjs";
 import { useCart } from "@/context/CartContext";
@@ -24,7 +24,6 @@ function useIsMobile() {
     return isMobile;
 }
 
-const PERIOD_ORDER = ["morning", "afternoon", "evening", "night"];
 const nice = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 
 export default function TimeDate({
@@ -43,7 +42,6 @@ export default function TimeDate({
 
     const [scheduleData, setScheduleData] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [agreed, setAgreed] = useState(false);
 
     const [selectedDate, setSelectedDate] = useState(null);
     const [selectedSlot, setSelectedSlot] = useState(null); // ← store the full slot
@@ -140,7 +138,7 @@ export default function TimeDate({
         });
     };
 
-    // Select a slot (store full object)
+    // Select a slot (store full object) and immediately proceed
     const handleTimeSelect = (item) => {
         if (!item || item.spots_left === 0) return;
         setSelectedSlot(item);
@@ -150,22 +148,8 @@ export default function TimeDate({
             timeslot_id: item.id,
             booking_type: "sauna",
         });
-    };
-
-    // Pricing
-    const total = useMemo(() => {
-        const sessionUnit = Number(sessionService.price);
-        let sum = sessionUnit * people;
-        addons.forEach((svc) => {
-            sum += (servicesData[svc.code] ?? 0) * Number(svc.price);
-        });
-        return sum.toFixed(2);
-    }, [servicesData, addons, people, sessionService.price]);
-
-    // Add to cart + go to invoice
-    const onContinue = () => {
-        if (!selectedSlot || !agreed) return;
-
+        
+        // Immediately add to cart and proceed to order summary
         const pickedAddons = addons
             .filter((a) => (servicesData[a.code] ?? 0) > 0)
             .map((a) => ({
@@ -186,8 +170,8 @@ export default function TimeDate({
             location_id: location.id,
             location_name: location.name,
             date: selectedDate ? selectedDate.format("YYYY-MM-DD") : null,
-            timeRange: `${selectedSlot.starts_at} - ${selectedSlot.ends_at}`,
-            timeslot_id: selectedSlot.id,
+            timeRange: `${item.starts_at} - ${item.ends_at}`,
+            timeslot_id: item.id,
             people,
 
             lines: [
@@ -208,9 +192,20 @@ export default function TimeDate({
             lineTotal,
         });
 
-        // advance to invoice (your step 4 renders from the cart)
+        // advance to invoice (step 4)
         nextStep();
     };
+
+    // Pricing
+    const total = useMemo(() => {
+        const sessionUnit = Number(sessionService.price);
+        let sum = sessionUnit * people;
+        addons.forEach((svc) => {
+            sum += (servicesData[svc.code] ?? 0) * Number(svc.price);
+        });
+        return sum.toFixed(2);
+    }, [servicesData, addons, people, sessionService.price]);
+
 
     const storageUrl = (path) => {
         if (!path) return null;
@@ -309,30 +304,35 @@ export default function TimeDate({
                                 })}
                             </div>
 
-                            {/* slots */}
-                            <div className="space-y-6 sm:space-y-10">
-                                {PERIOD_ORDER.some(
-                                    (p) => (slots[p] ?? []).length > 0
-                                ) ? (
-                                    PERIOD_ORDER.map((p) => {
-                                        const items = slots[p] ?? [];
-                                        if (items.length === 0) return null;
-
-                                        return (
+                            {/* slots - Morning and Afternoon dropdowns only */}
+                            <div className="space-y-6 sm:space-y-8">
+                                {(slots.morning?.length > 0 || slots.afternoon?.length > 0) ? (
+                                    <>
+                                        {slots.morning?.length > 0 && (
                                             <PeriodSection
-                                                key={p}
-                                                period={p}
-                                                items={items}
+                                                key="morning"
+                                                period="morning"
+                                                items={slots.morning}
                                                 isMobile={isMobile}
                                                 mobileOpen={mobileOpen}
                                                 setMobileOpen={setMobileOpen}
-                                                selectedSlotId={
-                                                    selectedSlot?.id
-                                                }
+                                                selectedSlotId={selectedSlot?.id}
                                                 onPick={handleTimeSelect}
                                             />
-                                        );
-                                    })
+                                        )}
+                                        {slots.afternoon?.length > 0 && (
+                                            <PeriodSection
+                                                key="afternoon"
+                                                period="afternoon"
+                                                items={slots.afternoon}
+                                                isMobile={isMobile}
+                                                mobileOpen={mobileOpen}
+                                                setMobileOpen={setMobileOpen}
+                                                selectedSlotId={selectedSlot?.id}
+                                                onPick={handleTimeSelect}
+                                            />
+                                        )}
+                                    </>
                                 ) : (
                                     <p
                                         className={`${styles.paragraph} text-hh-gray`}
@@ -447,26 +447,6 @@ export default function TimeDate({
                                 Total: R{total}
                             </h4>
 
-                            <div className="flex items-start gap-x-3">
-                                <input
-                                    type="checkbox"
-                                    id="consent"
-                                    name="consent"
-                                    checked={agreed}
-                                    onChange={(e) =>
-                                        setAgreed(e.target.checked)
-                                    }
-                                    className="h-4 w-4 mt-0.5 text-hh-orange ring-white border-hh-orange ring focus:ring-hh-orange rounded bg-white shrink-0"
-                                />
-                                <label
-                                    htmlFor="consent"
-                                    className={`${styles.paragraph} text-hh-gray !text-xs sm:!text-sm leading-relaxed`}
-                                >
-                                    I agree that I have read and accepted the
-                                    Terms of Use and Privacy Policy
-                                </label>
-                            </div>
-
                             <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-x-2 pt-4 sm:pt-6">
                                 <button
                                     onClick={prevStep}
@@ -478,22 +458,11 @@ export default function TimeDate({
                                         go back
                                     </span>
                                 </button>
-                                <button
-                                    onClick={onContinue}
-                                    disabled={!selectedSlot || !agreed}
-                                    className={`w-full sm:flex-1 py-3 sm:py-2 px-6 sm:px-4 shadow rounded font-medium ${
-                                        !selectedSlot || !agreed
-                                            ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                                            : "bg-hh-orange text-white"
-                                    }`}
-                                >
-                                    <span
-                                        className={`${styles.paragraph} uppercase !text-sm`}
-                                    >
-                                        Continue
-                                    </span>
-                                </button>
                             </div>
+                            
+                            <p className={`${styles.paragraph} text-center text-gray-600 !text-sm mt-4`}>
+                                Select a time slot above to continue
+                            </p>
                         </div>
                     </div>
                 </div>
@@ -564,54 +533,32 @@ function PeriodSection({
     onPick,
 }) {
     const title = `${nice(period)} Slots`;
-
-    if (!isMobile) {
-        // Desktop/tablet: unchanged section
-        return (
-            <div className="space-y-2">
-                <p
-                    className={`${styles.paragraph} mb-4 sm:mb-6 underline !text-base sm:!text-lg text-black font-medium`}
-                >
-                    {title}
-                </p>
-                {items.map((slot) => (
-                    <TimeSlot
-                        key={slot.id}
-                        slot={slot}
-                        selectedTime={selectedSlotId}
-                        handleTimeSelect={onPick}
-                    />
-                ))}
-            </div>
-        );
-    }
-
-    // Mobile: collapsible accordion
-    const open = mobileOpen === period;
+    const [isOpen, setIsOpen] = React.useState(false);
     const count = items.length;
 
     return (
-        <div className="border border-hh-orange/60 rounded-lg overflow-hidden">
+        <div className="border border-hh-orange rounded-lg overflow-hidden">
+            {/* Dropdown header */}
             <button
                 type="button"
-                onClick={() => setMobileOpen(open ? null : period)}
-                className="w-full flex items-center justify-between px-3 py-3 bg-hh-orange text-white"
-                aria-expanded={open}
+                onClick={() => setIsOpen(!isOpen)}
+                className="w-full flex items-center justify-between px-4 py-3 bg-hh-orange text-white hover:bg-hh-orange/90 transition-colors"
+                aria-expanded={isOpen}
             >
-                <span className="text-sm font-medium">
+                <span className="text-sm sm:text-base font-medium">
                     {title} <span className="opacity-80">({count})</span>
                 </span>
                 <ChevronDownIcon
                     className={`h-5 w-5 transition-transform duration-200 ${
-                        open ? "rotate-180" : ""
+                        isOpen ? "rotate-180" : ""
                     }`}
                 />
             </button>
 
-            {/* collapsible body */}
+            {/* Collapsible body with time slot cards */}
             <div
                 className={`grid transition-[grid-template-rows] duration-200 ease-out ${
-                    open ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+                    isOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
                 }`}
             >
                 <div className="overflow-hidden">

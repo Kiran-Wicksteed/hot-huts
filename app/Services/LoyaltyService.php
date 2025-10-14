@@ -17,7 +17,28 @@ class LoyaltyService
      */
     public function accrueFromBooking(Booking $booking): void
     {
+        \Log::info('[LOYALTY] accrueFromBooking called', [
+            'booking_id' => $booking->id,
+            'status' => $booking->status,
+            'user_id' => $booking->user_id,
+            'people' => $booking->people,
+            'eligible_status' => config('loyalty.eligible_status'),
+        ]);
+
+        // Skip if no user (guest booking)
+        if (!$booking->user_id || !$booking->user) {
+            \Log::info('[LOYALTY] Skipping - no user associated with booking', [
+                'booking_id' => $booking->id,
+            ]);
+            return;
+        }
+
         if ($booking->status !== config('loyalty.eligible_status')) {
+            \Log::info('[LOYALTY] Booking not eligible - status mismatch', [
+                'booking_id' => $booking->id,
+                'current_status' => $booking->status,
+                'required_status' => config('loyalty.eligible_status'),
+            ]);
             return;
         }
 
@@ -30,9 +51,21 @@ class LoyaltyService
                 ->where('source_type', 'Booking')
                 ->where('source_id', $booking->id)
                 ->exists();
-            if ($exists) return;
+            if ($exists) {
+                \Log::info('[LOYALTY] Points already accrued for this booking', [
+                    'booking_id' => $booking->id,
+                    'account_id' => $account->id,
+                ]);
+                return;
+            }
 
             $points = max(1, (int)($booking->people ?? 1));
+
+            \Log::info('[LOYALTY] Accruing points', [
+                'booking_id' => $booking->id,
+                'account_id' => $account->id,
+                'points' => $points,
+            ]);
 
             // 1) EARN
             $this->insertLedger($account, LoyaltyLedger::TYPE_EARN, +$points, 'Booking', $booking->id, [

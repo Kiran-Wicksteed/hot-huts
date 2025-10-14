@@ -45,7 +45,16 @@ class PaymentController extends Controller
     {
         Log::info('Peach Payments Callback Received', $request->all());
 
-        $isWebhook = $request->has('result_code') && $request->has('signature');
+        $isBrowser = str_contains(strtolower($request->userAgent() ?? ''), 'mozilla');
+        $isWebhook = !$isBrowser && $request->has('result_code') && $request->has('signature');
+        
+        Log::info('Callback routing decision', [
+            'isBrowser' => $isBrowser,
+            'isWebhook' => $isWebhook,
+            'has_result_code' => $request->has('result_code'),
+            'has_signature' => $request->has('signature'),
+            'user_agent' => $request->userAgent(),
+        ]);
 
         $orderFromRequest = function () use ($request) {
             return $request->input('checkoutId')                 // primary
@@ -81,19 +90,19 @@ class PaymentController extends Controller
             }
 
             if ($isSuccess) {
-                Booking::whereIn('id', $bookings->pluck('id'))
-                    ->update([
+                // Instead of mass-update, iterate to ensure models are fresh when used
+                $service = app(LoyaltyService::class);
+
+                foreach ($bookings as $booking) {
+                    $booking->update([
                         'status'          => 'paid',
                         'payment_status'  => $resultDescription,
                         'hold_expires_at' => null,
                     ]);
 
-                $this->sendConfirmationEmail($bookings, $orderNumber);
+                    // Refresh the model to get the 'paid' status before accruing points
+                    $booking->refresh();
 
-
-                $service = app(LoyaltyService::class);
-
-                foreach ($bookings as $booking) {
                     // 1) Redeem if this booking has a reserved reward
                     if ($reward = LoyaltyReward::where('reserved_booking_id', $booking->id)
                         ->where('status', LoyaltyReward::STATUS_RESERVED)
@@ -103,8 +112,27 @@ class PaymentController extends Controller
                     }
 
                     // 2) Accrue points (people => points) & auto-issue vouchers
-                    $service->accrueFromBooking($booking);
+                    Log::info('[WEBHOOK] About to call accrueFromBooking', [
+                        'booking_id' => $booking->id,
+                        'user_id' => $booking->user_id,
+                        'status' => $booking->status,
+                    ]);
+                    
+                    try {
+                        $service->accrueFromBooking($booking);
+                        Log::info('[WEBHOOK] accrueFromBooking completed', ['booking_id' => $booking->id]);
+                    } catch (\Exception $e) {
+                        Log::error('[WEBHOOK] accrueFromBooking failed', [
+                            'booking_id' => $booking->id,
+                            'error' => $e->getMessage(),
+                            'trace' => $e->getTraceAsString(),
+                        ]);
+                    }
                 }
+
+                // Send one confirmation for all
+                $this->sendConfirmationEmail($bookings, $orderNumber);
+
                 Log::info("Checkout {$orderNumber}: marked PAID for {$bookings->count()} booking(s).");
             } else {
                 Log::info("Checkout {$orderNumber}: intermediate/unsuccessful webhook.", [
@@ -117,7 +145,7 @@ class PaymentController extends Controller
         }
 
         // -------------------
-        // CASE 2: BROWSER REDIRECT
+        // CASE 2: BROWSER REDIRECT (or webhook with browser user-agent)
         // -------------------
         $orderNumber = $orderFromRequest();
 
@@ -126,54 +154,158 @@ class PaymentController extends Controller
             return redirect()->route('payment.failed');
         }
 
-        $bookings = Booking::where('peach_payment_order_no', $orderNumber)
-            ->orWhere('peach_payment_checkout_id', $orderNumber)
-            ->orderBy('id') // deterministic "first"
-            ->get();
-
-        if ($bookings->isNotEmpty()) {
-            // wait up to 5s for webhook to complete across ALL related bookings
-            for ($i = 0; $i < 5; $i++) {
-                $paidCount = Booking::whereIn('id', $bookings->pluck('id'))
-                    ->where('status', 'paid')
-                    ->count();
-
-                if ($paidCount === $bookings->count()) {
-                    Log::info("Browser redirect confirmed all {$paidCount} booking(s) paid for checkout {$orderNumber}.");
-                    break;
-                }
-                sleep(1);
-
-                $paidCount = Booking::whereIn('id', $bookings->pluck('id'))
-                    ->where('status', 'paid')
-                    ->count();
-
-                if ($paidCount === $bookings->count()) {
-                    Log::info("Browser redirect confirmed all {$paidCount}/{$bookings->count()} booking(s) PAID for checkout {$orderNumber}.");
-                    $target = $bookings->first();
-                    $url = route('bookings.show', $target) . '?order=' . urlencode($orderNumber);
+        // Check if this is actually a webhook disguised as browser (has result_code)
+        if ($request->has('result_code') && $request->has('signature')) {
+            Log::info('Browser callback with payment result - treating as webhook', [
+                'order' => $orderNumber,
+                'result_code' => $request->input('result_code'),
+            ]);
+            
+            $resultCode = $request->input('result_code');
+            $resultDescription = $request->input('result_description', 'Unknown');
+            $isSuccess = $resultCode && Str::startsWith($resultCode, ['000.000', '000.100', '000.110']);
+            
+            if ($isSuccess) {
+                $bookings = Booking::where('peach_payment_checkout_id', $orderNumber)
+                    ->orWhere('peach_payment_order_no', $orderNumber)
+                    ->get();
+                
+                if ($bookings->isNotEmpty()) {
+                    $service = app(LoyaltyService::class);
+                    
+                    foreach ($bookings as $b) {
+                        $b->update([
+                            'status'          => 'paid',
+                            'payment_status'  => $resultDescription,
+                            'hold_expires_at' => null,
+                        ]);
+                        
+                        $b->refresh();
+                        
+                        // Redeem loyalty reward if reserved
+                        if ($reward = LoyaltyReward::where('reserved_booking_id', $b->id)
+                            ->where('status', LoyaltyReward::STATUS_RESERVED)
+                            ->first()
+                        ) {
+                            $service->redeemRewardForBooking($reward, $b->id);
+                        }
+                        
+                        // Accrue loyalty points
+                        Log::info('[BROWSER-WEBHOOK] About to accrue points', [
+                            'booking_id' => $b->id,
+                            'user_id' => $b->user_id,
+                        ]);
+                        
+                        try {
+                            $service->accrueFromBooking($b);
+                            Log::info('[BROWSER-WEBHOOK] Points accrued successfully', ['booking_id' => $b->id]);
+                        } catch (\Exception $e) {
+                            Log::error('[BROWSER-WEBHOOK] Failed to accrue points', [
+                                'booking_id' => $b->id,
+                                'error' => $e->getMessage(),
+                            ]);
+                        }
+                    }
+                    
+                    // Send confirmation email
+                    $this->sendConfirmationEmail($bookings, $orderNumber);
+                    
+                    Log::info("Browser-webhook: marked PAID for {$bookings->count()} booking(s).");
+                    
+                    // Redirect to confirmation page
+                    $url = route('bookings.show', $bookings->first()) . '?order=' . urlencode($orderNumber);
                     return redirect()->to($url);
                 }
-
-                // optional: some paid, some not — treat as failure or pending per your business rules
-                if ($paidCount > 0) {
-                    Log::warning("Browser redirect: partial payment ({$paidCount}/{$bookings->count()}) for checkout {$orderNumber}.");
-                    return redirect()->route('payment.pending')->with('order', $orderNumber);
-                }
-
-                // none paid
-                Log::info("Browser redirect: no bookings PAID for checkout {$orderNumber}; sending to failed.");
-                return redirect()->route('payment.failed')->with('order', $orderNumber);
             }
-
-            // Pick one booking to satisfy route-model binding; always pass ?order=...
-            $target = $bookings->first();
-            $url = route('bookings.show', $target) . '?order=' . urlencode($orderNumber);
-            return redirect()->to($url);
         }
 
-        Log::warning("Browser redirect: no bookings found for orderNumber {$orderNumber}.");
-        return redirect()->route('payment.failed');
+        // Find the first booking to use for the redirect
+        $booking = Booking::where('peach_payment_order_no', $orderNumber)
+            ->orWhere('peach_payment_checkout_id', $orderNumber)
+            ->orderBy('id')
+            ->first();
+
+        if (!$booking) {
+            Log::warning("Browser redirect: no bookings found for orderNumber {$orderNumber}.");
+            return redirect()->route('payment.failed');
+        }
+
+        // Poll for up to 5 seconds for the webhook to mark the booking as paid
+        for ($i = 0; $i < 5; $i++) {
+            if ($booking->refresh()->status === 'paid') {
+                $url = route('bookings.show', $booking) . '?order=' . urlencode($orderNumber);
+                return redirect()->to($url);
+            }
+            sleep(1);
+        }
+
+        // Webhook didn't arrive in time - verify payment status directly with Peach Payment
+        Log::info("Browser redirect: webhook timeout, checking payment status directly for order {$orderNumber}.");
+        
+        try {
+            $paymentStatus = $this->checkPeachPaymentStatus($orderNumber);
+            
+            Log::info("Payment status check result", [
+                'order' => $orderNumber,
+                'status' => $paymentStatus,
+            ]);
+            
+            $resultCode = $paymentStatus['result']['code'] ?? null;
+            $isSuccess = $resultCode && Str::startsWith($resultCode, ['000.000', '000.100', '000.110']);
+            
+            Log::info("Payment verification", [
+                'order' => $orderNumber,
+                'resultCode' => $resultCode,
+                'isSuccess' => $isSuccess,
+            ]);
+            
+            if ($isSuccess) {
+                // Payment was successful - mark all bookings as paid and accrue loyalty points
+                $bookings = Booking::where('peach_payment_checkout_id', $orderNumber)
+                    ->orWhere('peach_payment_order_no', $orderNumber)
+                    ->get();
+                
+                $service = app(LoyaltyService::class);
+                
+                foreach ($bookings as $b) {
+                    $b->update([
+                        'status'          => 'paid',
+                        'payment_status'  => $paymentStatus['result']['description'] ?? 'Successful',
+                        'hold_expires_at' => null,
+                    ]);
+                    
+                    $b->refresh();
+                    
+                    // Redeem loyalty reward if reserved
+                    if ($reward = LoyaltyReward::where('reserved_booking_id', $b->id)
+                        ->where('status', LoyaltyReward::STATUS_RESERVED)
+                        ->first()
+                    ) {
+                        $service->redeemRewardForBooking($reward, $b->id);
+                    }
+                    
+                    // Accrue loyalty points
+                    $service->accrueFromBooking($b);
+                }
+                
+                // Send confirmation email
+                $this->sendConfirmationEmail($bookings, $orderNumber);
+                
+                Log::info("Browser redirect: manually marked PAID for {$bookings->count()} booking(s) after API check.");
+                
+                $url = route('bookings.show', $booking) . '?order=' . urlencode($orderNumber);
+                return redirect()->to($url);
+            }
+        } catch (\Exception $e) {
+            Log::error("Browser redirect: failed to check payment status", [
+                'order' => $orderNumber,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        // If it's still not paid, redirect to a pending page
+        Log::warning("Browser redirect: booking status not 'paid' after verification for order {$orderNumber}.");
+        return redirect()->route('payment.pending')->with('order', $orderNumber);
     }
 
 
@@ -189,11 +321,87 @@ class PaymentController extends Controller
      */
     public function paymentFailed()
     {
-        // Optional: pull any flash message / reason you’ve stored earlier
-        $message = session('payment_error') ?? 'Your payment didn’t go through.';
+        // Optional: pull any flash message / reason you've stored earlier
+        $message = session('payment_error') ?? 'Your payment was unsuccessful.';
 
         return Inertia::render('Checkout/PaymentFailed', [
             'message' => $message,
         ]);
+    }
+
+    /**
+     * Displays the pending payment page.
+     */
+    public function paymentPending()
+    {
+        $orderNumber = session('order');
+        
+        return Inertia::render('Checkout/PaymentPending', [
+            'orderNumber' => $orderNumber,
+            'message' => 'Your payment is being processed. Please check your bookings shortly.',
+        ]);
+    }
+
+    /**
+     * Check payment status with Peach Payment API
+     */
+    private function checkPeachPaymentStatus($checkoutId)
+    {
+        $statusUrl = config('peach-payment.' . config('peach-payment.environment') . '.checkout_url') . '/v2/checkout/' . $checkoutId;
+        
+        $domain = config('peach-payment.domain');
+        $entityId = config('peach-payment.entity_id');
+        
+        // Get authentication token
+        $token = $this->getPeachToken();
+        
+        $headers = [
+            'Accept: application/json',
+            'Referer: ' . $domain,
+            'Content-Type: application/json',
+            'Authorization: Bearer ' . $token,
+        ];
+        
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $statusUrl . '?authentication.entityId=' . $entityId);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+        
+        $result = curl_exec($ch);
+        
+        if (curl_errno($ch)) {
+            throw new \Exception('Curl error: ' . curl_error($ch));
+        }
+        
+        curl_close($ch);
+        
+        return json_decode($result, true);
+    }
+
+    /**
+     * Get Peach Payment authentication token
+     */
+    private function getPeachToken()
+    {
+        $apiUrl = config('peach-payment.' . config('peach-payment.environment') . '.authentication_url');
+        $tokenEndpoint = $apiUrl . '/api/oauth/token';
+
+        $clientId = config('peach-payment.client_id');
+        $clientSecret = config('peach-payment.client_secret');
+        $merchantId = config('peach-payment.merchant_id');
+
+        $response = \Illuminate\Support\Facades\Http::withoutVerifying()->post($tokenEndpoint, [
+            'clientId' => $clientId,
+            'clientSecret' => $clientSecret,
+            'merchantId' => $merchantId,
+        ]);
+
+        if ($response->successful()) {
+            return $response->json('access_token');
+        } else {
+            throw new \Exception('Error getting access token');
+        }
     }
 }
