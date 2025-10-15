@@ -200,7 +200,10 @@ class SaunaScheduleController extends Controller
             }
         }
 
-        // 7) Generate timeslots for *all* valid schedules in the range
+        // 7) Prune any lingering timeslots that now sit outside their window
+        $timeslotsPrunedCount = $this->pruneTimeslotsOutsideWindows($sauna, $start, $end, $windows);
+
+        // 8) Generate timeslots for *all* valid schedules in the range
         $timeslotsCreatedCount = 0;
 
         $validSchedules = SaunaSchedule::where('sauna_id', $sauna->id)
@@ -251,7 +254,7 @@ class SaunaScheduleController extends Controller
             }
         }
 
-        Log::info("Timeslot generation complete. Created {$timeslotsCreatedCount} new timeslots.");
+        Log::info("Timeslot generation complete. Created {$timeslotsCreatedCount} new timeslots. Pruned {$timeslotsPrunedCount} existing slots.");
 
         $createdCounts = collect($schedulesToCreate)->countBy('period');
         $finalCounts   = collect(['morning' => 0, 'afternoon' => 0, 'evening' => 0, 'night' => 0])->merge($createdCounts);
@@ -261,7 +264,8 @@ class SaunaScheduleController extends Controller
                 count($schedulesToCreate) .
                 ' (by period=' . json_encode($finalCounts) . ')' .
                 ', schedules pruned=' . $prunedSchedulesCount .
-                ', timeslots created=' . $timeslotsCreatedCount
+                ', timeslots created=' . $timeslotsCreatedCount .
+                ', timeslots pruned=' . $timeslotsPrunedCount
         );
 
         return back()->with(
@@ -269,6 +273,7 @@ class SaunaScheduleController extends Controller
             "Schedules Generated: " . count($schedulesToCreate) .
                 " (" . $finalCounts->map(fn($v, $k) => "$k:$v")->implode(', ') . ") · " .
                 "Timeslots Created: $timeslotsCreatedCount · " .
+                "Timeslots Pruned: $timeslotsPrunedCount · " .
                 "Pruned schedules: $prunedSchedulesCount"
         );
     }
