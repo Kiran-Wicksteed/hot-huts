@@ -9,6 +9,7 @@ function EditBookingModal({
     booking,
     slot,
     addonServices,
+    retailItems = [], // <-- Add retail items
     bookedInSlot,
     allSlots = [], // <-- Default to empty array
     formatTime,    // <-- Add formatTime to props
@@ -20,6 +21,7 @@ function EditBookingModal({
     const [note, setNote] = useState(booking?.note ?? "");
     const [newTimeslotId, setNewTimeslotId] = useState(booking?.timeslot_id);
     const [services, setServices] = useState(new Map());
+    const [retailItemsMap, setRetailItemsMap] = useState(new Map());
 
     useEffect(() => {
         if (open && booking) {
@@ -34,9 +36,18 @@ function EditBookingModal({
                 initialServices.set(serviceId, quantity);
             });
             setServices(initialServices);
+            
+            const initialRetailItems = new Map();
+            booking.retail_items?.forEach(item => {
+                const itemId = parseInt(item.id);
+                const quantity = parseInt(item.quantity);
+                initialRetailItems.set(itemId, quantity);
+            });
+            setRetailItemsMap(initialRetailItems);
+            
             setNewTimeslotId(booking.timeslot_id);
         }
-    }, [open, booking?.id, booking?.services]);
+    }, [open, booking?.id, booking?.services, booking?.retail_items]);
 
     const toggleService = (id) => {
         const serviceId = parseInt(id);
@@ -52,6 +63,25 @@ function EditBookingModal({
         setServices((prev) => {
             const m = new Map(prev);
             m.set(serviceId, Math.max(1, qty || 1));
+            return m;
+        });
+    };
+
+    const toggleRetailItem = (id) => {
+        const itemId = parseInt(id);
+        setRetailItemsMap((prev) => {
+            const m = new Map(prev);
+            if (m.has(itemId)) m.delete(itemId);
+            else m.set(itemId, 1);
+            return m;
+        });
+    };
+
+    const setRetailQty = (id, qty) => {
+        const itemId = parseInt(id);
+        setRetailItemsMap((prev) => {
+            const m = new Map(prev);
+            m.set(itemId, Math.max(1, qty || 1));
             return m;
         });
     };
@@ -73,22 +103,50 @@ function EditBookingModal({
     const handleConfirmAndSave = (via) => {
         if (!via) return; // guard
         setSaving(true);
+        
+        // First update the booking
         router.put(
             route("admin.bookings.update", booking.id),
             {
                 people: parseInt(people, 10) || 1,
-                timeslot_id: newTimeslotId, // <-- send the new timeslot ID
+                timeslot_id: newTimeslotId,
                 booking_type: bookingType || null,
                 no_show: !!noShow,
                 services: buildServicesPayload(),
-                updated_via: via, // 👈 send confirmation value
+                updated_via: via,
                 note: note,
             },
             {
                 preserveScroll: true,
-                onFinish: () => setSaving(false),
                 onSuccess: () => {
-                    onClose();
+                    // After booking is updated, save retail items if any are selected
+                    if (retailItemsMap.size > 0) {
+                        const retailItemsPayload = [];
+                        retailItemsMap.forEach((quantity, itemId) => {
+                            retailItemsPayload.push({
+                                retail_item_id: itemId,
+                                quantity: quantity,
+                            });
+                        });
+                        
+                        router.post(
+                            route("admin.bookings.retail-items.add", booking.id),
+                            { items: retailItemsPayload },
+                            {
+                                preserveScroll: true,
+                                onFinish: () => {
+                                    setSaving(false);
+                                    onClose();
+                                },
+                            }
+                        );
+                    } else {
+                        setSaving(false);
+                        onClose();
+                    }
+                },
+                onError: () => {
+                    setSaving(false);
                 },
             }
         );
@@ -240,6 +298,53 @@ function EditBookingModal({
                             })}
                         </div>
                     )}
+
+                    {retailItems?.length > 0 && (
+                        <div className="space-y-1 border-t pt-3">
+                            <p className="text-xs font-medium">
+                                Retail Items (In-Person Sales)
+                            </p>
+                            {retailItems.map((item) => {
+                                const itemId = parseInt(item.id);
+                                const selected = retailItemsMap.has(itemId);
+                                const priceRands = (item.price_cents / 100).toFixed(2);
+                                return (
+                                    <div
+                                        key={item.id}
+                                        className="flex items-center gap-2"
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            checked={selected}
+                                            onChange={() =>
+                                                toggleRetailItem(item.id)
+                                            }
+                                        />
+                                        <span className="flex-1">
+                                            {item.name} <span className="text-gray-500 text-xs">(R{priceRands})</span>
+                                        </span>
+                                        {selected && (
+                                            <input
+                                                type="number"
+                                                min="1"
+                                                value={retailItemsMap.get(itemId)}
+                                                onChange={(e) =>
+                                                    setRetailQty(
+                                                        item.id,
+                                                        parseInt(
+                                                            e.target.value,
+                                                            10
+                                                        )
+                                                    )
+                                                }
+                                                className="w-16 border rounded p-0.5 text-xs"
+                                            />
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
                 </div>
 
                 <div className="mt-4 flex justify-end gap-2">
@@ -368,6 +473,7 @@ export default function TodayBubbles({
     bookings,
     formatTime,
     addonServices,
+    retailItems = [],
 }) {
     const [editing, setEditing] = useState({
         open: false,
@@ -611,6 +717,18 @@ export default function TodayBubbles({
                                                     ))}
                                                 </ul>
                                             )}
+                                            {b.retail_items?.length > 0 && (
+                                                <div className="mt-2 p-2 bg-green-50 border-l-4 border-green-400">
+                                                    <p className="text-xs font-medium text-green-800">Retail Items:</p>
+                                                    <ul className="mt-1 text-xs text-green-700 list-disc list-inside">
+                                                        {b.retail_items.map((item) => (
+                                                            <li key={item.id}>
+                                                                {item.name} × {item.quantity} (R{(item.price_each / 100).toFixed(2)} each)
+                                                            </li>
+                                                        ))}
+                                                    </ul>
+                                                </div>
+                                            )}
                                         </div>
                                         <div className="flex items-center gap-2 ml-2">
                                             <button
@@ -812,6 +930,7 @@ export default function TodayBubbles({
                 slot={editing.slot}
                 bookedInSlot={editing.bookedInSlot}
                 addonServices={addonServices}
+                retailItems={retailItems}
                 allSlots={editing.allSlots}
                 formatTime={formatTime}
             />

@@ -1,11 +1,12 @@
 import styles from "../../../styles";
-import { usePage, Link } from "@inertiajs/react";
+import { usePage, Link, router } from "@inertiajs/react";
 import FrontendSidebar from "@/Layouts/FrontendSidebar";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import dayjs from "dayjs";
 import ProgressCircle from "@/Components/common/ProgressCircle";
+import CancelBookingModal from "@/Components/CancelBookingModal";
 
 import {
     ClockIcon,
@@ -237,11 +238,24 @@ export default function ContentSection({
 }
 
 const UpcomingSection = () => {
+    const [cancelModalOpen, setCancelModalOpen] = useState(false);
+    const [selectedBooking, setSelectedBooking] = useState(null);
+    
     const asset = (path) => {
         return `/storage/${path}`;
     };
     const { auth, upcoming = [], past = [] } = usePage().props;
     const user = auth.user;
+    
+    const handleCancelClick = (booking) => {
+        setSelectedBooking(booking);
+        setCancelModalOpen(true);
+    };
+    
+    const handleCloseModal = () => {
+        setCancelModalOpen(false);
+        setSelectedBooking(null);
+    };
 
     if (upcoming.length === 0) {
         return (
@@ -267,7 +281,7 @@ const UpcomingSection = () => {
         );
     }
 
-    return upcoming.map((b) => {
+    const bookingCards = upcoming.map((b) => {
         const loc = b.timeslot.schedule.location;
         const start = dayjs(b.timeslot.starts_at);
         const oneLine = start.format("ddd, D MMM YYYY [at] h:mma");
@@ -315,16 +329,24 @@ const UpcomingSection = () => {
                     >
                         Number of people: {b.people}
                     </p>
-                    {b.can_reschedule && (
-                        <Link
-                            href={route("my-bookings.reschedule", b.id)}
-                            className="mt-3 inline-block bg-hh-orange text-white py-2 px-4 rounded font-medium text-sm"
+                    <div className="mt-3 flex flex-wrap gap-2">
+                        {b.can_reschedule && (
+                            <Link
+                                href={route("my-bookings.reschedule", b.id)}
+                                className="inline-block bg-hh-orange text-white py-2 px-4 rounded font-medium text-sm"
+                            >
+                                Reschedule
+                            </Link>
+                        )}
+                        <button
+                            onClick={() => handleCancelClick(b)}
+                            className="inline-block bg-white border border-red-600 text-red-600 py-2 px-4 rounded font-medium text-sm hover:bg-red-50"
                         >
-                            Reschedule
-                        </Link>
-                    )}
+                            Cancel Booking
+                        </button>
+                    </div>
                     {!b.can_reschedule && (
-                        <p className="mt-3 text-xs text-hh-gray">
+                        <p className="mt-2 text-xs text-hh-gray">
                             Cannot reschedule within 6 hours of start
                         </p>
                     )}
@@ -332,6 +354,18 @@ const UpcomingSection = () => {
             </div>
         );
     });
+    
+    return (
+        <>
+            {bookingCards}
+            
+            <CancelBookingModal 
+                booking={selectedBooking}
+                isOpen={cancelModalOpen}
+                onClose={handleCloseModal}
+            />
+        </>
+    );
 };
 const PastSection = () => {
     const asset = (path) => {

@@ -15,6 +15,7 @@ use App\Http\Controllers\UserDashboardController;
 use App\Http\Controllers\BookingAdminController;
 use App\Http\Controllers\EventController;
 use App\Http\Controllers\EventOccurrenceController;
+use App\Http\Controllers\CouponController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -48,6 +49,19 @@ Route::middleware(['auth', 'verified'])->group(function () {
 Route::middleware(['auth'])->group(function () {
     Route::post('/loyalty/rewards/apply',  [LoyaltyRewardController::class, 'apply'])->name('loyalty.rewards.apply');
     Route::delete('/loyalty/rewards/remove', [LoyaltyRewardController::class, 'remove'])->name('loyalty.rewards.remove');
+    
+    // Booking cancellation routes
+    Route::get('/bookings/{booking}/cancel/preview', [\App\Http\Controllers\BookingCancellationController::class, 'preview'])
+        ->name('bookings.cancel.preview');
+    
+    Route::post('/bookings/{booking}/cancel', [\App\Http\Controllers\BookingCancellationController::class, 'cancel'])
+        ->name('bookings.cancel');
+    
+    // Coupon routes
+    Route::get('/my-coupons', [CouponController::class, 'index'])->name('coupons.index');
+    Route::post('/coupons/apply', [CouponController::class, 'apply'])->name('coupons.apply');
+    Route::post('/coupons/remove', [CouponController::class, 'remove'])->name('coupons.remove');
+    Route::post('/coupons/validate', [CouponController::class, 'validate'])->name('coupons.validate');
 });
 
 //Admin Register Route
@@ -148,6 +162,25 @@ Route::delete('/admin/bookings/{booking}', [BookingAdminController::class, 'dest
 Route::put('/admin/bookings/{booking}', [\App\Http\Controllers\BookingAdminController::class, 'update'])
     ->name('admin.bookings.update');
 
+Route::post('/admin/bookings/{booking}/cancel', [\App\Http\Controllers\BookingCancellationController::class, 'adminCancel'])
+    ->middleware(['auth', 'admin'])
+    ->name('admin.bookings.cancel');
+
+Route::post('/admin/bookings/{booking}/retail-items', [BookingAdminController::class, 'addRetailItems'])
+    ->middleware(['auth', 'admin'])
+    ->name('admin.bookings.retail-items.add');
+
+Route::delete('/admin/bookings/{booking}/retail-items/{retailItem}', [BookingAdminController::class, 'removeRetailItem'])
+    ->middleware(['auth', 'admin'])
+    ->name('admin.bookings.retail-items.remove');
+
+Route::post('/admin/retail-sales', [BookingAdminController::class, 'recordRetailSale'])
+    ->middleware(['auth', 'admin'])
+    ->name('admin.retail-sales.store');
+
+Route::delete('/admin/retail-sales/{retailSale}', [BookingAdminController::class, 'deleteRetailSale'])
+    ->middleware(['auth', 'admin'])
+    ->name('admin.retail-sales.destroy');
 
 Route::get('/events/{event}/occurrences/{occurrence}/bookings', [BookingAdminController::class, 'byOccurrence'])
     ->name('events.occurrences.bookings');
