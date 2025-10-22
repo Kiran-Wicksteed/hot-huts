@@ -21,6 +21,7 @@ use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\Admin\AdminCustomerController;
+use App\Http\Controllers\Admin\MembershipController;
 use App\Http\Controllers\Loyalty\LoyaltyRewardController;
 use Illuminate\Support\Facades\Auth;
 
@@ -94,6 +95,9 @@ Route::middleware(['auth', 'verified'])
             ->name('customers.show');
         Route::post('/customers/{user}/loyalty-points', [AdminCustomerController::class, 'adjustLoyaltyPoints'])
             ->name('customers.adjustLoyaltyPoints');
+
+        Route::post('/users/{user}/memberships', [MembershipController::class, 'store'])
+            ->name('admin.users.memberships.store');
     });
 
 //Admin Search Customers Route

@@ -99,7 +99,7 @@ class AdminCustomerController extends Controller
         }
 
         // Block deletion if any bookings exist
-        if ($user->bookings()->exists()) {
+        if ($user->loadCount('bookings')->load('activeMembership')->exists()) {
             return back()->with('error', "Sorry, we can't delete a user with bookings.");
         }
 
@@ -116,11 +116,20 @@ class AdminCustomerController extends Controller
 
     public function show(User $user, Request $request)
     {
-        // Get or create loyalty account
+        // Eager load the activeMembership relationship
+        $user->load(['activeMembership']);
+
         $loyaltyAccount = LoyaltyAccount::firstOrCreate(
             ['user_id' => $user->id],
             ['points_balance' => 0, 'lifetime_points' => 0]
         );
+        
+        // Debug logging to check the loaded data
+        \Log::info('User membership data:', [
+            'user_id' => $user->id,
+            'has_membership' => $user->relationLoaded('activeMembership') ? 'yes' : 'no',
+            'membership' => $user->activeMembership
+        ]);
 
         // Base query for this user's bookings
         $q = Booking::with(['timeslot.schedule.location']) // keep if these relations exist
@@ -188,6 +197,7 @@ class AdminCustomerController extends Controller
                 'lifetime_points' => (int) $loyaltyAccount->lifetime_points,
             ],
             'recent_bookings' => $recent,
+            'membership' => $user->activeMembership,
         ];
 
         // If this is an AJAX/modal request (explicitly check for the header we set), return JSON

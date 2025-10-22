@@ -159,6 +159,8 @@ class BookingController extends Controller
         $entity      = config('peach-payment.entity_id');
         $cbUrl       = '/order/callback'; // Relative path - Peach Payment library will make it absolute
         $now         = now();
+        $membershipApplied = false; // Initialize membership applied flag
+        $couponData = $request->input('coupon', []); // Initialize coupon data from request
 
         // ---------- 0) Normalise payload to a cart of items ---------
         $asCart = $request->has('items');
@@ -316,6 +318,7 @@ class BookingController extends Controller
 
             // 2D. Create each booking with a hold
             $voucherApplied = false;
+            $membershipApplied = false;
 
             foreach ($items as $it) {
                 // Invariant: all items must have a timeslot_id
@@ -410,6 +413,13 @@ class BookingController extends Controller
                             $voucherApplied = true;
                         }
                     }
+
+                    // Membership discount (apply once per cart)
+                    if (!$membershipApplied && !$voucherApplied && Auth::user()->hasActiveMembership() && !Auth::user()->hasUsedFreeBookingToday()) {
+                        $discount = min($priceEach, $total);
+                        $total -= $discount;
+                        $membershipApplied = true;
+                    }
                 } else {
                     if (!$eventPkg) abort(500, 'EVENT_PACKAGE service missing.');
                     $priceEach = (int) $occ->effective_price; // cents
@@ -451,7 +461,6 @@ class BookingController extends Controller
             return [$created, $grand];
         });
 
-
         // ---------- 2.4) Apply coupon discount if present ----------
         $couponDiscount = 0;
         $appliedCoupon = null;
@@ -475,7 +484,6 @@ class BookingController extends Controller
             }
         }
 
-
         // ---------- 2.5) Zero-amount flow (voucher fully covered) ----------
         if ($grandTotalCents <= 0) {
             // Redeem coupon if it was used
@@ -483,13 +491,20 @@ class BookingController extends Controller
                 $appliedCoupon->redeem($couponDiscount, $bookings[0]->id);
                 Cache::forget($couponCacheKey);
             }
+
+            $paymentStatus = 'Voucher';
+            if ($appliedCoupon) {
+                $paymentStatus = 'Coupon';
+            } elseif ($membershipApplied) {
+                $paymentStatus = 'Member';
+            }
             
             foreach ($bookings as $b) {
                 $b->forceFill([
                     'status'          => 'paid',
-                    'payment_status'  => $appliedCoupon ? 'Coupon' : 'Voucher',
+                    'payment_status'  => $paymentStatus,
                     'hold_expires_at' => null,
-                    'payment_method'  => $appliedCoupon ? 'Coupon' : 'Voucher',
+                    'payment_method'  => $paymentStatus,
                 ])->save();
 
                 // loyalty accrual / reward redemption

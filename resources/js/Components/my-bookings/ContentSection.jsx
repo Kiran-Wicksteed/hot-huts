@@ -14,6 +14,7 @@ import {
     MapPinIcon,
     CalendarIcon,
     UserIcon,
+    StarIcon,
 } from "@heroicons/react/24/outline";
 
 export default function ContentSection({
@@ -22,7 +23,8 @@ export default function ContentSection({
     past = [],
 }) {
     const [startDate, setStartDate] = useState(new Date());
-    const { auth, loyalty = {} } = usePage().props;
+    const { auth, loyalty = {}, membership: pageMembership } = usePage().props;
+    const membership = pageMembership;
     const user = auth.user;
     const loyaltyPoints = Number(loyalty.points ?? 0);
 
@@ -62,6 +64,17 @@ export default function ContentSection({
                             <span className="font-medium"> {user.name}</span>
                         </p>
                     </div>
+                    {membership && (
+                        <div className="flex items-center gap-x-2 bg-hh-orange text-white rounded-full px-3 py-1 text-sm">
+                            <StarIcon className="h-5 w-5" />
+                            <span>
+                                Member until{" "}
+                                {dayjs(membership.expires_at).format(
+                                    "D MMM YYYY"
+                                )}
+                            </span>
+                        </div>
+                    )}
                     <div className="flex flex-col sm:flex-row gap-2 sm:gap-x-4 items-center">
                         <p
                             className={`${styles.paragraph} !text-sm sm:!text-lg lg:!text-xl text-black font-medium text-center sm:text-left`}
@@ -84,7 +97,7 @@ export default function ContentSection({
                             >
                                 Upcoming
                             </h3>
-                            <UpcomingSection />
+                            <UpcomingSection upcoming={upcoming} />
                         </div>
                         <div>
                             <div className="flex flex-col items-between justify-start pt-12 sm:pt-20">
@@ -93,7 +106,7 @@ export default function ContentSection({
                                 >
                                     Past Bookings
                                 </h3>
-                                <PastSection />
+                                <PastSection past={past} />
                             </div>
                         </div>
                     </div>

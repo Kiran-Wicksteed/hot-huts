@@ -20,11 +20,30 @@ class CustomerController extends Controller
             })
             ->get()
             ->map(function ($user) {
+                // Safely handle name and initials
+                $name = $user->name ?? 'Unknown User';
+                $initials = '??';
+                
+                try {
+                    $nameParts = array_filter(explode(' ', $name));
+                    if (count($nameParts) >= 2) {
+                        $initials = strtoupper(
+                            mb_substr($nameParts[0], 0, 1) . 
+                            mb_substr(end($nameParts), 0, 1)
+                        );
+                    } else if (!empty($name)) {
+                        $initials = strtoupper(mb_substr($name, 0, 2));
+                    }
+                } catch (\Exception $e) {
+                    // Fallback in case of any error
+                    $initials = '??';
+                }
+
                 return [
                     'id' => $user->id,
-                    'name' => $user->name,
-                    'initials' => strtoupper(substr($user->name, 0, 1) . substr(strrchr($user->name, ' '), 1, 1)),
-                    'email' => $user->email,
+                    'name' => $name,
+                    'initials' => $initials,
+                    'email' => $user->email ?? 'No email',
                     'contact_number' => $user->contact_number ?? 'N/A',
                     'role' => $user->is_admin ? 'Admin' : 'Customer',
                     'recent_appointment' => optional($user->bookings->first())->created_at

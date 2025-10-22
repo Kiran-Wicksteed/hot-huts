@@ -72,4 +72,31 @@ class User extends Authenticatable implements MustVerifyEmail
     {
         return $this->hasMany(Booking::class);
     }
+
+    public function membership()
+    {
+        return $this->hasOne(Membership::class);
+    }
+
+    public function activeMembership()
+    {
+        return $this->hasOne(Membership::class)->where('expires_at', '>', now())->whereNull('cancelled_at');
+    }
+
+    public function hasActiveMembership()
+    {
+        return $this->activeMembership()->exists();
+    }
+
+    public function hasUsedFreeBookingToday()
+    {
+        if (!$this->hasActiveMembership()) {
+            return false;
+        }
+
+        return $this->bookings()
+            ->where('payment_status', 'Member')
+            ->whereDate('created_at', today())
+            ->exists();
+    }
 }
