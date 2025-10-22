@@ -90,6 +90,33 @@ class PaymentController extends Controller
             }
 
             if ($isSuccess) {
+                // Check if there's a coupon to redeem
+                $firstBooking = $bookings->first();
+                $cartKey = \Illuminate\Support\Facades\Cache::get("booking_cart_key:{$firstBooking->id}");
+                
+                if ($cartKey) {
+                    $couponCacheKey = "cart_coupon:{$cartKey}";
+                    if (\Illuminate\Support\Facades\Cache::has($couponCacheKey)) {
+                        $couponData = \Illuminate\Support\Facades\Cache::get($couponCacheKey);
+                        $coupon = \App\Models\Coupon::find($couponData['coupon_id']);
+                        
+                        if ($coupon && $coupon->isValid()) {
+                            // Use accessor to handle both old (rands) and new (cents) formats
+                            $totalBookingAmount = $bookings->sum('amount_cents');
+                            $couponUsed = min($coupon->remaining_value_cents, $couponData['remaining_value_cents'] ?? $coupon->remaining_value_cents);
+                            
+                            $coupon->redeem($couponUsed, $firstBooking->id);
+                            \Illuminate\Support\Facades\Cache::forget($couponCacheKey);
+                            
+                            Log::info('Coupon redeemed after payment', [
+                                'coupon_code' => $coupon->code,
+                                'amount_redeemed' => $couponUsed,
+                                'booking_id' => $firstBooking->id,
+                            ]);
+                        }
+                    }
+                }
+                
                 // Instead of mass-update, iterate to ensure models are fresh when used
                 $service = app(LoyaltyService::class);
 

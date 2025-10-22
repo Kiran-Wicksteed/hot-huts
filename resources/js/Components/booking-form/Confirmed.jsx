@@ -13,14 +13,19 @@ export default function Confirmed({ booking, bookings = [], summary = null }) {
     const hasMulti = Array.isArray(bookings) && bookings.length > 0;
 
     const { clearCart, regenerateCartKey } = useCart();
+    
+    // Clear cart immediately on mount (before any render)
     useEffect(() => {
+        // Clear cart and regenerate key
         clearCart({ rekey: true });
         regenerateCartKey();
+        
+        // Also clear form state
         try {
             localStorage.removeItem("hh_step");
             localStorage.removeItem("hh_form");
         } catch {}
-    }, []);
+    }, [clearCart, regenerateCartKey]);
 
     // Use the legacy booking's user name for the greeting (works for both cases)
     const customerName = booking?.user?.name ?? "there";

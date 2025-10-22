@@ -35,7 +35,7 @@ trait SendsBookingConfirmationEmail
                 ];
             });
 
-            $totalCents = (int) ($b->amount ?? $lines->sum('line_cents'));
+            $totalCents = $b->amount ? $b->amount_cents : $lines->sum('line_cents');
 
             $locName = optional(optional($b->timeslot)->schedule)->location->name
                 ?? optional($b->eventOccurrence)->location->name
@@ -67,7 +67,7 @@ trait SendsBookingConfirmationEmail
             ];
         });
 
-        $grandTotalCents = (int) $bookings->sum('amount');
+        $grandTotalCents = (int) $bookings->sum('amount_cents');
 
         $summary = [
             'order'             => $orderNumber,
@@ -78,7 +78,7 @@ trait SendsBookingConfirmationEmail
         $user = $bookings->first()->user;
 
         if ($user) {
-            Mail::to($user->email)->queue(new OrderConfirmedMail($user, $display, $summary));
+            Mail::to($user->email)->send(new OrderConfirmedMail($user, $display, $summary));
         }
     }
 }

@@ -3,8 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Models\Booking;
-use Inertia\Inertia;
+use App\Models\Location;
+use App\Models\RetailSale;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Inertia\Inertia;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class PaymentAdminController extends Controller
@@ -74,14 +77,14 @@ class PaymentAdminController extends Controller
                 'date' => $booking->created_at->format('d M Y, g:ia'),
                 'service' => $details['name'] ?? 'Unknown Service',
                 'method' => $booking->payment_status ?? 'Unknown',
-                'amount' => (float) $booking->amount,
+                'amount' => $booking->amount_rands, // Use accessor for backward compatibility
                 'status' => ucfirst($booking->status),
                 'transactionId' => $booking->payment_intent_id ?? $booking->peach_payment_checkout_id,
                 'details' => $details,
                 'addOns' => $booking->services->map(fn ($s) => [
                     'name' => $s->name,
                     'quantity' => $s->pivot->quantity,
-                    'price' => $s->pivot->price_each,
+                    'price' => $s->pivot->price_each / 100, // Convert cents to rands
                 ]),
             ];
         });
@@ -136,6 +139,17 @@ class PaymentAdminController extends Controller
             ->orderBy('created_at', 'asc')
             ->get();
 
+        // Get retail sales for the same period
+        $retailSales = RetailSale::with(['retailItem', 'location'])
+            ->when($request->location_id, function ($q) use ($request) {
+                $q->where('location_id', $request->location_id);
+            })
+            ->when($request->date_start && $request->date_end, function ($q) use ($request) {
+                $q->whereBetween('sale_date', [$request->date_start, $request->date_end]);
+            })
+            ->orderBy('sale_date', 'asc')
+            ->get();
+
         // Calculate totals
         $totalAmount = $bookings->sum('amount');
         $totalOnline = $bookings->where('booking_type', 'online')->sum('amount');
@@ -152,7 +166,10 @@ class PaymentAdminController extends Controller
             }
         }
 
-        $response = new StreamedResponse(function () use ($bookings, $totalAmount, $totalOnline, $totalWalkIn, $totalAddons) {
+        // Calculate retail sales total
+        $totalRetailSales = $retailSales->sum('total_cents');
+
+        $response = new StreamedResponse(function () use ($bookings, $retailSales, $totalAmount, $totalOnline, $totalWalkIn, $totalAddons, $totalRetailSales) {
             $handle = fopen('php://output', 'w');
 
             // Group bookings by location
@@ -456,11 +473,34 @@ class PaymentAdminController extends Controller
 
             fputcsv($handle, []);
 
+            // Retail Sales Section
+            fputcsv($handle, ['--- RETAIL SALES ---']);
+            fputcsv($handle, []);
+            fputcsv($handle, ['Date', 'Item', 'Location', 'Quantity', 'Price Each', 'Total']);
+            
+            foreach ($retailSales as $sale) {
+                fputcsv($handle, [
+                    \Carbon\Carbon::parse($sale->sale_date)->format('d M Y'),
+                    $sale->retailItem->name ?? 'Unknown Item',
+                    $sale->location->name ?? 'N/A',
+                    $sale->quantity,
+                    'R' . number_format($sale->price_each / 100, 2),
+                    'R' . number_format($sale->total_cents / 100, 2),
+                ]);
+            }
+
+            fputcsv($handle, []);
+            fputcsv($handle, ['Total Retail Sales', '', '', '', '', 'R' . number_format($totalRetailSales / 100, 2)]);
+
+            fputcsv($handle, []);
+
             // Grand Total
             fputcsv($handle, ['GRAND TOTAL']);
             fputcsv($handle, ['Total Bookings', $bookings->count()]);
             fputcsv($handle, ['Total Add-ons Revenue', 'R' . number_format($totalAddons / 100, 2)]);
-            fputcsv($handle, ['Total Revenue', 'R' . number_format($totalAmount / 100, 2)]);
+            fputcsv($handle, ['Total Bookings Revenue', 'R' . number_format($totalAmount / 100, 2)]);
+            fputcsv($handle, ['Total Retail Sales', 'R' . number_format($totalRetailSales / 100, 2)]);
+            fputcsv($handle, ['TOTAL REVENUE (Bookings + Retail)', 'R' . number_format(($totalAmount + $totalRetailSales) / 100, 2)]);
 
             fclose($handle);
         });

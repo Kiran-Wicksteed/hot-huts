@@ -149,7 +149,7 @@ export default function InvoiceDetails() {
         console.log("Applying coupon", { code, cartKey });
 
         router.post(
-            route("loyalty.rewards.apply"),
+            route("coupons.apply"),
             { code, cart_key: cartKey },
             {
                 preserveScroll: true,
@@ -194,11 +194,13 @@ export default function InvoiceDetails() {
             return;
         }
 
-        router.delete(route("loyalty.rewards.remove"), {
-            data: { cart_key: cartKey }, // backend should accept cart_key for cart-level unreserve
-            preserveScroll: true,
-            preserveState: true,
-            replace: true,
+        router.post(
+            route("coupons.remove"),
+            { cart_key: cartKey },
+            {
+                preserveScroll: true,
+                preserveState: true,
+                replace: true,
             onSuccess: (page) => {
                 const flash = page?.props?.flash || {};
                 if (flash?.success) setCouponMsg(flash.success);
@@ -300,19 +302,7 @@ export default function InvoiceDetails() {
 
                     if (preflight.ok) {
                         // 2) Holds + checkout
-                        router.post(
-                            route("bookings.store"),
-                            { cart_key: cartKey, items: payloadItems },
-                            {
-                                onSuccess: () => {
-                                    clearCart({ rekey: true });
-                                    try {
-                                        localStorage.removeItem("hh_step");
-                                        localStorage.removeItem("hh_form");
-                                    } catch {}
-                                },
-                            }
-                        );
+                        router.post(route("bookings.store"), { cart_key: cartKey, items: payloadItems });
                         return;
                     }
 
@@ -566,7 +556,7 @@ export default function InvoiceDetails() {
                 <div className="col-span-1">
                     <div className="space-y-3 sm:space-y-2 mt-4 sm:mt-6">
                         {/* COUPON BOX */}
-                        <div className="mt-6 mb-4 p-4 bg-white border rounded shadow">
+                        <div className="mt-2 mb-4 p-4 bg-white border rounded shadow">
                             <p
                                 className={`${styles.paragraph} text-black font-medium mb-2`}
                             >

@@ -31,9 +31,27 @@ class Booking extends Model
 
     protected $casts = [
         'people' => 'integer',
-        'amount' => 'decimal:2',
+        'amount' => 'decimal:2', // Keep as decimal for backward compatibility
         'no_show' => 'boolean',
     ];
+
+    /**
+     * Get amount in cents
+     */
+    public function getAmountCentsAttribute(): int
+    {
+        // Amount is stored in cents
+        return (int) $this->amount;
+    }
+
+    /**
+     * Get amount in rands for display
+     */
+    public function getAmountRandsAttribute(): float
+    {
+        // Amount is stored in cents, always convert to rands
+        return $this->amount / 100;
+    }
 
     /* ----------------------------------------------------------
      | Relationships
@@ -57,6 +75,13 @@ class Booking extends Model
     {
         // if your pivot table is booking_service the default name is fine
         return $this->belongsToMany(Service::class)
+            ->withPivot(['quantity', 'price_each', 'line_total'])
+            ->withTimestamps();
+    }
+
+    public function retailItems()
+    {
+        return $this->belongsToMany(RetailItem::class, 'booking_retail_item')
             ->withPivot(['quantity', 'price_each', 'line_total'])
             ->withTimestamps();
     }

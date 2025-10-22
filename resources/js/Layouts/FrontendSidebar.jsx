@@ -2,6 +2,7 @@ import { Link } from "@inertiajs/react";
 import {
     BookmarkIcon,
     GiftIcon,
+    TicketIcon,
     ArrowRightOnRectangleIcon,
 } from "@heroicons/react/24/outline";
 import styles from "../../styles";
@@ -26,6 +27,7 @@ export default function FrontendSidebar() {
     // relies on Ziggy route() helper being available (it is used elsewhere already)
     const isBookings = route().current("my-bookings.*");
     const isLoyalty = route().current("loyalty.*");
+    const isCoupons = route().current("coupons.*");
 
     return (
         <div className="pr-8 lg:pr-16 border-r border-hh-gray">
@@ -36,6 +38,14 @@ export default function FrontendSidebar() {
                     active={isBookings}
                 >
                     My Bookings
+                </SidebarLink>
+
+                <SidebarLink
+                    href={route("coupons.index")}
+                    icon={TicketIcon}
+                    active={isCoupons}
+                >
+                    My Coupons
                 </SidebarLink>
 
                 <SidebarLink

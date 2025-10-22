@@ -41,13 +41,16 @@ export default function Reschedule({ booking }) {
 
             <div className="grid grid-cols-1 lg:grid-cols-10 gap-6 mt-6">
                 <div className="lg:col-span-4">
-                    <div className="border border-hh-gray rounded-md bg-white p-3">
-                        <DatePicker
-                            selected={date}
-                            onChange={(d) => setDate(d)}
-                            minDate={new Date()}
-                            inline
-                        />
+                    <div className="border border-hh-gray rounded-md bg-white p-3 overflow-hidden">
+                        <div className="w-full">
+                            <DatePicker
+                                selected={date}
+                                onChange={(d) => setDate(d)}
+                                minDate={new Date()}
+                                inline
+                                className="w-full"
+                            />
+                        </div>
                     </div>
 
                     <div className="mt-4 text-sm text-hh-gray">

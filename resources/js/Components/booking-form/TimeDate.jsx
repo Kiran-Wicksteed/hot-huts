@@ -221,7 +221,7 @@ export default function TimeDate({
             className={`${styles.boxWidth} bg-cover bg-center bg-no-repeat pb-10 sm:pb-28 pt-28 sm:pt-40 px-2 sm:px-4 2xl:px-28 md:px-10 lg:px-16 xl:px-20`}
             style={hero ? { backgroundImage: `url(${hero})` } : undefined}
         >
-            <div className=" border border-hh-orange bg-white/95 rounded-md shadow mb-6 sm:mb-0  flex items-center py-2 justify-center">
+            {/* <div className=" border border-hh-orange bg-white/95 rounded-md shadow mb-6 sm:mb-0  flex items-center py-2 justify-center">
                 <h1
                     className={`${styles.h3} !text-lg sm:!text-xl lg:!text-2xl !text-black text-center font-normal max-w-3xl mb-6 sm:mb-0`}
                 >
@@ -231,8 +231,8 @@ export default function TimeDate({
                         {location.name}
                     </span>
                 </h1>
-            </div>
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-x-10 relative mt-6 sm:mt-10">
+            </div> */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-x-10 relative mt-6 sm:mt-4">
                 {/* left: calendar + slots */}
                 <div className="col-span-1 lg:col-span-2 bg-white/95 p-4 sm:p-6 lg:p-10 rounded-md shadow border-hh-orange border">
                     <h3

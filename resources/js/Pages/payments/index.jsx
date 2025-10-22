@@ -366,7 +366,7 @@ export default function PaymentPage() {
                                     </div>
                                     <div className="col-span-1">
                                         <p className={`${styles.paragraph} !text-[#999999] !text-sm`}>
-                                            R{(invoice.amount / 100).toFixed(2)}
+                                            R{invoice.amount.toFixed(2)}
                                         </p>
                                     </div>
                                     <div className="col-span-1">
@@ -422,7 +422,7 @@ export default function PaymentPage() {
                                             {invoice.addOns && invoice.addOns.length > 0 ? (
                                                 <ul className="mt-2 text-sm text-gray-600 space-y-1">
                                                     {invoice.addOns.map((item, i) => (
-                                                        <li key={i}>{item.quantity}x {item.name} - R{(item.price / 100).toFixed(2)}</li>
+                                                        <li key={i}>{item.quantity}x {item.name} - R{item.price.toFixed(2)}</li>
                                                     ))}
                                                 </ul>
                                             ) : <p className="text-sm text-gray-500 mt-2">No add-ons for this order.</p>}

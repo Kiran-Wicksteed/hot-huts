@@ -84,8 +84,8 @@ class BookingController extends Controller
                 ];
             });
 
-            // Prefer persisted amount; fall back to summing line items
-            $totalCents = (int) ($b->amount ?? $lines->sum('line_cents'));
+            // Prefer persisted amount (use accessor for backward compatibility); fall back to summing line items
+            $totalCents = $b->amount ? $b->amount_cents : $lines->sum('line_cents');
 
             // Try to extract nice context (location/date/time)
             $locName = optional(optional($b->timeslot)->schedule)->location->name
@@ -126,7 +126,7 @@ class BookingController extends Controller
             ?? null;
 
         $grandTotalCents = (int) $bookings->sum(function ($b) {
-            return (int) ($b->amount ?? 0);
+            return $b->amount_cents;
         });
 
         // 6) Keep backward compatibility: still pass the bound `$booking`,
@@ -157,7 +157,7 @@ class BookingController extends Controller
     {
         $holdMinutes = (int) config('booking.hold_minutes', 10);
         $entity      = config('peach-payment.entity_id');
-        $cbUrl       = '/order/callback';
+        $cbUrl       = '/order/callback'; // Relative path - Peach Payment library will make it absolute
         $now         = now();
 
         // ---------- 0) Normalise payload to a cart of items ---------
@@ -441,6 +441,7 @@ class BookingController extends Controller
                     }
                 }
 
+                // Store amount in cents (integer)
                 $booking->update(['amount' => $total]);
 
                 $created[] = $booking;
@@ -450,21 +451,45 @@ class BookingController extends Controller
             return [$created, $grand];
         });
 
-        Log::info('Cart totals computed', [
-            'cart_key'          => $cartKey,
-            'booking_ids'       => collect($bookings)->pluck('id'),
-            'amounts'           => collect($bookings)->map(fn($b) => (int) ($b->amount ?? 0)),
-            'grand_total_cents' => (int) $grandTotalCents,
-        ]);
+
+        // ---------- 2.4) Apply coupon discount if present ----------
+        $couponDiscount = 0;
+        $appliedCoupon = null;
+        $couponCacheKey = "cart_coupon:{$cartKey}";
+        
+        if (Cache::has($couponCacheKey)) {
+            $couponData = Cache::get($couponCacheKey);
+            $coupon = \App\Models\Coupon::find($couponData['coupon_id']);
+            
+            if ($coupon && $coupon->isValid()) {
+                // Calculate discount (can't exceed total)
+                $couponDiscount = min($coupon->remaining_value_cents, $grandTotalCents);
+                $grandTotalCents -= $couponDiscount;
+                $appliedCoupon = $coupon;
+                
+                Log::info('Coupon applied to booking', [
+                    'coupon_code' => $coupon->code,
+                    'discount_cents' => $couponDiscount,
+                    'new_total_cents' => $grandTotalCents,
+                ]);
+            }
+        }
+
 
         // ---------- 2.5) Zero-amount flow (voucher fully covered) ----------
         if ($grandTotalCents <= 0) {
+            // Redeem coupon if it was used
+            if ($appliedCoupon && $couponDiscount > 0) {
+                $appliedCoupon->redeem($couponDiscount, $bookings[0]->id);
+                Cache::forget($couponCacheKey);
+            }
+            
             foreach ($bookings as $b) {
                 $b->forceFill([
                     'status'          => 'paid',
-                    'payment_status'  => 'Voucher',
+                    'payment_status'  => $appliedCoupon ? 'Coupon' : 'Voucher',
                     'hold_expires_at' => null,
-                    'payment_method'  => 'Voucher',
+                    'payment_method'  => $appliedCoupon ? 'Coupon' : 'Voucher',
                 ])->save();
 
                 // loyalty accrual / reward redemption
@@ -513,8 +538,53 @@ class BookingController extends Controller
         $peach    = new \Shaz3e\PeachPayment\Helpers\PeachPayment();
         $amount   = number_format($grandTotalCents / 100, 2, '.', '');
 
-        $checkout = $peach->createCheckout($amount, $cbUrl);
+        try {
+            Log::info('Creating Peach Payment checkout', [
+                'amount' => $amount,
+                'callback_url' => $cbUrl,
+            ]);
+            
+            $checkout = $peach->createCheckout($amount, $cbUrl);
+            
+            Log::info('Peach Payment response received', [
+                'checkout' => $checkout,
+            ]);
+            
+            if (!isset($checkout['checkoutId'])) {
+                Log::error('Peach Payment checkout failed - no checkoutId', [
+                    'response' => $checkout,
+                    'amount' => $amount,
+                    'callback_url' => $cbUrl,
+                ]);
+                
+                // Cancel the bookings
+                foreach ($bookings as $b) {
+                    $b->update(['status' => 'cancelled', 'payment_status' => 'Payment gateway error']);
+                }
+                
+                return back()->withErrors(['payment' => 'Payment gateway error. Please try again or contact support.']);
+            }
+        } catch (\Exception $e) {
+            Log::error('Peach Payment exception', [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'amount' => $amount,
+                'callback_url' => $cbUrl,
+            ]);
+            
+            // Cancel the bookings
+            foreach ($bookings as $b) {
+                $b->update(['status' => 'cancelled', 'payment_status' => 'Payment gateway error']);
+            }
+            
+            return back()->withErrors(['payment' => 'Payment gateway error: ' . $e->getMessage()]);
+        }
 
+        // Store cart_key for later coupon redemption
+        foreach ($bookings as $b) {
+            Cache::put("booking_cart_key:{$b->id}", $cartKey, now()->addHours(2));
+        }
+        
         // Tag ALL bookings with the same checkout/order
         foreach ($bookings as $b) {
             $b->forceFill([
@@ -1006,6 +1076,7 @@ class BookingController extends Controller
                 $total += $line;
             }
 
+            // Store amount in cents (integer)
             $booking->update(['amount' => $total]);
 
             return $booking;
