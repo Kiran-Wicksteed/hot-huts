@@ -231,14 +231,16 @@ export default function BookingPage({
                             >
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                             </svg>
-                            <h2 className={`${styles.h3} font-medium mb-0`}>
-                                Off-site Add-ons - {dateFilter}
+                            <div className="flex flex-col justify-center">
+                                <h2 className={`${styles.h3} font-medium !mb-1 leading-tight`}>
+                                    Off-site Add-ons - {dateFilter}
+                                </h2>
                                 {retailSales.length > 0 && (
-                                    <span className={`ml-2 ${styles.paragraph} text-hh-gray font-normal`}>
-                                        ({retailSales.length} {retailSales.length === 1 ? 'sale' : 'sales'} - R{(retailSales.reduce((sum, sale) => sum + sale.total_cents, 0) / 100).toFixed(2)})
+                                    <span className={`ml-0 ${styles.paragraph} text-hh-gray font-normal text-sm`}>
+                                    ({retailSales.length} {retailSales.length === 1 ? 'sale' : 'sales'} - R{(retailSales.reduce((sum, sale) => sum + sale.total_cents, 0) / 100).toFixed(2)})
                                     </span>
                                 )}
-                            </h2>
+                            </div>
                         </div>
                         <button
                             onClick={(e) => {

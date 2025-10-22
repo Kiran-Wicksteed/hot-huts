@@ -8,6 +8,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Carbon;
 
 class User extends Authenticatable implements MustVerifyEmail
 {
@@ -97,6 +98,24 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->bookings()
             ->where('payment_status', 'Member')
             ->whereDate('created_at', today())
+            ->exists();
+    }
+
+    public function hasUsedFreeBookingOnDate($date)
+    {
+        if (!$this->hasActiveMembership()) {
+            return false;
+        }
+
+        $target = $date instanceof Carbon
+            ? $date->toDateString()
+            : Carbon::parse($date)->toDateString();
+
+        return $this->bookings()
+            ->where('payment_status', 'Member')
+            ->whereHas('timeslot', function ($q) use ($target) {
+                $q->whereDate('starts_at', $target);
+            })
             ->exists();
     }
 }

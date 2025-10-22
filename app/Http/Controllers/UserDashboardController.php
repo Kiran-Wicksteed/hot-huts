@@ -26,6 +26,12 @@ class UserDashboardController extends Controller
             ->orderBy('timeslots.starts_at')
             ->with(['timeslot.schedule.location', 'services'])
             ->get()
+            ->filter(function ($booking) {
+                // Filter out bookings without timeslot data
+                return $booking->timeslot && 
+                       $booking->timeslot->schedule && 
+                       $booking->timeslot->schedule->location;
+            })
             ->map(function ($booking) {
                 $now   = now();
                 $start = Carbon::parse($booking->timeslot->starts_at);

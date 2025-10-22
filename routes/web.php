@@ -323,6 +323,12 @@ Route::middleware(['auth', 'admin'])
         Route::post('services',       [ServiceController::class, 'store'])->name('services.store');
         Route::put('services/{service}', [ServiceController::class, 'update'])->name('services.update');
 
+        Route::post('retail-items', [\App\Http\Controllers\RetailItemController::class, 'store'])->name('retail-items.store');
+        Route::put('retail-items/{retailItem}', [\App\Http\Controllers\RetailItemController::class, 'update'])->name('retail-items.update');
+        Route::delete('retail-items/{retailItem}', [\App\Http\Controllers\RetailItemController::class, 'destroy'])->name('retail-items.destroy');
+        Route::post('retail-items/{retailItem}/restore', [\App\Http\Controllers\RetailItemController::class, 'restore'])->name('retail-items.restore');
+        Route::delete('retail-items/{retailItem}/force', [\App\Http\Controllers\RetailItemController::class, 'forceDestroy'])->name('retail-items.force-destroy');
+
         Route::delete('/timeslots/{timeslot}', [TimeslotController::class, 'destroy'])
             ->name('timeslots.destroy');
     });

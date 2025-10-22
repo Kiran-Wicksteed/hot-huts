@@ -295,8 +295,17 @@ const UpcomingSection = () => {
     }
 
     const bookingCards = upcoming.map((b) => {
-        const loc = b.timeslot.schedule.location;
-        const start = dayjs(b.timeslot.starts_at);
+        // Safely access nested properties
+        const loc = b?.timeslot?.schedule?.location;
+        const startsAt = b?.timeslot?.starts_at;
+        
+        // If critical data is missing, skip this booking
+        if (!loc || !startsAt) {
+            console.warn('Missing booking data:', b);
+            return null;
+        }
+        
+        const start = dayjs(startsAt);
         const oneLine = start.format("ddd, D MMM YYYY [at] h:mma");
 
         return (
@@ -370,7 +379,7 @@ const UpcomingSection = () => {
     
     return (
         <>
-            {bookingCards}
+            {bookingCards.filter(card => card !== null)}
             
             <CancelBookingModal 
                 booking={selectedBooking}
@@ -412,8 +421,17 @@ const PastSection = () => {
     }
 
     return past.map((b) => {
-        const loc = b.timeslot.schedule.location;
-        const start = dayjs(b.timeslot.starts_at);
+        // Safely access nested properties
+        const loc = b?.timeslot?.schedule?.location;
+        const startsAt = b?.timeslot?.starts_at;
+        
+        // If critical data is missing, skip this booking
+        if (!loc || !startsAt) {
+            console.warn('Missing past booking data:', b);
+            return null;
+        }
+        
+        const start = dayjs(startsAt);
         const oneLine = start.format("ddd, D MMM YYYY [at] h:mma");
 
         return (
@@ -455,7 +473,7 @@ const PastSection = () => {
                 </div>
             </div>
         );
-    });
+    }).filter(card => card !== null);
 };
 
 // const ProgressCircle = ({ points }) => {

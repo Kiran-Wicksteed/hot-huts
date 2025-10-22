@@ -1,150 +1,329 @@
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
 import styles from "../../../styles";
-import { Link } from "@inertiajs/react";
+import { router } from "@inertiajs/react";
 import { useState } from "react";
 import CreateService from "./Partials/CreateService";
+import CreateRetailItem from "./Partials/CreateRetailItem";
 
-export default function ServicesPage({ services }) {
-    const [editing, setEditing] = useState(null);
+export default function ServicesPage({ services, retailItems }) {
+    const [editingService, setEditingService] = useState(null);
+    const [editingRetail, setEditingRetail] = useState(null);
+    const [servicesOpen, setServicesOpen] = useState(false);
+    const [retailOpen, setRetailOpen] = useState(false);
 
     return (
         <AuthenticatedLayout>
-            <div className="mx-auto ml-[256px]  ">
-                <div className="relative lg:col-span-full  overflow-hidden pt-6 pb-12">
-                    <div className="col-span-full flex justify-between items-center mb-6 gap-x-6">
-                        {" "}
+            <div className="mx-auto ml-[256px]">
+                <div className="relative lg:col-span-full overflow-hidden pt-6 pb-12 space-y-6">
+                    <section className="shadow border border-hh-gray rounded-md bg-white">
                         <button
-                            onClick={() => setEditing({})}
-                            className="bg-white shadow-md  border text-hh-orange border-hh-orange hover:bg-hh-orange hover:text-white p-2 px-8 rounded transition-all cursor-pointer"
+                            type="button"
+                            onClick={() => setServicesOpen((prev) => !prev)}
+                            className="w-full flex justify-between items-center p-6"
                         >
-                            <p
-                                className={`${styles.paragraph} whitespace-nowrap`}
-                            >
-                                Add a new service
-                            </p>
+                            <div>
+                                <h4 className={`${styles.h3} !mb-0 font-medium text-black text-left`}>
+                                    On-site Services
+                                </h4>
+                                <p className={`${styles.paragraph} text-hh-gray mt-1 text-left`}>
+                                    These services can be attached to bookings by the team.
+                                </p>
+                            </div>
+                            <div className="flex items-center gap-4">
+                                <span className="text-sm text-hh-gray">
+                                    {services.length} item{services.length === 1 ? "" : "s"}
+                                </span>
+                                <svg
+                                    className={`w-5 h-5 text-hh-orange transition-transform ${servicesOpen ? "rotate-180" : "rotate-0"}`}
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                >
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                </svg>
+                            </div>
                         </button>
-                    </div>
-                    <div className="col-span-full  mb-6">
-                        <div>
-                            {" "}
-                            <h4
-                                className={`${styles.h3} !mb-0 font-medium text-black `}
-                            >
-                                Service List
-                            </h4>
-                        </div>
-                    </div>
-                    <div className="grid grid-cols-12 p-6 gap-x-4">
-                        <div className="col-span-1">
-                            <p className={`${styles.paragraph} text-black`}>
-                                ID
-                            </p>
-                        </div>
-                        <div className="col-span-2">
-                            <p className={`${styles.paragraph} text-black`}>
-                                Code
-                            </p>
-                        </div>
-                        <div className="col-span-2 ">
-                            <p className={`${styles.paragraph} text-black`}>
-                                Name
-                            </p>
-                        </div>
-                        <div className="col-span-2">
-                            <p className={`${styles.paragraph} text-black`}>
-                                Category
-                            </p>
-                        </div>
-                        <div className="col-span-2 ">
-                            <p className={`${styles.paragraph} text-black`}>
-                                Price
-                            </p>
-                        </div>
-                        <div className="col-span-2">
-                            <p className={`${styles.paragraph} text-black`}>
-                                Active
-                            </p>
-                        </div>
-                    </div>
-                    <div className="col-span-full space-y-4">
-                        {services.map((service) => (
-                            <div
-                                key={service.id}
-                                className="col-span-full bg-white shadow grid grid-cols-12  gap-x-4 items-center border border-hh-gray rounded p-6"
-                            >
+
+                        <div
+                            className={`border-t border-hh-gray/60 transition-all duration-300 ease-in-out ${servicesOpen
+                                ? "max-h-[2000px] opacity-100"
+                                : "max-h-0 opacity-0 overflow-hidden"}
+                        `}
+                        >
+                            <div className="flex justify-end p-6 pt-4">
+                                <button
+                                    onClick={() => setEditingService({})}
+                                    className="bg-white shadow-md border text-hh-orange border-hh-orange hover:bg-hh-orange hover:text-white p-2 px-8 rounded transition-all cursor-pointer"
+                                >
+                                    <p className={`${styles.paragraph} whitespace-nowrap`}>
+                                        Add a new service
+                                    </p>
+                                </button>
+                            </div>
+
+                            <div className="grid grid-cols-12 p-6 gap-x-4">
                                 <div className="col-span-1">
-                                    <p
-                                        className={`${styles.paragraph} !text-[#999999] `}
-                                    >
-                                        {service.id}
-                                    </p>
-                                </div>
-                                <div className="col-span-2 ">
-                                    <p
-                                        className={`${styles.paragraph} !text-[#999999] !text-sm`}
-                                    >
-                                        {service.code}
-                                    </p>
-                                </div>
-                                <div className="col-span-2 ">
-                                    <p
-                                        className={`${styles.paragraph} !text-[#999999] !text-sm`}
-                                    >
-                                        {service.name}
-                                    </p>
-                                </div>
-                                <div className="col-span-2 ">
-                                    <p
-                                        className={`${styles.paragraph} !text-[#999999] !text-sm`}
-                                    >
-                                        {service.category}
-                                    </p>
+                                    <p className={`${styles.paragraph} text-black`}>ID</p>
                                 </div>
                                 <div className="col-span-2">
-                                    <p
-                                        className={`${styles.paragraph} !text-[#999999] !text-sm`}
-                                    >
-                                        R{service.price}
-                                    </p>
+                                    <p className={`${styles.paragraph} text-black`}>Code</p>
+                                </div>
+                                <div className="col-span-3">
+                                    <p className={`${styles.paragraph} text-black`}>Name</p>
+                                </div>
+                                <div className="col-span-2">
+                                    <p className={`${styles.paragraph} text-black`}>Category</p>
+                                </div>
+                                <div className="col-span-2">
+                                    <p className={`${styles.paragraph} text-black`}>Price</p>
                                 </div>
                                 <div className="col-span-1">
-                                    <p
-                                        className={`${styles.paragraph} !text-[#999999] !text-sm`}
-                                    >
-                                        {service.active ? "Yes" : "No"}
-                                    </p>
+                                    <p className={`${styles.paragraph} text-black`}>Active</p>
                                 </div>
-                                <div className="col-span-2 flex gap-x-4 w-full justify-end items-center">
-                                    <p
-                                        onClick={() => setEditing(service)}
-                                        className={`${styles.paragraph} mr-4 !mb-0 !pb-0 text-black hover:text-hh-orange transition-all !text-sm cursor-pointer`}
-                                    >
-                                        Edit
-                                    </p>
-                                    <Link
-                                        href={route(
-                                            "services.destroy",
-                                            service.id
-                                        )}
-                                        as="button"
-                                        method="delete"
-                                        className=" "
-                                    >
-                                        <span
-                                            className={`${styles.paragraph} !mb-0 !pb-0 text-black hover:text-hh-orange transition-all !text-sm cursor-pointer`}
-                                        >
-                                            Delete
-                                        </span>
-                                    </Link>
+                                <div className="col-span-1 text-right">
+                                    <p className={`${styles.paragraph} text-black`}>Actions</p>
                                 </div>
                             </div>
-                        ))}
-                    </div>
+
+                            <div className="col-span-full space-y-4 pb-6">
+                                {services.map((service) => (
+                                    <div
+                                        key={service.id}
+                                        className="col-span-full bg-white shadow grid grid-cols-12 gap-x-4 items-center border border-hh-gray rounded-md p-6"
+                                    >
+                                        <div className="col-span-1">
+                                            <p className={`${styles.paragraph} !text-[#999999]`}>
+                                                {service.id}
+                                            </p>
+                                        </div>
+                                        <div className="col-span-2">
+                                            <p className={`${styles.paragraph} !text-[#999999] !text-sm`}>
+                                                {service.code}
+                                            </p>
+                                        </div>
+                                        <div className="col-span-3">
+                                            <p className={`${styles.paragraph} !text-[#999999] !text-sm`}>
+                                                {service.name}
+                                            </p>
+                                            {service.description && (
+                                                <p className={`${styles.paragraph} text-hh-gray text-xs mt-1`}>
+                                                    {service.description}
+                                                </p>
+                                            )}
+                                        </div>
+                                        <div className="col-span-2">
+                                            <p className={`${styles.paragraph} !text-[#999999] !text-sm`}>
+                                                R{service.price.toFixed(2)}
+                                            </p>
+                                        </div>
+                                        <div className="col-span-1">
+                                            <p className={`${styles.paragraph} !text-[#999999] !text-sm`}>
+                                                {service.active ? "Yes" : "No"}
+                                            </p>
+                                        </div>
+                                        <div className="col-span-1 flex gap-x-3 justify-end items-center">
+                                            <button
+                                                onClick={() => setEditingService(service)}
+                                                className={`${styles.paragraph} text-black hover:text-hh-orange transition-all !text-sm`}
+                                            >
+                                                Edit
+                                            </button>
+                                            <button
+                                                onClick={() => {
+                                                    if (confirm("Delete this service?")) {
+                                                        router.delete(route("services.destroy", service.id));
+                                                    }
+                                                }}
+                                                className={`${styles.paragraph} text-black hover:text-red-500 transition-all !text-sm`}
+                                            >
+                                                Delete
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                                {services.length === 0 && (
+                                    <div className="border border-dashed border-hh-gray rounded-md p-6 text-center">
+                                        <p className={`${styles.paragraph} text-hh-gray`}>
+                                            No services configured yet.
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </section>
+
+                    <section className="shadow border border-hh-gray rounded-md bg-white">
+                        <button
+                            type="button"
+                            onClick={() => setRetailOpen((prev) => !prev)}
+                            className="w-full flex justify-between items-center p-6"
+                        >
+                            <div>
+                                <h4 className={`${styles.h3} !mb-0 font-medium text-black text-left`}>
+                                    Off-site items
+                                </h4>
+                                <p className={`${styles.paragraph} text-hh-gray mt-1 text-left`}>
+                                    These items can be sold to customers.
+                                </p>
+                            </div>
+                            <div className="flex items-center gap-4">
+                                <span className="text-sm text-hh-gray">
+                                    {retailItems.length} item{retailItems.length === 1 ? "" : "s"}
+                                </span>
+                                <svg
+                                    className={`w-5 h-5 text-hh-orange transition-transform ${retailOpen ? "rotate-180" : "rotate-0"}`}
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                >
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                </svg>
+                            </div>
+                        </button>
+
+                        <div
+                            className={`border-t border-hh-gray/60 transition-all duration-300 ease-in-out ${retailOpen
+                                ? "max-h-[2000px] opacity-100"
+                                : "max-h-0 opacity-0 overflow-hidden"}
+                        `}
+                        >
+                            <div className="flex justify-end p-6 pt-4">
+                                <button
+                                    onClick={() => setEditingRetail({})}
+                                    className="bg-white shadow-md border text-hh-orange border-hh-orange hover:bg-hh-orange hover:text-white p-2 px-8 rounded transition-all cursor-pointer"
+                                >
+                                    <p className={`${styles.paragraph} whitespace-nowrap`}>
+                                        Add a new retail item
+                                    </p>
+                                </button>
+                            </div>
+
+                            <div className="grid grid-cols-12 p-6 gap-x-4">
+                                <div className="col-span-1">
+                                    <p className={`${styles.paragraph} text-black`}>ID</p>
+                                </div>
+                                <div className="col-span-2">
+                                    <p className={`${styles.paragraph} text-black`}>Code</p>
+                                </div>
+                                <div className="col-span-3">
+                                    <p className={`${styles.paragraph} text-black`}>Name</p>
+                                </div>
+                                <div className="col-span-2">
+                                    <p className={`${styles.paragraph} text-black`}>Category</p>
+                                </div>
+                                <div className="col-span-2">
+                                    <p className={`${styles.paragraph} text-black`}>Price</p>
+                                </div>
+                                <div className="col-span-1">
+                                    <p className={`${styles.paragraph} text-black`}>Active</p>
+                                </div>
+                                <div className="col-span-1 text-right">
+                                    <p className={`${styles.paragraph} text-black`}>Actions</p>
+                                </div>
+                            </div>
+
+                            <div className="col-span-full space-y-4 pb-6">
+                                {retailItems.map((item) => (
+                                    <div
+                                        key={item.id}
+                                        className="col-span-full bg-white shadow grid grid-cols-12 gap-x-4 items-center border border-hh-gray rounded-md p-6"
+                                    >
+                                        <div className="col-span-1">
+                                            <p className={`${styles.paragraph} !text-[#999999]`}>
+                                                {item.id}
+                                            </p>
+                                        </div>
+                                        <div className="col-span-2">
+                                            <p className={`${styles.paragraph} !text-[#999999] !text-sm`}>
+                                                {item.code}
+                                            </p>
+                                        </div>
+                                        <div className="col-span-3">
+                                            <p className={`${styles.paragraph} !text-[#999999] !text-sm`}>
+                                                {item.name}
+                                            </p>
+                                            {item.description && (
+                                                <p className={`${styles.paragraph} text-hh-gray text-xs mt-1`}>
+                                                    {item.description}
+                                                </p>
+                                            )}
+                                        </div>
+                                        <div className="col-span-2">
+                                            <p className={`${styles.paragraph} !text-[#999999] !text-sm`}>
+                                                R{item.price.toFixed(2)}
+                                            </p>
+                                        </div>
+                                        <div className="col-span-1">
+                                            <span
+                                                className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
+                                                    item.is_active
+                                                        ? "bg-green-100 text-green-800"
+                                                        : "bg-gray-200 text-gray-600"
+                                                }`}
+                                            >
+                                                {item.is_active ? "Active" : "Inactive"}
+                                            </span>
+                                        </div>
+                                        <div className="col-span-2 flex gap-x-3 justify-end items-center">
+                                            <button
+                                                onClick={() => setEditingRetail(item)}
+                                                className={`${styles.paragraph} text-black hover:text-hh-orange transition-all !text-sm`}
+                                            >
+                                                Edit
+                                            </button>
+                                            {item.is_active ? (
+                                                <button
+                                                    onClick={() => {
+                                                        if (confirm("Deactivate this add-on?")) {
+                                                            router.delete(route("retail-items.destroy", item.id));
+                                                        }
+                                                    }}
+                                                    className={`${styles.paragraph} text-red-500 hover:text-red-700 transition-all !text-sm`}
+                                                >
+                                                    Deactivate
+                                                </button>
+                                            ) : (
+                                                <button
+                                                    onClick={() => router.post(route("retail-items.restore", item.id))}
+                                                    className={`${styles.paragraph} text-green-600 hover:text-green-800 transition-all !text-sm`}
+                                                >
+                                                    Activate
+                                                </button>
+                                            )}
+                                            <button
+                                                onClick={() => {
+                                                    if (confirm("Permanently delete this add-on? This cannot be undone.")) {
+                                                        router.delete(route("retail-items.force-destroy", item.id));
+                                                    }
+                                                }}
+                                                className={`${styles.paragraph} text-red-500 hover:text-red-700 transition-all !text-sm`}
+                                            >
+                                                Delete
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                                {retailItems.length === 0 && (
+                                    <div className="border border-dashed border-hh-gray rounded-md p-6 text-center">
+                                        <p className={`${styles.paragraph} text-hh-gray`}>
+                                            No retail items configured yet.
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </section>
                 </div>
-                {editing !== null && (
+                {editingService !== null && (
                     <CreateService
-                        item={editing}
-                        onClose={() => setEditing(null)}
+                        item={editingService}
+                        onClose={() => setEditingService(null)}
+                    />
+                )}
+                {editingRetail !== null && (
+                    <CreateRetailItem
+                        item={editingRetail}
+                        onClose={() => setEditingRetail(null)}
                     />
                 )}
             </div>

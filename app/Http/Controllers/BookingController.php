@@ -6,6 +6,7 @@ use App\Models\Booking;
 use App\Models\EventOccurrence;
 use App\Models\Service;
 use App\Models\Timeslot;
+use Illuminate\Support\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -159,8 +160,12 @@ class BookingController extends Controller
         $entity      = config('peach-payment.entity_id');
         $cbUrl       = '/order/callback'; // Relative path - Peach Payment library will make it absolute
         $now         = now();
+        $user        = $request->user();
         $membershipApplied = false; // Initialize membership applied flag
         $couponData = $request->input('coupon', []); // Initialize coupon data from request
+        // Per-booking date usage tracking (populated once we know slot dates)
+        $membershipUsageKey = null;
+        $membershipUsageDate = null;
 
         // ---------- 0) Normalise payload to a cart of items ---------
         $asCart = $request->has('items');
@@ -242,16 +247,23 @@ class BookingController extends Controller
         }
 
         // ---------- 2) Atomic cart creation (with capacity checks) ----------
-        [$bookings, $grandTotalCents] = DB::transaction(function () use (
+        [$bookings, $grandTotalCents, $membershipUsageKey, $membershipUsageDate] = DB::transaction(function () use (
             $items,
             $wantBySlot,
             $wantByEvent,
             $holdMinutes,
             $now,
             $cartKey,
+            $user,
+            &$membershipUsageKey,
+            &$membershipUsageDate,
+            &$membershipApplied,
         ) {
             $created = [];
             $grand   = 0;
+            $membershipAlreadyUsed = false;
+            $membershipUsageKey = null;
+            $membershipUsageDate = null;
 
             // 2A. Slot checks (covers both sauna-only and event+sauna items)
             foreach (array_keys($wantBySlot) as $slotId) {
@@ -318,7 +330,6 @@ class BookingController extends Controller
 
             // 2D. Create each booking with a hold
             $voucherApplied = false;
-            $membershipApplied = false;
 
             foreach ($items as $it) {
                 // Invariant: all items must have a timeslot_id
@@ -356,6 +367,12 @@ class BookingController extends Controller
                 ]);
 
                 $total = 0;
+                $bookingDate = null;
+                if ($slot->starts_at) {
+                    $bookingDate = $slot->starts_at instanceof Carbon
+                        ? $slot->starts_at->toDateString()
+                        : Carbon::parse($slot->starts_at)->toDateString();
+                }
 
                 if ($it['kind'] === 'sauna') {
                     if (!$sessionSvc) abort(500, 'SAUNA_SESSION service missing.');
@@ -414,11 +431,19 @@ class BookingController extends Controller
                         }
                     }
 
-                    // Membership discount (apply once per cart)
-                    if (!$membershipApplied && !$voucherApplied && Auth::user()->hasActiveMembership() && !Auth::user()->hasUsedFreeBookingToday()) {
-                        $discount = min($priceEach, $total);
-                        $total -= $discount;
-                        $membershipApplied = true;
+                    if (!$membershipApplied && !$voucherApplied && $user->hasActiveMembership()) {
+                        if (!$membershipUsageKey || !$membershipUsageDate) {
+                            $membershipUsageDate = $bookingDate ?? $now->toDateString();
+                            $membershipUsageKey = sprintf('membership_free_booking:%d:%s', $user->id, $membershipUsageDate);
+                            $membershipAlreadyUsed = Cache::get($membershipUsageKey, false);
+                        }
+
+                        if (!$membershipAlreadyUsed && !$user->hasUsedFreeBookingOnDate($membershipUsageDate)) {
+                            $discount = min($priceEach, $total);
+                            $total -= $discount;
+                            $membershipApplied = true;
+                            $membershipAlreadyUsed = true;
+                        }
                     }
                 } else {
                     if (!$eventPkg) abort(500, 'EVENT_PACKAGE service missing.');
@@ -458,8 +483,12 @@ class BookingController extends Controller
                 $grand    += $total;
             }
 
-            return [$created, $grand];
+            return [$created, $grand, $membershipUsageKey, $membershipUsageDate];
         });
+
+        if ($membershipApplied && $membershipUsageKey) {
+            Cache::put($membershipUsageKey, true, Carbon::parse($membershipUsageDate ?? $now->toDateString())->endOfDay());
+        }
 
         // ---------- 2.4) Apply coupon discount if present ----------
         $couponDiscount = 0;

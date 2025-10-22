@@ -4,15 +4,33 @@ namespace App\Http\Controllers;
 
 use Inertia\Inertia;
 use App\Models\Service;
+use App\Models\RetailItem;
 use Illuminate\Http\Request;
 
 class ServiceController extends Controller
 {
     public function index()
     {
-        $services = Service::active()->get();
+        $services = Service::active()->orderBy('name')->get();
+
+        $retailItems = RetailItem::orderByDesc('is_active')
+            ->orderBy('name')
+            ->get()
+            ->map(function (RetailItem $item) {
+                return [
+                    'id' => $item->id,
+                    'code' => $item->code,
+                    'name' => $item->name,
+                    'price' => round($item->price_rands, 2),
+                    'price_cents' => $item->price_cents,
+                    'description' => $item->description,
+                    'is_active' => $item->is_active,
+                ];
+            });
+
         return Inertia::render('services/index', [
             'services' => $services,
+            'retailItems' => $retailItems,
         ]);
     }
     public function destroy(Service $service)
