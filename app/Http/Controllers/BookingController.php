@@ -211,6 +211,11 @@ class BookingController extends Controller
         $cacheKey = "cart_checkout:{$cartKey}";
         if (Cache::has($cacheKey)) {
             $cached = Cache::get($cacheKey);
+
+            if ($response = $this->handleCachedCheckoutVoucherFlow($cartKey, $cacheKey, $cached, $entity, $cbUrl, $holdMinutes)) {
+                return $response;
+            }
+
             Log::info('Idempotent reuse of existing checkout for cart_key', ['cart_key' => $cartKey, 'cached' => $cached]);
 
             return Inertia::render('Payment/RedirectToGateway', [
@@ -445,6 +450,13 @@ class BookingController extends Controller
             return [$created, $grand];
         });
 
+        Log::info('Cart totals computed', [
+            'cart_key'          => $cartKey,
+            'booking_ids'       => collect($bookings)->pluck('id'),
+            'amounts'           => collect($bookings)->map(fn($b) => (int) ($b->amount ?? 0)),
+            'grand_total_cents' => (int) $grandTotalCents,
+        ]);
+
         // ---------- 2.5) Zero-amount flow (voucher fully covered) ----------
         if ($grandTotalCents <= 0) {
             foreach ($bookings as $b) {
@@ -527,7 +539,142 @@ class BookingController extends Controller
         ]);
     }
 
+    private function handleCachedCheckoutVoucherFlow(string $cartKey, string $cacheKey, array $cached, string $entity, string $cbUrl, int $holdMinutes)
+    {
+        $rewardQuery = \App\Models\LoyaltyReward::where('status', \App\Models\LoyaltyReward::STATUS_RESERVED)
+            ->where('reserved_token', $cartKey);
 
+        if (!$rewardQuery->exists()) {
+            return null;
+        }
+
+        $reprice = DB::transaction(function () use ($rewardQuery, $cached, $cacheKey) {
+            $reward = $rewardQuery->lockForUpdate()->first();
+            if (!$reward) {
+                return null;
+            }
+
+            $bookingIds = $cached['booking_ids'] ?? [];
+            if (empty($bookingIds)) {
+                Cache::forget($cacheKey);
+                return null;
+            }
+
+            $bookings = Booking::whereIn('id', $bookingIds)
+                ->lockForUpdate()
+                ->with('services:id')
+                ->get();
+
+            if ($bookings->isEmpty()) {
+                Cache::forget($cacheKey);
+                return null;
+            }
+
+            $sessionSvc = Service::whereCode('SAUNA_SESSION')->first();
+            if (!$sessionSvc) {
+                abort(500, 'SAUNA_SESSION service missing.');
+            }
+
+            $target = $bookings->first(function ($booking) use ($sessionSvc) {
+                return $booking->services->contains('id', $sessionSvc->id);
+            });
+
+            if (!$target) {
+                return null;
+            }
+
+            $currentAmount = (int) $target->amount;
+            $discount      = min((int) $sessionSvc->price_cents, $currentAmount);
+
+            if ($discount <= 0) {
+                return null;
+            }
+
+            $target->forceFill([
+                'amount' => max(0, $currentAmount - $discount),
+            ])->save();
+
+            $reward->forceFill([
+                'reserved_token'      => null,
+                'reserved_booking_id' => $target->id,
+            ])->save();
+
+            $grand = (int) Booking::whereIn('id', $bookingIds)->sum('amount');
+
+            return [
+                'booking_ids' => $bookingIds,
+                'grand_cents' => $grand,
+            ];
+        });
+
+        if (!$reprice) {
+            return null;
+        }
+
+        $bookingIds = $reprice['booking_ids'];
+        $bookings   = Booking::whereIn('id', $bookingIds)->get()->values();
+
+        if ($bookings->isEmpty()) {
+            Cache::forget($cacheKey);
+            return null;
+        }
+
+        if ($reprice['grand_cents'] <= 0) {
+            Cache::forget($cacheKey);
+
+            $loyalty = app(\App\Services\LoyaltyService::class);
+            foreach ($bookings as $booking) {
+                $booking->forceFill([
+                    'status'                    => 'paid',
+                    'payment_status'            => 'Voucher',
+                    'hold_expires_at'           => null,
+                    'payment_method'            => 'Voucher',
+                    'peach_payment_checkout_id' => null,
+                    'peach_payment_order_no'    => null,
+                ])->save();
+
+                if ($reward = \App\Models\LoyaltyReward::where('reserved_booking_id', $booking->id)
+                    ->where('status', \App\Models\LoyaltyReward::STATUS_RESERVED)
+                    ->first()
+                ) {
+                    $loyalty->redeemRewardForBooking($reward, $booking->id);
+                }
+                $loyalty->accrueFromBooking($booking);
+            }
+
+            $orderNumber = 'voucher-' . $bookings->first()->id;
+            $this->sendConfirmationEmail($bookings, $orderNumber);
+
+            $target = $bookings->first();
+            $url    = route('bookings.show', $target) . '?order=' . urlencode($orderNumber);
+
+            return redirect()->to($url);
+        }
+
+        $peach    = new PeachPayment();
+        $amount   = number_format($reprice['grand_cents'] / 100, 2, '.', '');
+        $checkout = $peach->createCheckout($amount, $cbUrl);
+
+        foreach ($bookings as $booking) {
+            $booking->forceFill([
+                'peach_payment_checkout_id' => $checkout['checkoutId'],
+                'peach_payment_order_no'    => $checkout['order_number'],
+            ])->save();
+        }
+
+        Cache::put($cacheKey, [
+            'booking_ids' => $bookingIds,
+            'checkoutId'  => $checkout['checkoutId'],
+            'orderNumber' => $checkout['order_number'],
+            'grandCents'  => $reprice['grand_cents'],
+        ], now()->addMinutes(max($holdMinutes, 10)));
+
+        return Inertia::render('Payment/RedirectToGateway', [
+            'entityId'          => $entity,
+            'checkoutId'        => $checkout['checkoutId'],
+            'checkoutScriptUrl' => config('peach-payment.' . config('peach-payment.environment') . '.embedded_checkout_url'),
+        ]);
+    }
 
     public function preflight(Request $request)
     {

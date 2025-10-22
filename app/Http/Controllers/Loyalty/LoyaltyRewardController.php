@@ -59,7 +59,7 @@ class LoyaltyRewardController extends Controller
                     throw \Illuminate\Validation\ValidationException::withMessages(['code' => 'Reward has expired.']);
                 }
                 $reward->update([
-                    'status'          => \App\Models\LoyaltyReward::STATUS_ISSUED,
+                    'status'          => \App\Models\LoyaltyReward::STATUS_RESERVED,
                     'reserved_at'     => now(),
                     'reserved_token'  => $validated['cart_key'], // <— cart-level reservation
                     'reserved_booking_id' => null,
