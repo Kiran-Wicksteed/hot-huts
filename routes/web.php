@@ -98,6 +98,8 @@ Route::middleware(['auth', 'verified'])
 
         Route::post('/users/{user}/memberships', [MembershipController::class, 'store'])
             ->name('admin.users.memberships.store');
+        Route::delete('/users/{user}/memberships', [MembershipController::class, 'destroy'])
+            ->name('admin.users.memberships.destroy');
     });
 
 //Admin Search Customers Route

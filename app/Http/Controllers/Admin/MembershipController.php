@@ -80,10 +80,30 @@ class MembershipController extends Controller
     }
 
     /**
-     * Remove the specified resource from storage.
+     * Remove the specified resource from storage (revoke membership).
      */
-    public function destroy(string $id)
+    public function destroy(User $user)
     {
-        //
+        $membership = $user->activeMembership()->first();
+
+        if (!$membership) {
+            if (request()->wantsJson()) {
+                return response()->json(['error' => 'This user does not have an active membership.'], 404);
+            }
+            return back()->withErrors(['membership' => 'This user does not have an active membership.']);
+        }
+
+        // Set cancelled_at to revoke the membership
+        $membership->update([
+            'cancelled_at' => now(),
+        ]);
+
+        if (request()->wantsJson()) {
+            return response()->json([
+                'message' => 'Membership revoked successfully'
+            ]);
+        }
+
+        return back()->with('success', 'Membership revoked successfully.');
     }
 }

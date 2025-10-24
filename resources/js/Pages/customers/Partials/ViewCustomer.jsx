@@ -256,42 +256,74 @@ export default function ViewCustomer({ open, onClose, detail }) {
 
                     <div className="flex items-center gap-2">
                         {detail?.is_admin === false && (
-                            <button
-                                onClick={async () => {
-                                    if (!confirm('Are you sure you want to grant a 3-month membership to this user?')) {
-                                        return;
-                                    }
+                            <>
+                                <button
+                                    onClick={async () => {
+                                        if (!confirm('Are you sure you want to grant a 3-month membership to this user?')) {
+                                            return;
+                                        }
 
-                                    try {
-                                        const response = await axios.post(
-                                            route('admin.users.memberships.store', detail.id),
-                                            {},
-                                            {
-                                                headers: {
-                                                    'Accept': 'application/json',
-                                                    'X-Requested-With': 'XMLHttpRequest'
+                                        try {
+                                            const response = await axios.post(
+                                                route('admin.users.memberships.store', detail.id),
+                                                {},
+                                                {
+                                                    headers: {
+                                                        'Accept': 'application/json',
+                                                        'X-Requested-With': 'XMLHttpRequest'
+                                                    }
                                                 }
-                                            }
-                                        );
+                                            );
 
-                                        alert(response.data.message || 'Membership granted successfully!');
-                                        // Update the detail prop to reflect the new membership
-                                        const updatedDetail = { ...detail, membership: response.data.membership };
-                                        // Trigger a re-render with the updated data
-                                        router.reload({ only: ['customerDetail'] });
-                                    } catch (error) {
-                                        console.error('Error granting membership:', error);
-                                        const errorMessage = error.response?.data?.error || 
-                                                          error.response?.data?.message || 
-                                                          'Failed to grant membership. Please try again.';
-                                        alert(errorMessage);
-                                    }
-                                }}
-                                className="rounded-lg px-3 py-1.5 text-sm border bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
-                                disabled={detail?.membership !== null}
-                            >
-                                {detail?.membership ? 'Membership Active' : 'Grant Membership'}
-                            </button>
+                                            alert(response.data.message || 'Membership granted successfully!');
+                                            router.reload({ only: ['customerDetail'] });
+                                        } catch (error) {
+                                            console.error('Error granting membership:', error);
+                                            const errorMessage = error.response?.data?.error || 
+                                                              error.response?.data?.message || 
+                                                              'Failed to grant membership. Please try again.';
+                                            alert(errorMessage);
+                                        }
+                                    }}
+                                    className="rounded-lg px-3 py-1.5 text-sm border bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
+                                    disabled={detail?.membership !== null}
+                                >
+                                    {detail?.membership ? 'Membership Active' : 'Grant Membership'}
+                                </button>
+                                {detail?.membership && (
+                                    <button
+                                        onClick={async () => {
+                                            if (!confirm('Are you sure you want to revoke this user\'s membership? This action cannot be undone.')) {
+                                                return;
+                                            }
+
+                                            try {
+                                                const response = await axios.delete(
+                                                    route('admin.users.memberships.destroy', detail.id),
+                                                    {
+                                                        headers: {
+                                                            'Accept': 'application/json',
+                                                            'X-Requested-With': 'XMLHttpRequest'
+                                                        }
+                                                    }
+                                                );
+
+                                                alert(response.data.message || 'Membership revoked successfully!');
+                                                router.reload({ only: ['customerDetail'] });
+                                            } catch (error) {
+                                                console.error('Error revoking membership:', error);
+                                                const errorMessage = error.response?.data?.error || 
+                                                                  error.response?.data?.message || 
+                                                                  'Failed to revoke membership. Please try again.';
+                                                alert(errorMessage);
+                                            }
+                                        }}
+                                        className="rounded-lg px-3 py-1.5 text-sm border bg-red-600 text-white hover:bg-red-700"
+                                    >
+                                        Revoke Membership
+                                    </button>
+                                )}
+                            </>
                         )}
                         {!editMode ? (
                             <button
