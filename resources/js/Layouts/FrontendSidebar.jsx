@@ -1,4 +1,4 @@
-import { Link } from "@inertiajs/react";
+import { Link, usePage } from "@inertiajs/react";
 import {
     BookmarkIcon,
     GiftIcon,
@@ -24,10 +24,12 @@ function SidebarLink({ href, icon: Icon, active, children }) {
 }
 
 export default function FrontendSidebar() {
-    // relies on Ziggy route() helper being available (it is used elsewhere already)
-    const isBookings = route().current("my-bookings.*");
-    const isLoyalty = route().current("loyalty.*");
-    const isCoupons = route().current("coupons.*");
+    const { url } = usePage();
+    
+    // Check current route using the URL
+    const isBookings = url.startsWith('/my-bookings') || url === '/';
+    const isLoyalty = url.startsWith('/loyalty');
+    const isCoupons = url.startsWith('/coupons');
 
     return (
         <div className="pr-8 lg:pr-16 border-r border-hh-gray">

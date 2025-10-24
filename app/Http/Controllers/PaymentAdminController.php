@@ -112,7 +112,6 @@ class PaymentAdminController extends Controller
 
     public function export(Request $request)
     {
-    
         // Apply same filters as index - ONLY PAID BOOKINGS
         $bookings = Booking::with([
             'user',
@@ -134,7 +133,15 @@ class PaymentAdminController extends Controller
                 });
             })
             ->when($request->date_start && $request->date_end, function ($q) use ($request) {
-                $q->whereBetween('created_at', [$request->date_start, $request->date_end]);
+                // Filter by actual booking date (timeslot date or event date), not created_at
+                $q->where(function ($query) use ($request) {
+                    $query->whereHas('timeslot.schedule', function ($sub) use ($request) {
+                        $sub->whereBetween('date', [$request->date_start, $request->date_end]);
+                    })
+                    ->orWhereHas('eventOccurrence', function ($sub) use ($request) {
+                        $sub->whereBetween('occurs_on', [$request->date_start, $request->date_end]);
+                    });
+                });
             })
             ->orderBy('created_at', 'asc')
             ->get();
@@ -150,357 +157,288 @@ class PaymentAdminController extends Controller
             ->orderBy('sale_date', 'asc')
             ->get();
 
-        // Calculate totals
-        $totalAmount = $bookings->sum('amount');
-        $totalOnline = $bookings->where('booking_type', 'online')->sum('amount');
-        $totalWalkIn = $bookings->where('booking_type', 'walk in')->sum('amount');
-        
-        // Calculate add-ons total
-        $totalAddons = 0;
-        foreach ($bookings as $booking) {
-            foreach ($booking->services as $service) {
-                // Exclude main service codes (SAUNA_SESSION, EVENT_PACKAGE)
-                if (!in_array($service->code, ['SAUNA_SESSION', 'EVENT_PACKAGE'])) {
-                    $totalAddons += ($service->pivot->line_total ?? 0);
-                }
-            }
-        }
-
-        // Calculate retail sales total
-        $totalRetailSales = $retailSales->sum('total_cents');
-
-        $response = new StreamedResponse(function () use ($bookings, $retailSales, $totalAmount, $totalOnline, $totalWalkIn, $totalAddons, $totalRetailSales) {
+        $response = new StreamedResponse(function () use ($bookings, $retailSales) {
             $handle = fopen('php://output', 'w');
 
-            // Group bookings by location
-            $bookingsByLocation = [];
-            $dailyTotals = [];
-            $weeklyTotals = [];
-            $monthlyTotals = [];
-            $locationTotals = [];
-            $locationDailyTotals = [];
-            $locationWeeklyTotals = [];
-            $locationMonthlyTotals = [];
-            $locationOnlineVsWalkIn = [];
+            // Data structure: [location][date][items]
+            $data = [];
+            $grandTotalBookings = 0;
+            $grandTotalRetail = 0;
 
-            // Process and group bookings
-            foreach ($bookings as $booking) {
-                // Determine service name and location
-                $serviceName = 'Unknown Service';
-                $location = 'Unknown Location';
+            $normalizeAmount = static function ($value): int {
+                if ($value === null) {
+                    return 0;
+                }
+
+                $numeric = (float) $value;
                 
-                if ($booking->eventOccurrence && $booking->eventOccurrence->event) {
-                    $serviceName = $booking->eventOccurrence->event->name ?? 'Event';
-                    if ($booking->eventOccurrence->location) {
-                        $location = $booking->eventOccurrence->location->name ?? 'Unknown Location';
-                    }
-                } elseif ($booking->timeslot && $booking->timeslot->schedule) {
-                    if ($booking->timeslot->schedule->sauna) {
-                        $serviceName = $booking->timeslot->schedule->sauna->name ?? 'Sauna Session';
-                    }
-                    if ($booking->timeslot->schedule->location) {
-                        $location = $booking->timeslot->schedule->location->name ?? 'Unknown Location';
-                    }
+                // If it's a decimal (has fractional part), it's in rands - convert to cents
+                if (fmod($numeric, 1.0) !== 0.0) {
+                    return (int) round($numeric * 100);
                 }
-
-                // Calculate add-ons for this booking
-                $addonsAmount = 0;
-                foreach ($booking->services as $service) {
-                    if (!in_array($service->code, ['SAUNA_SESSION', 'EVENT_PACKAGE'])) {
-                        $addonsAmount += ($service->pivot->line_total ?? 0);
-                    }
+                
+                // If it's a whole number less than 100, it's likely in rands - convert to cents
+                if ($numeric < 100) {
+                    return (int) round($numeric * 100);
                 }
+                
+                // If it's >= 100, assume it's already in cents
+                return (int) round($numeric);
+            };
 
-                $baseAmount = $booking->amount - $addonsAmount;
-                $bookingType = ucfirst($booking->booking_type ?? 'Unknown');
-                $date = $booking->created_at->format('Y-m-d');
-                $dateFormatted = $booking->created_at->format('d M Y');
-                $week = $booking->created_at->format('Y-W');
-                $month = $booking->created_at->format('Y-m');
-
-                // Group by location
-                if (!isset($bookingsByLocation[$location])) {
-                    $bookingsByLocation[$location] = [];
+            // STEP 1: Process each booking
+            foreach ($bookings as $booking) {
+                // Determine location and date
+                $isEvent = $booking->eventOccurrence !== null;
+                $location = $isEvent ? 'Special Functions' : ($booking->timeslot->schedule->location->name ?? 'Unknown');
+                $bookingDate = $isEvent ? $booking->eventOccurrence->occurs_on : $booking->timeslot->schedule->date;
+                $date = \Carbon\Carbon::parse($bookingDate)->format('Y-m-d');
+                $dateDisplay = \Carbon\Carbon::parse($bookingDate)->format('d M');
+                
+                // Initialize structure
+                if (!isset($data[$location])) {
+                    $data[$location] = ['total' => 0, 'dates' => []];
                 }
-                $bookingsByLocation[$location][] = [
-                    'date' => $dateFormatted,
+                if (!isset($data[$location]['dates'][$date])) {
+                    $data[$location]['dates'][$date] = [
+                        'display' => $dateDisplay,
+                        'bookings' => [],
+                        'capacity' => ['max' => 0, 'booked' => 0]
+                    ];
+                }
+                
+                // Store booking with all its data
+                $data[$location]['dates'][$date]['bookings'][] = [
                     'id' => $booking->id,
-                    'customer' => $booking->user->name ?? 'Guest',
-                    'service' => $serviceName,
-                    'type' => $bookingType,
                     'people' => $booking->people,
-                    'base' => $baseAmount,
-                    'addons' => $addonsAmount,
-                    'total' => $booking->amount,
-                    'method' => $booking->payment_method ?? 'Unknown',
-                    'status' => ucfirst($booking->status),
+                    'amount' => $normalizeAmount($booking->amount),
+                    'payment_method' => $booking->payment_method,
+                    'booking_type' => $booking->booking_type,
+                    'services' => $booking->services,
+                    'is_event' => $isEvent,
+                    'event_name' => $isEvent ? ($booking->eventOccurrence->event->name ?? 'Event') : null
+                ];
+                
+                // Track capacity
+                if (!$isEvent && $booking->timeslot) {
+                    $cap = $booking->timeslot->capacity ?? 0;
+                    if ($cap > $data[$location]['dates'][$date]['capacity']['max']) {
+                        $data[$location]['dates'][$date]['capacity']['max'] = $cap;
+                    }
+                    $data[$location]['dates'][$date]['capacity']['booked'] += $booking->people;
+                }
+                
+                $normalizedBookingAmount = $normalizeAmount($booking->amount);
+                $data[$location]['total'] += $normalizedBookingAmount;
+                $grandTotalBookings += $normalizedBookingAmount;
+            }
+            
+            // STEP 2: Process retail sales
+            foreach ($retailSales as $sale) {
+                $location = $sale->location->name ?? 'Unknown';
+                $date = $sale->sale_date->format('Y-m-d');
+                $dateDisplay = $sale->sale_date->format('d M');
+
+                
+                if (!isset($data[$location])) {
+                    $data[$location] = ['total' => 0, 'dates' => []];
+                }
+                if (!isset($data[$location]['dates'][$date])) {
+                    $data[$location]['dates'][$date] = [
+                        'display' => $dateDisplay,
+                        'bookings' => [],
+                        'capacity' => ['max' => 0, 'booked' => 0]
+                    ];
+                }
+                
+                // Add retail sale as a "booking" with special flag
+                $data[$location]['dates'][$date]['bookings'][] = [
+                    'is_retail' => true,
+                    'name' => $sale->retailItem->name ?? 'Unknown Item',
+                    'quantity' => $sale->quantity,
+                    'amount' => $normalizeAmount($sale->total_cents)
                 ];
 
-                // Track daily totals
-                if (!isset($dailyTotals[$date])) {
-                    $dailyTotals[$date] = ['base' => 0, 'addons' => 0, 'total' => 0, 'count' => 0];
-                }
-                $dailyTotals[$date]['base'] += $baseAmount;
-                $dailyTotals[$date]['addons'] += $addonsAmount;
-                $dailyTotals[$date]['total'] += $booking->amount;
-                $dailyTotals[$date]['count']++;
-
-                // Track weekly totals
-                if (!isset($weeklyTotals[$week])) {
-                    $weeklyTotals[$week] = ['base' => 0, 'addons' => 0, 'total' => 0, 'count' => 0];
-                }
-                $weeklyTotals[$week]['base'] += $baseAmount;
-                $weeklyTotals[$week]['addons'] += $addonsAmount;
-                $weeklyTotals[$week]['total'] += $booking->amount;
-                $weeklyTotals[$week]['count']++;
-
-                // Track monthly totals
-                if (!isset($monthlyTotals[$month])) {
-                    $monthlyTotals[$month] = ['base' => 0, 'addons' => 0, 'total' => 0, 'count' => 0];
-                }
-                $monthlyTotals[$month]['base'] += $baseAmount;
-                $monthlyTotals[$month]['addons'] += $addonsAmount;
-                $monthlyTotals[$month]['total'] += $booking->amount;
-                $monthlyTotals[$month]['count']++;
-
-                // Track location totals
-                if (!isset($locationTotals[$location])) {
-                    $locationTotals[$location] = ['base' => 0, 'addons' => 0, 'total' => 0, 'count' => 0];
-                }
-                $locationTotals[$location]['base'] += $baseAmount;
-                $locationTotals[$location]['addons'] += $addonsAmount;
-                $locationTotals[$location]['total'] += $booking->amount;
-                $locationTotals[$location]['count']++;
-
-                // Track location daily totals
-                if (!isset($locationDailyTotals[$location])) {
-                    $locationDailyTotals[$location] = [];
-                }
-                if (!isset($locationDailyTotals[$location][$date])) {
-                    $locationDailyTotals[$location][$date] = ['base' => 0, 'addons' => 0, 'total' => 0, 'count' => 0];
-                }
-                $locationDailyTotals[$location][$date]['base'] += $baseAmount;
-                $locationDailyTotals[$location][$date]['addons'] += $addonsAmount;
-                $locationDailyTotals[$location][$date]['total'] += $booking->amount;
-                $locationDailyTotals[$location][$date]['count']++;
-
-                // Track location weekly totals
-                if (!isset($locationWeeklyTotals[$location])) {
-                    $locationWeeklyTotals[$location] = [];
-                }
-                if (!isset($locationWeeklyTotals[$location][$week])) {
-                    $locationWeeklyTotals[$location][$week] = ['base' => 0, 'addons' => 0, 'total' => 0, 'count' => 0];
-                }
-                $locationWeeklyTotals[$location][$week]['base'] += $baseAmount;
-                $locationWeeklyTotals[$location][$week]['addons'] += $addonsAmount;
-                $locationWeeklyTotals[$location][$week]['total'] += $booking->amount;
-                $locationWeeklyTotals[$location][$week]['count']++;
-
-                // Track location monthly totals
-                if (!isset($locationMonthlyTotals[$location])) {
-                    $locationMonthlyTotals[$location] = [];
-                }
-                if (!isset($locationMonthlyTotals[$location][$month])) {
-                    $locationMonthlyTotals[$location][$month] = ['base' => 0, 'addons' => 0, 'total' => 0, 'count' => 0];
-                }
-                $locationMonthlyTotals[$location][$month]['base'] += $baseAmount;
-                $locationMonthlyTotals[$location][$month]['addons'] += $addonsAmount;
-                $locationMonthlyTotals[$location][$month]['total'] += $booking->amount;
-                $locationMonthlyTotals[$location][$month]['count']++;
-
-                // Track location online vs walk-in
-                if (!isset($locationOnlineVsWalkIn[$location])) {
-                    $locationOnlineVsWalkIn[$location] = ['online' => 0, 'walk_in' => 0];
-                }
-                if (strtolower($booking->booking_type ?? '') === 'online') {
-                    $locationOnlineVsWalkIn[$location]['online'] += $booking->amount;
-                } elseif (strtolower($booking->booking_type ?? '') === 'walk in') {
-                    $locationOnlineVsWalkIn[$location]['walk_in'] += $booking->amount;
-                }
+                $normalizedRetailAmount = $normalizeAmount($sale->total_cents);
+                $data[$location]['total'] += $normalizedRetailAmount;
+                $grandTotalRetail += $normalizedRetailAmount;
             }
-
-            // Output bookings grouped by location
-            foreach ($bookingsByLocation as $location => $locationBookings) {
-                fputcsv($handle, []);
-                fputcsv($handle, ['--- ' . strtoupper($location) . ' ---']);
-                fputcsv($handle, []);
-                fputcsv($handle, ['Date', 'Booking ID', 'Customer Name', 'Service', 'Booking Type', 'People', 'Base Amount', 'Add-ons Amount', 'Total Amount', 'Payment Method', 'Status']);
-                
-                foreach ($locationBookings as $b) {
-                    fputcsv($handle, [
-                        $b['date'],
-                        $b['id'],
-                        $b['customer'],
-                        $b['service'],
-                        $b['type'],
-                        $b['people'],
-                        number_format($b['base'] / 100, 2),
-                        number_format($b['addons'] / 100, 2),
-                        number_format($b['total'] / 100, 2),
-                        $b['method'],
-                        $b['status'],
-                    ]);
-                }
-
-                // Location-specific totals
-                fputcsv($handle, []);
-                fputcsv($handle, [strtoupper($location) . ' - DAILY TOTALS']);
-                fputcsv($handle, ['Date', 'Bookings', 'Base Revenue', 'Add-ons Revenue', 'Total Revenue']);
-                if (isset($locationDailyTotals[$location])) {
-                    foreach ($locationDailyTotals[$location] as $date => $totals) {
-                        fputcsv($handle, [
-                            \Carbon\Carbon::parse($date)->format('d M Y'),
-                            $totals['count'],
-                            'R' . number_format($totals['base'] / 100, 2),
-                            'R' . number_format($totals['addons'] / 100, 2),
-                            'R' . number_format($totals['total'] / 100, 2),
-                        ]);
-                    }
-                }
-
-                fputcsv($handle, []);
-                fputcsv($handle, [strtoupper($location) . ' - WEEKLY TOTALS']);
-                fputcsv($handle, ['Week', 'Bookings', 'Base Revenue', 'Add-ons Revenue', 'Total Revenue']);
-                if (isset($locationWeeklyTotals[$location])) {
-                    foreach ($locationWeeklyTotals[$location] as $week => $totals) {
-                        $weekLabel = 'Week ' . substr($week, -2) . ' of ' . substr($week, 0, 4);
-                        fputcsv($handle, [
-                            $weekLabel,
-                            $totals['count'],
-                            'R' . number_format($totals['base'] / 100, 2),
-                            'R' . number_format($totals['addons'] / 100, 2),
-                            'R' . number_format($totals['total'] / 100, 2),
-                        ]);
-                    }
-                }
-
-                fputcsv($handle, []);
-                fputcsv($handle, [strtoupper($location) . ' - MONTHLY TOTALS']);
-                fputcsv($handle, ['Month', 'Bookings', 'Base Revenue', 'Add-ons Revenue', 'Total Revenue']);
-                if (isset($locationMonthlyTotals[$location])) {
-                    foreach ($locationMonthlyTotals[$location] as $month => $totals) {
-                        fputcsv($handle, [
-                            \Carbon\Carbon::parse($month . '-01')->format('F Y'),
-                            $totals['count'],
-                            'R' . number_format($totals['base'] / 100, 2),
-                            'R' . number_format($totals['addons'] / 100, 2),
-                            'R' . number_format($totals['total'] / 100, 2),
-                        ]);
-                    }
-                }
-
-                // Location online vs walk-in
-                fputcsv($handle, []);
-                fputcsv($handle, [strtoupper($location) . ' - ONLINE VS WALK-IN']);
-                fputcsv($handle, ['Type', 'Revenue']);
-                if (isset($locationOnlineVsWalkIn[$location])) {
-                    fputcsv($handle, ['Online Bookings', 'R' . number_format($locationOnlineVsWalkIn[$location]['online'] / 100, 2)]);
-                    fputcsv($handle, ['Walk-in Bookings', 'R' . number_format($locationOnlineVsWalkIn[$location]['walk_in'] / 100, 2)]);
-                }
-            }
-
-            // Summary Section
-            fputcsv($handle, []);
-            fputcsv($handle, ['--- SUMMARY ---']);
-            fputcsv($handle, []);
-
-            // Daily Totals
-            fputcsv($handle, ['DAILY TOTALS']);
-            fputcsv($handle, ['Date', 'Bookings', 'Base Revenue', 'Add-ons Revenue', 'Total Revenue']);
-            foreach ($dailyTotals as $date => $totals) {
-                fputcsv($handle, [
-                    \Carbon\Carbon::parse($date)->format('d M Y'),
-                    $totals['count'],
-                    'R' . number_format($totals['base'] / 100, 2),
-                    'R' . number_format($totals['addons'] / 100, 2),
-                    'R' . number_format($totals['total'] / 100, 2),
-                ]);
-            }
-
-            fputcsv($handle, []);
-
-            // Weekly Totals
-            fputcsv($handle, ['WEEKLY TOTALS']);
-            fputcsv($handle, ['Week', 'Bookings', 'Base Revenue', 'Add-ons Revenue', 'Total Revenue']);
-            foreach ($weeklyTotals as $week => $totals) {
-                $weekLabel = 'Week ' . substr($week, -2) . ' of ' . substr($week, 0, 4);
-                fputcsv($handle, [
-                    $weekLabel,
-                    $totals['count'],
-                    'R' . number_format($totals['base'] / 100, 2),
-                    'R' . number_format($totals['addons'] / 100, 2),
-                    'R' . number_format($totals['total'] / 100, 2),
-                ]);
-            }
-
-            fputcsv($handle, []);
-
-            // Monthly Totals
-            fputcsv($handle, ['MONTHLY TOTALS']);
-            fputcsv($handle, ['Month', 'Bookings', 'Base Revenue', 'Add-ons Revenue', 'Total Revenue']);
-            foreach ($monthlyTotals as $month => $totals) {
-                fputcsv($handle, [
-                    \Carbon\Carbon::parse($month . '-01')->format('F Y'),
-                    $totals['count'],
-                    'R' . number_format($totals['base'] / 100, 2),
-                    'R' . number_format($totals['addons'] / 100, 2),
-                    'R' . number_format($totals['total'] / 100, 2),
-                ]);
-            }
-
-            fputcsv($handle, []);
-
-            // Location Totals
-            fputcsv($handle, ['BOOKINGS PER LOCATION']);
-            fputcsv($handle, ['Location', 'Bookings', 'Base Revenue', 'Add-ons Revenue', 'Total Revenue']);
-            foreach ($locationTotals as $location => $totals) {
-                fputcsv($handle, [
-                    $location,
-                    $totals['count'],
-                    'R' . number_format($totals['base'] / 100, 2),
-                    'R' . number_format($totals['addons'] / 100, 2),
-                    'R' . number_format($totals['total'] / 100, 2),
-                ]);
-            }
-
-            fputcsv($handle, []);
-
-            // Online vs Walk-in
-            fputcsv($handle, ['ONLINE VS WALK-IN']);
-            fputcsv($handle, ['Type', 'Revenue']);
-            fputcsv($handle, ['Online Bookings', 'R' . number_format($totalOnline / 100, 2)]);
-            fputcsv($handle, ['Walk-in Bookings', 'R' . number_format($totalWalkIn / 100, 2)]);
-
-            fputcsv($handle, []);
-
-            // Retail Sales Section
-            fputcsv($handle, ['--- RETAIL SALES ---']);
-            fputcsv($handle, []);
-            fputcsv($handle, ['Date', 'Item', 'Location', 'Quantity', 'Price Each', 'Total']);
             
-            foreach ($retailSales as $sale) {
-                fputcsv($handle, [
-                    \Carbon\Carbon::parse($sale->sale_date)->format('d M Y'),
-                    $sale->retailItem->name ?? 'Unknown Item',
-                    $sale->location->name ?? 'N/A',
-                    $sale->quantity,
-                    'R' . number_format($sale->price_each / 100, 2),
-                    'R' . number_format($sale->total_cents / 100, 2),
-                ]);
+            // STEP 3: Output CSV for each location
+            foreach ($data as $location => $locationData) {
+                // Location header
+                fputcsv($handle, [$location, 'Total Revenue', number_format($locationData['total'] / 100, 2)]);
+                fputcsv($handle, []);
+                
+                // Column headers
+                fputcsv($handle, ['Date', 'Item', 'Online', 'Yoco', 'Cash', 'Voucher/EFT', 'Loyalty', '# of clients', 'Revenue', 'Total for day', 'Max Cap', 'Day %', 'Average Capacity', 'Notes']);
+                
+                // Sort dates
+                ksort($locationData['dates']);
+                
+                foreach ($locationData['dates'] as $date => $dayData) {
+                    // Aggregate items for this day
+                    $items = [];
+                    $dayTotals = ['online' => 0, 'yoco' => 0, 'cash' => 0, 'voucher_eft' => 0, 'loyalty' => 0, 'people' => 0, 'revenue' => 0];
+                    
+                    foreach ($dayData['bookings'] as $booking) {
+                        if (isset($booking['is_retail']) && $booking['is_retail']) {
+                            // Retail item
+                            $itemName = $booking['name'];
+                            if (!isset($items[$itemName])) {
+                                $items[$itemName] = ['online' => '', 'yoco' => '', 'cash' => '', 'voucher_eft' => '', 'loyalty' => '', 'clients' => 0, 'revenue' => 0];
+                            }
+                            $items[$itemName]['clients'] += $booking['quantity'];
+                            $items[$itemName]['revenue'] += $booking['amount'];
+                            $dayTotals['revenue'] += $booking['amount'];
+                        } else {
+                            // Regular booking - process each service
+                            $pm = strtolower($booking['payment_method'] ?? '');
+                            $bt = strtolower($booking['booking_type'] ?? '');
+                            
+                            // Separate main services from add-ons
+                            $mainServices = [];
+                            $addonServices = [];
+                            
+                            foreach ($booking['services'] as $service) {
+                                $code = $service->code ?? '';
+                                $category = strtolower($service->category ?? '');
+                                
+                                // Main services: SAUNA_SESSION, EVENT_PACKAGE, or category 'main'
+                                if (in_array($code, ['SAUNA_SESSION', 'EVENT_PACKAGE']) || $category === 'main') {
+                                    $mainServices[] = $service;
+                                } else {
+                                    $addonServices[] = $service;
+                                }
+                            }
+                            
+                            // Count payment method ONCE per booking (not per service)
+                            $paymentCounted = false;
+                            
+                            // Process main services
+                            foreach ($mainServices as $service) {
+                                $serviceLineTotal = $normalizeAmount($service->pivot->line_total ?? 0);
+                                $priceEachNormalized = $normalizeAmount($service->pivot->price_each ?? 0);
+                                $quantity = max(1, (int) ($service->pivot->quantity ?? 1));
+
+                                if ($serviceLineTotal < ($priceEachNormalized * $quantity) && $priceEachNormalized > 0) {
+                                    $serviceLineTotal = $priceEachNormalized * $quantity;
+                                }
+
+                                $itemName = $booking['is_event'] ? $booking['event_name'] : ($service->name ?? 'Sauna Session');
+                                
+                                if (!isset($items[$itemName])) {
+                                    $items[$itemName] = ['online' => 0, 'yoco' => 0, 'cash' => 0, 'voucher_eft' => 0, 'loyalty' => 0, 'clients' => 0, 'revenue' => 0];
+                                }
+                                
+                                // Count payment method only once for the entire booking (count people, not bookings)
+                                if (!$paymentCounted) {
+                                    $peopleCount = $booking['people'];
+                                    
+                                    if ($bt === 'online') {
+                                        $items[$itemName]['online'] += $peopleCount;
+                                        $dayTotals['online'] += $peopleCount;
+                                    } elseif (str_contains($pm, 'yoco') || $pm === 'card') {
+                                        $items[$itemName]['yoco'] += $peopleCount;
+                                        $dayTotals['yoco'] += $peopleCount;
+                                    } elseif (str_contains($pm, 'cash')) {
+                                        $items[$itemName]['cash'] += $peopleCount;
+                                        $dayTotals['cash'] += $peopleCount;
+                                    } elseif (str_contains($pm, 'voucher') || str_contains($pm, 'eft')) {
+                                        $items[$itemName]['voucher_eft'] += $peopleCount;
+                                        $dayTotals['voucher_eft'] += $peopleCount;
+                                    } else {
+                                        $items[$itemName]['cash'] += $peopleCount;
+                                        $dayTotals['cash'] += $peopleCount;
+                                    }
+                                    $paymentCounted = true;
+                                }
+                                
+                                $items[$itemName]['clients'] += $booking['people'];
+                                $items[$itemName]['revenue'] += $serviceLineTotal;
+                            }
+                            
+                            $dayTotals['people'] += $booking['people'];
+                            $dayTotals['revenue'] += $booking['amount'];
+                            
+                            // Process add-ons as separate items
+                            foreach ($addonServices as $service) {
+                                $addonName = $service->name;
+                                $quantity = $service->pivot->quantity ?? 1;
+                                $addonLineTotal = $normalizeAmount($service->pivot->line_total ?? 0);
+                                $addonPriceEachNormalized = $normalizeAmount($service->pivot->price_each ?? 0);
+
+                                if ($addonLineTotal < ($addonPriceEachNormalized * $quantity) && $addonPriceEachNormalized > 0) {
+                                    $addonLineTotal = $addonPriceEachNormalized * $quantity;
+                                }
+                                
+                                if (!isset($items[$addonName])) {
+                                    $items[$addonName] = ['online' => 0, 'yoco' => 0, 'cash' => 0, 'voucher_eft' => 0, 'loyalty' => 0, 'clients' => 0, 'revenue' => 0];
+                                }
+                                
+                                // Track payment method for add-ons based on booking's payment method
+                                if ($bt === 'online') {
+                                    $items[$addonName]['online'] += $quantity;
+                                } elseif (str_contains($pm, 'yoco') || $pm === 'card') {
+                                    $items[$addonName]['yoco'] += $quantity;
+                                } elseif (str_contains($pm, 'cash')) {
+                                    $items[$addonName]['cash'] += $quantity;
+                                } elseif (str_contains($pm, 'voucher') || str_contains($pm, 'eft')) {
+                                    $items[$addonName]['voucher_eft'] += $quantity;
+                                } else {
+                                    $items[$addonName]['cash'] += $quantity;
+                                }
+                                
+                                $items[$addonName]['clients'] += $quantity;
+                                $items[$addonName]['revenue'] += $addonLineTotal;
+                            }
+                        }
+                    }
+                    
+                    // Output rows for this day
+                    $firstRow = true;
+                    foreach ($items as $itemName => $item) {
+                        $row = [];
+                        $row[] = $firstRow ? $dayData['display'] : '';
+                        $row[] = $itemName;
+                        $row[] = $item['online'] ?: '';
+                        $row[] = $item['yoco'] ?: '';
+                        $row[] = $item['cash'] ?: '';
+                        $row[] = $item['voucher_eft'] ?: '';
+                        $row[] = $item['loyalty'] ?: '';
+                        $row[] = $item['clients'];
+                        $row[] = number_format($item['revenue'] / 100, 2);
+                        
+                        if ($firstRow) {
+                            $row[] = number_format($dayTotals['revenue'] / 100, 2);
+                            $maxCap = $dayData['capacity']['max'];
+                            $booked = $dayData['capacity']['booked'];
+                            $row[] = $maxCap ?: '';
+                            $row[] = ($maxCap > 0) ? round(($booked / $maxCap) * 100, 1) . '%' : '';
+                            $row[] = $booked ?: '';
+                            $row[] = '';
+                        } else {
+                            $row[] = '';
+                            $row[] = '';
+                            $row[] = '';
+                            $row[] = '';
+                            $row[] = '';
+                        }
+                        
+                        fputcsv($handle, $row);
+                        $firstRow = false;
+                    }
+                }
+                
+                fputcsv($handle, []);
+                fputcsv($handle, []);
             }
-
-            fputcsv($handle, []);
-            fputcsv($handle, ['Total Retail Sales', '', '', '', '', 'R' . number_format($totalRetailSales / 100, 2)]);
-
-            fputcsv($handle, []);
-
-            // Grand Total
-            fputcsv($handle, ['GRAND TOTAL']);
-            fputcsv($handle, ['Total Bookings', $bookings->count()]);
-            fputcsv($handle, ['Total Add-ons Revenue', 'R' . number_format($totalAddons / 100, 2)]);
-            fputcsv($handle, ['Total Bookings Revenue', 'R' . number_format($totalAmount / 100, 2)]);
-            fputcsv($handle, ['Total Retail Sales', 'R' . number_format($totalRetailSales / 100, 2)]);
-            fputcsv($handle, ['TOTAL REVENUE (Bookings + Retail)', 'R' . number_format(($totalAmount + $totalRetailSales) / 100, 2)]);
+            
+            // Totals section
+            fputcsv($handle, ['Totals']);
+            fputcsv($handle, ['Total Bookings Revenue', number_format($grandTotalBookings / 100, 2)]);
+            fputcsv($handle, ['Total Retail Sales', number_format($grandTotalRetail / 100, 2)]);
+            fputcsv($handle, ['GRAND TOTAL', number_format(($grandTotalBookings + $grandTotalRetail) / 100, 2)]);
 
             fclose($handle);
         });

@@ -26,6 +26,12 @@ class UserDashboardController extends Controller
             ->orderBy('timeslots.starts_at')
             ->with(['timeslot.schedule.location', 'services'])
             ->get()
+            ->filter(function ($booking) {
+                // Filter out bookings without timeslot data
+                return $booking->timeslot && 
+                       $booking->timeslot->schedule && 
+                       $booking->timeslot->schedule->location;
+            })
             ->map(function ($booking) {
                 $now   = now();
                 $start = Carbon::parse($booking->timeslot->starts_at);
@@ -38,11 +44,14 @@ class UserDashboardController extends Controller
 
         $loyalty = $this->buildLoyaltyPayload($user);
 
+        $membership = $user->activeMembership()->first();
+
         return Inertia::render('frontend/my-bookings/index', [
             'upcoming' => $bookings->where('timeslot.starts_at', '>', $now)->values(),
             'past'     => $bookings->where('timeslot.starts_at', '<=', $now)->values(),
             'loyalty'  => $loyalty,
             'events'   => [],
+            'membership' => $membership,
         ]);
     }
 

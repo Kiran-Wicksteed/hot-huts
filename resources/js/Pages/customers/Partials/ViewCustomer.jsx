@@ -7,6 +7,10 @@ import axios from "axios";
 
 export default function ViewCustomer({ open, onClose, detail }) {
     const [editMode, setEditMode] = useState(false);
+    const [showLoyaltyForm, setShowLoyaltyForm] = useState(false);
+    const [loyaltyPoints, setLoyaltyPoints] = useState('');
+    const [submittingLoyalty, setSubmittingLoyalty] = useState(false);
+    
     const { auth } = usePage().props;
     const user = auth.user;
 
@@ -14,41 +18,62 @@ export default function ViewCustomer({ open, onClose, detail }) {
 
     const isDayStaff = Boolean(Number(user?.is_editor ?? 0));
     
-    // Loyalty points state
-    const [showLoyaltyForm, setShowLoyaltyForm] = useState(false);
-    const [loyaltyPoints, setLoyaltyPoints] = useState("");
-    const [submittingLoyalty, setSubmittingLoyalty] = useState(false);
-    const [loyaltyData, setLoyaltyData] = useState(detail?.loyalty || null);
-
     const { data, setData, processing, errors, clearErrors } = useForm({
-        name: "",
-        email: "",
-        contact_number: "",
-        is_admin: false,
-        is_editor: false,
+        name: detail?.name ?? "",
+        email: detail?.email ?? "",
+        contact_number: detail?.contact_number ?? "",
+        is_admin: !!detail?.is_admin,
+        is_editor: !!detail?.is_editor,
         photo: null,
     });
-
-    // Only prefill when a DIFFERENT customer is loaded and NOT while editing
-    useEffect(() => {
-        if (!detail?.id || editMode) return;
-        setData((prev) => ({
-            ...prev,
-            name: detail.name ?? "",
-            email: detail.email ?? "",
-            contact_number: detail.contact_number ?? "",
-            is_admin: !!detail.is_admin,
-            is_editor: !!detail.is_editor,
-            photo: null,
-        }));
-        setLoyaltyData(detail?.loyalty || null);
-        clearErrors();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [detail?.id, editMode]);
 
     useEffect(() => {
         if (!open) setEditMode(false);
     }, [open]);
+
+    const handleAdjustLoyaltyPoints = async (e) => {
+        e.preventDefault();
+        
+        if (!detail.loyalty) {
+            alert("Loyalty account not found for this user.");
+            return;
+        }
+
+        if (!loyaltyPoints || loyaltyPoints === "0") {
+            alert("Please enter a valid number of points");
+            return;
+        }
+
+        setSubmittingLoyalty(true);
+
+        try {
+            const response = await axios.post(
+                route('customers.adjustLoyaltyPoints', detail.id),
+                { points: parseInt(loyaltyPoints) },
+                {
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                }
+            );
+
+            alert(response.data.message || 'Loyalty points updated successfully!');
+            setShowLoyaltyForm(false);
+            setLoyaltyPoints('');
+            
+            // Refresh the customer data
+            router.reload({ only: ['customerDetail'] });
+        } catch (error) {
+            console.error('Error updating loyalty points:', error);
+            const errorMessage = error.response?.data?.message || 
+                              error.response?.data?.error || 
+                              'Failed to update loyalty points. Please try again.';
+            alert(errorMessage);
+        } finally {
+            setSubmittingLoyalty(false);
+        }
+    };
 
     // Safe accessors
     const detailPhoto = detail?.photo ?? null;
@@ -129,40 +154,6 @@ export default function ViewCustomer({ open, onClose, detail }) {
                 },
             }
         );
-    };
-
-    const handleAdjustLoyaltyPoints = async (e) => {
-        e.preventDefault();
-        
-        if (!loyaltyPoints || loyaltyPoints === "0") {
-            alert("Please enter a valid number of points");
-            return;
-        }
-
-        setSubmittingLoyalty(true);
-
-        try {
-            const response = await axios.post(
-                route("customers.adjustLoyaltyPoints", detail.id),
-                {
-                    points: parseInt(loyaltyPoints),
-                }
-            );
-
-            // Update loyalty data
-            setLoyaltyData(response.data.loyalty);
-
-            // Reset form
-            setLoyaltyPoints("");
-            setShowLoyaltyForm(false);
-            
-            alert(response.data.message);
-        } catch (err) {
-            console.error(err);
-            alert(err.response?.data?.message || "Failed to adjust loyalty points");
-        } finally {
-            setSubmittingLoyalty(false);
-        }
     };
 
     // ----- Render guards -----
@@ -264,6 +255,76 @@ export default function ViewCustomer({ open, onClose, detail }) {
                     </div>
 
                     <div className="flex items-center gap-2">
+                        {detail?.is_admin === false && (
+                            <>
+                                <button
+                                    onClick={async () => {
+                                        if (!confirm('Are you sure you want to grant a 3-month membership to this user?')) {
+                                            return;
+                                        }
+
+                                        try {
+                                            const response = await axios.post(
+                                                route('admin.users.memberships.store', detail.id),
+                                                {},
+                                                {
+                                                    headers: {
+                                                        'Accept': 'application/json',
+                                                        'X-Requested-With': 'XMLHttpRequest'
+                                                    }
+                                                }
+                                            );
+
+                                            alert(response.data.message || 'Membership granted successfully!');
+                                            router.reload({ only: ['customerDetail'] });
+                                        } catch (error) {
+                                            console.error('Error granting membership:', error);
+                                            const errorMessage = error.response?.data?.error || 
+                                                              error.response?.data?.message || 
+                                                              'Failed to grant membership. Please try again.';
+                                            alert(errorMessage);
+                                        }
+                                    }}
+                                    className="rounded-lg px-3 py-1.5 text-sm border bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
+                                    disabled={detail?.membership !== null}
+                                >
+                                    {detail?.membership ? 'Membership Active' : 'Grant Membership'}
+                                </button>
+                                {detail?.membership && (
+                                    <button
+                                        onClick={async () => {
+                                            if (!confirm('Are you sure you want to revoke this user\'s membership? This action cannot be undone.')) {
+                                                return;
+                                            }
+
+                                            try {
+                                                const response = await axios.delete(
+                                                    route('admin.users.memberships.destroy', detail.id),
+                                                    {
+                                                        headers: {
+                                                            'Accept': 'application/json',
+                                                            'X-Requested-With': 'XMLHttpRequest'
+                                                        }
+                                                    }
+                                                );
+
+                                                alert(response.data.message || 'Membership revoked successfully!');
+                                                router.reload({ only: ['customerDetail'] });
+                                            } catch (error) {
+                                                console.error('Error revoking membership:', error);
+                                                const errorMessage = error.response?.data?.error || 
+                                                                  error.response?.data?.message || 
+                                                                  'Failed to revoke membership. Please try again.';
+                                                alert(errorMessage);
+                                            }
+                                        }}
+                                        className="rounded-lg px-3 py-1.5 text-sm border bg-red-600 text-white hover:bg-red-700"
+                                    >
+                                        Revoke Membership
+                                    </button>
+                                )}
+                            </>
+                        )}
                         {!editMode ? (
                             <button
                                 onClick={() => {
@@ -356,7 +417,7 @@ export default function ViewCustomer({ open, onClose, detail }) {
                     </div>
 
                     {/* Loyalty Points Section */}
-                    {loyaltyData && (
+                    {detail.loyalty && (
                         <div className="border rounded-xl p-6 space-y-4">
                             <div className="flex items-center justify-between">
                                 <h4 className={`${styles.h5} !mb-0`}>
@@ -376,7 +437,7 @@ export default function ViewCustomer({ open, onClose, detail }) {
                                         Current Balance
                                     </p>
                                     <p className="text-3xl font-bold text-hh-orange mt-1">
-                                        {loyaltyData.points_balance}
+                                        {detail.loyalty.points_balance}
                                     </p>
                                 </div>
                                 <div className="bg-gray-50 rounded-lg p-4 border">
@@ -384,7 +445,7 @@ export default function ViewCustomer({ open, onClose, detail }) {
                                         Lifetime Points
                                     </p>
                                     <p className="text-3xl font-bold text-gray-900 mt-1">
-                                        {loyaltyData.lifetime_points}
+                                        {detail.loyalty.lifetime_points}
                                     </p>
                                 </div>
                             </div>
