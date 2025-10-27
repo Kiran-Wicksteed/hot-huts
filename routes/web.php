@@ -100,6 +100,10 @@ Route::middleware(['auth', 'verified'])
             ->name('admin.users.memberships.store');
         Route::delete('/users/{user}/memberships', [MembershipController::class, 'destroy'])
             ->name('admin.users.memberships.destroy');
+        Route::post('/users/{user}/memberships/suspend', [MembershipController::class, 'suspend'])
+            ->name('admin.users.memberships.suspend');
+        Route::post('/users/{user}/memberships/unsuspend', [MembershipController::class, 'unsuspend'])
+            ->name('admin.users.memberships.unsuspend');
     });
 
 //Admin Search Customers Route
