@@ -30,19 +30,27 @@ class MembershipController extends Controller
     public function store(Request $request, User $user)
     {
         $request->validate([
-            'type' => 'sometimes|string|in:3-month',
+            'type' => 'required|string|in:3-month,6-month,1-year',
         ]);
 
-        if ($user->hasActiveMembership()) {
-            if ($request->wantsJson()) {
-                return response()->json(['error' => 'This user already has an active membership.'], 422);
-            }
-            return back()->withErrors(['membership' => 'This user already has an active membership.']);
+        // Cancel any existing active memberships
+        if ($existingMembership = $user->activeMembership) {
+            $existingMembership->update(['cancelled_at' => now()]);
         }
 
-        $membership = $user->membership()->create([
-            'expires_at' => now()->addMonths(3),
-            'type' => $request->input('type', '3-month'),
+        $type = $request->input('type');
+        
+        // Calculate expiration based on type
+        $expiresAt = match($type) {
+            '3-month' => now()->addMonths(3),
+            '6-month' => now()->addMonths(6),
+            '1-year' => now()->addYear(),
+            default => now()->addMonths(3),
+        };
+
+        $membership = $user->memberships()->create([
+            'expires_at' => $expiresAt,
+            'type' => $type,
         ]);
 
         if ($request->wantsJson()) {
@@ -84,26 +92,79 @@ class MembershipController extends Controller
      */
     public function destroy(User $user)
     {
-        $membership = $user->activeMembership()->first();
-
-        if (!$membership) {
-            if (request()->wantsJson()) {
-                return response()->json(['error' => 'This user does not have an active membership.'], 404);
-            }
-            return back()->withErrors(['membership' => 'This user does not have an active membership.']);
+        // Use the 'membership' relationship to find the latest, non-cancelled membership,
+        // regardless of its suspension status.
+        if (!$membership = $user->membership) {
+            return $this->errorResponse('No membership found to revoke.', 404);
         }
 
-        // Set cancelled_at to revoke the membership
-        $membership->update([
-            'cancelled_at' => now(),
+        $membership->update(['cancelled_at' => now()]);
+
+        return $this->successResponse('Membership revoked successfully');
+    }
+
+    public function suspend(Request $request, User $user)
+    {
+        $request->validate([
+            'suspended_from' => 'required|date',
+            'suspended_until' => 'required|date|after:suspended_from',
+            'suspension_reason' => 'nullable|string|max:500',
         ]);
 
-        if (request()->wantsJson()) {
-            return response()->json([
-                'message' => 'Membership revoked successfully'
-            ]);
+        if (!$membership = $user->activeMembership) {
+            return $this->errorResponse('No active membership found to suspend.', 422);
         }
 
-        return back()->with('success', 'Membership revoked successfully.');
+        if ($membership->isSuspended()) {
+            return $this->errorResponse('This membership is already suspended.', 422);
+        }
+
+        $membership->update([
+            'suspended_from' => $request->suspended_from,
+            'suspended_until' => $request->suspended_until,
+            'suspension_reason' => $request->suspension_reason,
+        ]);
+
+        return $this->successResponse('Membership suspended successfully', [
+            'membership' => $membership->fresh()
+        ]);
+    }
+
+    public function unsuspend(User $user)
+    {
+        if (!$membership = $user->membership) {
+            return $this->errorResponse('No membership found.', 404);
+        }
+
+        if (!$membership->isSuspended()) {
+            return $this->successResponse('Membership is not currently suspended');
+        }
+
+        $membership->update([
+            'suspended_from' => null,
+            'suspended_until' => null,
+            'suspension_reason' => null,
+        ]);
+
+        return $this->successResponse('Membership suspension removed successfully', [
+            'membership' => $membership->fresh()
+        ]);
+    }
+
+    // Helper methods
+    private function errorResponse($message, $code = 400)
+    {
+        if (request()->wantsJson()) {
+            return response()->json(['error' => $message], $code);
+        }
+        return back()->withErrors(['membership' => $message]);
+    }
+
+    private function successResponse($message, $data = [])
+    {
+        if (request()->wantsJson()) {
+            return response()->json(array_merge(['message' => $message], $data));
+        }
+        return back()->with('success', $message);
     }
 }

@@ -21,12 +21,44 @@ export default function ContentSection({
     upcoming = [],
     events = [],
     past = [],
+    membership: propMembership,
 }) {
     const [startDate, setStartDate] = useState(new Date());
     const { auth, loyalty = {}, membership: pageMembership } = usePage().props;
-    const membership = pageMembership;
+    const membership = propMembership || pageMembership;
     const user = auth.user;
     const loyaltyPoints = Number(loyalty.points ?? 0);
+
+    // Helper to check if membership is suspended
+    const isMembershipSuspended = (membership) => {
+        if (!membership?.suspended_from || !membership?.suspended_until) {
+            return false;
+        }
+        const now = new Date();
+        const from = new Date(membership.suspended_from);
+        const until = new Date(membership.suspended_until);
+        return now >= from && now <= until;
+    };
+
+    // Helper to check if membership is cancelled
+    const isMembershipCancelled = (membership) => {
+        return membership?.cancelled_at !== null && membership?.cancelled_at !== undefined;
+    };
+
+    // Helper to check if membership is expired
+    const isMembershipExpired = (membership) => {
+        if (!membership?.expires_at) return false;
+        return new Date(membership.expires_at) < new Date();
+    };
+
+    // Get membership status
+    const getMembershipStatus = (membership) => {
+        if (!membership) return null;
+        if (isMembershipCancelled(membership)) return 'cancelled';
+        if (isMembershipExpired(membership)) return 'expired';
+        if (isMembershipSuspended(membership)) return 'suspended';
+        return 'active';
+    };
 
     const asset = (path) => {
         return `${path}`;
@@ -65,13 +97,23 @@ export default function ContentSection({
                         </p>
                     </div>
                     {membership && (
-                        <div className="flex items-center gap-x-2 bg-hh-orange text-white rounded-full px-3 py-1 text-sm">
+                        <div className={`flex items-center gap-x-2 text-white rounded-full px-3 py-1 text-sm ${
+                            getMembershipStatus(membership) === 'suspended' 
+                                ? 'bg-yellow-600' 
+                                : getMembershipStatus(membership) === 'cancelled' || getMembershipStatus(membership) === 'expired'
+                                ? 'bg-gray-600'
+                                : 'bg-hh-orange'
+                        }`}>
                             <StarIcon className="h-5 w-5" />
                             <span>
-                                Member until{" "}
-                                {dayjs(membership.expires_at).format(
-                                    "D MMM YYYY"
-                                )}
+                                {getMembershipStatus(membership) === 'suspended' 
+                                    ? `Suspended until ${dayjs(membership.suspended_until).format("D MMM YYYY")}`
+                                    : getMembershipStatus(membership) === 'cancelled'
+                                    ? 'Membership Cancelled'
+                                    : getMembershipStatus(membership) === 'expired'
+                                    ? 'Membership Expired'
+                                    : `Member until ${dayjs(membership.expires_at).format("D MMM YYYY")}`
+                                }
                             </span>
                         </div>
                     )}

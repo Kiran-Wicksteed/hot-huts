@@ -44,7 +44,7 @@ class UserDashboardController extends Controller
 
         $loyalty = $this->buildLoyaltyPayload($user);
 
-        $membership = $user->activeMembership()->first();
+        $membership = $user->membership;
 
         return Inertia::render('frontend/my-bookings/index', [
             'upcoming' => $bookings->where('timeslot.starts_at', '>', $now)->values(),

@@ -197,7 +197,7 @@ class AdminCustomerController extends Controller
                 'lifetime_points' => (int) $loyaltyAccount->lifetime_points,
             ],
             'recent_bookings' => $recent,
-            'membership' => $user->activeMembership,
+            'membership' => $user->membership,
         ];
 
         // If this is an AJAX/modal request (explicitly check for the header we set), return JSON

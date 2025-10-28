@@ -10,6 +10,15 @@ export default function ViewCustomer({ open, onClose, detail }) {
     const [showLoyaltyForm, setShowLoyaltyForm] = useState(false);
     const [loyaltyPoints, setLoyaltyPoints] = useState('');
     const [submittingLoyalty, setSubmittingLoyalty] = useState(false);
+    const [showMembershipModal, setShowMembershipModal] = useState(false);
+    const [selectedMembershipType, setSelectedMembershipType] = useState('3-month');
+    const [showSuspendModal, setShowSuspendModal] = useState(false);
+    const [suspensionData, setSuspensionData] = useState({
+        suspended_from: '',
+        suspended_until: '',
+        suspension_reason: '',
+        duration_days: ''
+    });
     
     const { auth } = usePage().props;
     const user = auth.user;
@@ -110,6 +119,38 @@ export default function ViewCustomer({ open, onClose, detail }) {
             : "—";
     };
     const fmtDT = (v) => (v ? new Date(v).toLocaleString() : "—");
+    const fmtDate = (v) => (v ? new Date(v).toLocaleDateString() : "—");
+
+    // Helper to check if membership is suspended
+    const isMembershipSuspended = (membership) => {
+        if (!membership?.suspended_from || !membership?.suspended_until) {
+            return false;
+        }
+        const now = new Date();
+        const from = new Date(membership.suspended_from);
+        const until = new Date(membership.suspended_until);
+        return now >= from && now <= until;
+    };
+
+    // Helper to check if membership is cancelled
+    const isMembershipCancelled = (membership) => {
+        return membership?.cancelled_at !== null && membership?.cancelled_at !== undefined;
+    };
+
+    // Helper to check if membership is expired
+    const isMembershipExpired = (membership) => {
+        if (!membership?.expires_at) return false;
+        return new Date(membership.expires_at) < new Date();
+    };
+
+    // Get membership status
+    const getMembershipStatus = (membership) => {
+        if (!membership) return null;
+        if (isMembershipCancelled(membership)) return 'cancelled';
+        if (isMembershipExpired(membership)) return 'expired';
+        if (isMembershipSuspended(membership)) return 'suspended';
+        return 'active';
+    };
 
     const onSubmit = (e) => {
         e.preventDefault();
@@ -258,37 +299,29 @@ export default function ViewCustomer({ open, onClose, detail }) {
                         {detail?.is_admin === false && (
                             <>
                                 <button
-                                    onClick={async () => {
-                                        if (!confirm('Are you sure you want to grant a 3-month membership to this user?')) {
-                                            return;
-                                        }
-
-                                        try {
-                                            const response = await axios.post(
-                                                route('admin.users.memberships.store', detail.id),
-                                                {},
-                                                {
-                                                    headers: {
-                                                        'Accept': 'application/json',
-                                                        'X-Requested-With': 'XMLHttpRequest'
-                                                    }
-                                                }
-                                            );
-
-                                            alert(response.data.message || 'Membership granted successfully!');
-                                            router.reload({ only: ['customerDetail'] });
-                                        } catch (error) {
-                                            console.error('Error granting membership:', error);
-                                            const errorMessage = error.response?.data?.error || 
-                                                              error.response?.data?.message || 
-                                                              'Failed to grant membership. Please try again.';
-                                            alert(errorMessage);
+                                    onClick={() => {
+                                        if (detail?.membership === null) {
+                                            setShowMembershipModal(true);
                                         }
                                     }}
-                                    className="rounded-lg px-3 py-1.5 text-sm border bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
-                                    disabled={detail?.membership !== null}
+                                    className={`rounded-lg px-3 py-1.5 text-xs border text-white disabled:opacity-50 ${
+                                        getMembershipStatus(detail?.membership) === 'suspended' 
+                                            ? 'bg-yellow-600 hover:bg-yellow-700' 
+                                            : getMembershipStatus(detail?.membership) === 'cancelled' || getMembershipStatus(detail?.membership) === 'expired'
+                                            ? 'bg-gray-600 hover:bg-gray-700'
+                                            : 'bg-green-600 hover:bg-green-700'
+                                    }`}
+                                    disabled={detail?.membership !== null && !isMembershipCancelled(detail?.membership) && !isMembershipExpired(detail?.membership)}
                                 >
-                                    {detail?.membership ? 'Membership Active' : 'Grant Membership'}
+                                    {getMembershipStatus(detail?.membership) === 'suspended' 
+                                        ? `Suspended until ${fmtDate(detail?.membership?.suspended_until)}` 
+                                        : getMembershipStatus(detail?.membership) === 'cancelled'
+                                        ? 'Membership Cancelled'
+                                        : getMembershipStatus(detail?.membership) === 'expired'
+                                        ? 'Membership Expired'
+                                        : detail?.membership 
+                                        ? 'Membership Active' 
+                                        : 'Grant Membership'}
                                 </button>
                                 {detail?.membership && (
                                     <button
@@ -318,10 +351,64 @@ export default function ViewCustomer({ open, onClose, detail }) {
                                                 alert(errorMessage);
                                             }
                                         }}
-                                        className="rounded-lg px-3 py-1.5 text-sm border bg-red-600 text-white hover:bg-red-700"
+                                        className="rounded-lg px-3 py-1.5 text-xs border bg-red-600 text-white hover:bg-red-700"
                                     >
                                         Revoke Membership
                                     </button>
+                                )}
+                                {detail?.membership && (
+                                    <>
+                                        {detail.membership.suspended_from && detail.membership.suspended_until ? (
+                                            <button
+                                                onClick={async () => {
+                                                    if (!confirm('Are you sure you want to remove the suspension from this membership?')) {
+                                                        return;
+                                                    }
+
+                                                    try {
+                                                        const response = await axios.post(
+                                                            route('admin.users.memberships.unsuspend', detail.id),
+                                                            {},
+                                                            {
+                                                                headers: {
+                                                                    'Accept': 'application/json',
+                                                                    'X-Requested-With': 'XMLHttpRequest'
+                                                                }
+                                                            }
+                                                        );
+
+                                                        alert(response.data.message || 'Suspension removed successfully!');
+                                                        router.reload({ only: ['customerDetail'] });
+                                                    } catch (error) {
+                                                        console.error('Error removing suspension:', error);
+                                                        const errorMessage = error.response?.data?.error || 
+                                                                          error.response?.data?.message || 
+                                                                          'Failed to remove suspension. Please try again.';
+                                                        alert(errorMessage);
+                                                    }
+                                                }}
+                                                className="rounded-lg px-3 py-1.5 text-xs border bg-blue-600 text-white hover:bg-blue-700"
+                                            >
+                                                Unsuspend
+                                            </button>
+                                        ) : (
+                                            <button
+                                                onClick={() => {
+                                                    const today = new Date().toISOString().split('T')[0];
+                                                    setSuspensionData({
+                                                        suspended_from: today,
+                                                        suspended_until: '',
+                                                        suspension_reason: '',
+                                                        duration_days: ''
+                                                    });
+                                                    setShowSuspendModal(true);
+                                                }}
+                                                className="rounded-lg px-3 py-1.5 text-xs border bg-yellow-600 text-white hover:bg-yellow-700"
+                                            >
+                                                Suspend Membership
+                                            </button>
+                                        )}
+                                    </>
                                 )}
                             </>
                         )}
@@ -341,7 +428,7 @@ export default function ViewCustomer({ open, onClose, detail }) {
                                     }));
                                     clearErrors();
                                 }}
-                                className="rounded-lg px-3 py-1.5 text-sm border hover:bg-gray-50"
+                                className="rounded-lg px-3 py-1.5 text-xs border hover:bg-gray-50"
                             >
                                 Edit
                             </button>
@@ -370,7 +457,7 @@ export default function ViewCustomer({ open, onClose, detail }) {
                                         clearErrors();
                                         setEditMode(false);
                                     }}
-                                    className="rounded-lg px-3 py-1.5 text-sm border hover:bg-gray-50"
+                                    className="rounded-lg px-3 py-1.5 text-xs border hover:bg-gray-50"
                                 >
                                     Cancel
                                 </button>
@@ -379,7 +466,7 @@ export default function ViewCustomer({ open, onClose, detail }) {
 
                         <button
                             onClick={onClose}
-                            className="rounded-lg px-3 py-1.5 text-sm border hover:bg-gray-50"
+                            className="rounded-lg px-3 py-1.5 text-xs border hover:bg-gray-50"
                         >
                             Close
                         </button>
@@ -415,6 +502,43 @@ export default function ViewCustomer({ open, onClose, detail }) {
                             }
                         />
                     </div>
+
+                    {/* Membership Status Section */}
+                    {detail.membership && (
+                        <div className="space-y-2">
+                            <h4 className={`${styles.h5} !mb-2`}>Membership</h4>
+                            <Line 
+                                label="Status"
+                                value={
+                                    <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${
+                                        getMembershipStatus(detail.membership) === 'active' 
+                                            ? 'bg-green-100 text-green-800' 
+                                            : getMembershipStatus(detail.membership) === 'suspended'
+                                            ? 'bg-yellow-100 text-yellow-800'
+                                            : 'bg-gray-100 text-gray-800'
+                                    }`}>
+                                        {getMembershipStatus(detail.membership)}
+                                    </span>
+                                }
+                            />
+                            <Line label="Type" value={<span className="capitalize">{detail.membership.type}</span>} />
+                            <Line label="Expires" value={fmtDate(detail.membership.expires_at)} />
+                            {isMembershipSuspended(detail.membership) && (
+                                <>
+                                    <Line 
+                                        label="Suspended Until" 
+                                        value={fmtDate(detail.membership.suspended_until)} 
+                                    />
+                                    {detail.membership.suspension_reason && (
+                                        <Line 
+                                            label="Reason" 
+                                            value={detail.membership.suspension_reason} 
+                                        />
+                                    )}
+                                </>
+                            )}
+                        </div>
+                    )}
 
                     {/* Loyalty Points Section */}
                     {detail.loyalty && (
@@ -709,6 +833,266 @@ export default function ViewCustomer({ open, onClose, detail }) {
                     </div>
                 </div>
             </div>
+
+            {/* Membership Modal */}
+            {showMembershipModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                    <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+                        <h3 className="text-lg font-semibold mb-4">Grant Membership</h3>
+                        <p className="text-sm text-gray-600 mb-4">
+                            Select the membership duration for {detail?.name}:
+                        </p>
+                        
+                        <div className="space-y-3 mb-6">
+                            <label className="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
+                                <input
+                                    type="radio"
+                                    name="membershipType"
+                                    value="3-month"
+                                    checked={selectedMembershipType === '3-month'}
+                                    onChange={(e) => setSelectedMembershipType(e.target.value)}
+                                    className="mr-3"
+                                />
+                                <div>
+                                    <div className="font-medium">3 Months</div>
+                                    <div className={styles.paragraph + " text-xs text-gray-500"}>Valid for 3 months</div>
+                                </div>
+                            </label>
+                            
+                            <label className="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
+                                <input
+                                    type="radio"
+                                    name="membershipType"
+                                    value="6-month"
+                                    checked={selectedMembershipType === '6-month'}
+                                    onChange={(e) => setSelectedMembershipType(e.target.value)}
+                                    className="mr-3"
+                                />
+                                <div>
+                                    <div className="font-medium">6 Months</div>
+                                    <div className={styles.paragraph + " text-xs text-gray-500"}>Valid for 6 months</div>
+                                </div>
+                            </label>
+                            
+                            <label className="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
+                                <input
+                                    type="radio"
+                                    name="membershipType"
+                                    value="1-year"
+                                    checked={selectedMembershipType === '1-year'}
+                                    onChange={(e) => setSelectedMembershipType(e.target.value)}
+                                    className="mr-3"
+                                />
+                                <div>
+                                    <div className="font-medium">1 Year</div>
+                                    <div className={styles.paragraph + " text-xs text-gray-500"}>Valid for 12 months</div>
+                                </div>
+                            </label>
+                        </div>
+                        
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => {
+                                    setShowMembershipModal(false);
+                                    setSelectedMembershipType('3-month');
+                                }}
+                                className="flex-1 px-4 py-2 border rounded-lg text-sm hover:bg-gray-50"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={async () => {
+                                    try {
+                                        const response = await axios.post(
+                                            route('admin.users.memberships.store', detail.id),
+                                            { type: selectedMembershipType },
+                                            {
+                                                headers: {
+                                                    'Accept': 'application/json',
+                                                    'X-Requested-With': 'XMLHttpRequest'
+                                                }
+                                            }
+                                        );
+
+                                        alert(response.data.message || 'Membership granted successfully!');
+                                        setShowMembershipModal(false);
+                                        setSelectedMembershipType('3-month');
+                                        router.reload({ only: ['customerDetail'] });
+                                    } catch (error) {
+                                        console.error('Error granting membership:', error);
+                                        const errorMessage = error.response?.data?.error || 
+                                                          error.response?.data?.message || 
+                                                          'Failed to grant membership. Please try again.';
+                                        alert(errorMessage);
+                                    }
+                                }}
+                                className="flex-1 px-4 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700"
+                            >
+                                Grant Membership
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Suspension Modal */}
+            {showSuspendModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                    <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+                        <h3 className="text-lg font-semibold mb-4">Suspend Membership</h3>
+                        <p className="text-sm text-gray-600 mb-4">
+                            Temporarily suspend {detail?.name}'s membership:
+                        </p>
+                        
+                        <div className="space-y-4 mb-6">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Start Date
+                                </label>
+                                <input
+                                    type="date"
+                                    value={suspensionData.suspended_from}
+                                    onChange={(e) => {
+                                        const newStartDate = e.target.value;
+                                        setSuspensionData(prev => {
+                                            const newData = {...prev, suspended_from: newStartDate};
+                                            
+                                            // Recalculate end date if duration is set
+                                            if (prev.duration_days && parseInt(prev.duration_days) > 0) {
+                                                const startDate = new Date(newStartDate);
+                                                const endDate = new Date(startDate);
+                                                endDate.setDate(endDate.getDate() + parseInt(prev.duration_days));
+                                                newData.suspended_until = endDate.toISOString().split('T')[0];
+                                            }
+                                            
+                                            return newData;
+                                        });
+                                    }}
+                                    className="w-full px-3 py-2 border rounded-lg"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Duration (days)
+                                </label>
+                                <input
+                                    type="number"
+                                    min="1"
+                                    placeholder="e.g., 7, 14, 30"
+                                    value={suspensionData.duration_days}
+                                    onChange={(e) => {
+                                        const days = parseInt(e.target.value) || 0;
+                                        
+                                        if (days > 0 && suspensionData.suspended_from) {
+                                            const startDate = new Date(suspensionData.suspended_from);
+                                            const endDate = new Date(startDate);
+                                            endDate.setDate(endDate.getDate() + days);
+                                            setSuspensionData(prev => ({
+                                                ...prev,
+                                                duration_days: e.target.value,
+                                                suspended_until: endDate.toISOString().split('T')[0]
+                                            }));
+                                        } else {
+                                            setSuspensionData(prev => ({
+                                                ...prev,
+                                                duration_days: e.target.value,
+                                                suspended_until: ''
+                                            }));
+                                        }
+                                    }}
+                                    className="w-full px-3 py-2 border rounded-lg"
+                                />
+                                {suspensionData.suspended_until && (
+                                    <p className="text-xs text-gray-500 mt-1">
+                                        Suspension will end on: {new Date(suspensionData.suspended_until).toLocaleDateString()}
+                                    </p>
+                                )}
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Reason (optional)
+                                </label>
+                                <textarea
+                                    value={suspensionData.suspension_reason}
+                                    onChange={(e) => setSuspensionData({...suspensionData, suspension_reason: e.target.value})}
+                                    placeholder="e.g. No Show"
+                                    rows="3"
+                                    maxLength="500"
+                                    className="w-full px-3 py-2 border rounded-lg"
+                                />
+                                <p className="text-xs text-gray-500 mt-1">
+                                    {suspensionData.suspension_reason.length}/500 characters
+                                </p>
+                            </div>
+                        </div>
+                        
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => {
+                                    setShowSuspendModal(false);
+                                    setSuspensionData({
+                                        suspended_from: '',
+                                        suspended_until: '',
+                                        suspension_reason: '',
+                                        duration_days: ''
+                                    });
+                                }}
+                                className="flex-1 px-4 py-2 border rounded-lg text-sm hover:bg-gray-50"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={async () => {
+                                    if (!suspensionData.suspended_from || !suspensionData.suspended_until) {
+                                        alert('Please select both start and end dates');
+                                        return;
+                                    }
+
+                                    try {
+                                        const response = await axios.post(
+                                            route('admin.users.memberships.suspend', detail.id),
+                                            {
+                                                suspended_from: suspensionData.suspended_from,
+                                                suspended_until: suspensionData.suspended_until,
+                                                suspension_reason: suspensionData.suspension_reason
+                                            },
+                                            {
+                                                headers: {
+                                                    'Accept': 'application/json',
+                                                    'X-Requested-With': 'XMLHttpRequest'
+                                                }
+                                            }
+                                        );
+
+                                        alert(response.data.message || 'Membership suspended successfully!');
+                                        setShowSuspendModal(false);
+                                        setSuspensionData({
+                                            suspended_from: '',
+                                            suspended_until: '',
+                                            suspension_reason: '',
+                                            duration_days: ''
+                                        });
+                                        router.reload({ only: ['customerDetail'] });
+                                    } catch (error) {
+                                        console.error('Error suspending membership:', error);
+                                        const errorMessage = error.response?.data?.error || 
+                                                          error.response?.data?.message ||
+                                                          error.response?.data?.errors?.suspended_from?.[0] ||
+                                                          error.response?.data?.errors?.suspended_until?.[0] ||
+                                                          'Failed to suspend membership. Please try again.';
+                                        alert(errorMessage);
+                                    }
+                                }}
+                                className="flex-1 px-4 py-2 bg-yellow-600 text-white text-sm rounded-lg hover:bg-yellow-700"
+                            >
+                                Suspend Membership
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
@@ -727,7 +1111,7 @@ function Line({ label, value }) {
         <div className="flex items-center justify-between gap-4">
             <span className="text-gray-500 text-xs">{label}</span>
             <span className="text-sm font-medium text-gray-900 truncate max-w-[280px]">
-                {String(value)}
+                {typeof value === 'string' ? value : <>{value}</>}
             </span>
         </div>
     );
