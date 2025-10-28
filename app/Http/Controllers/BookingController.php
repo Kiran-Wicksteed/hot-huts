@@ -216,20 +216,35 @@ class BookingController extends Controller
         // ---------- 0.1) Idempotency guard (cache) ----------
         // If this cart_key already produced a checkout, reuse it and DO NOT create new bookings.
         $cacheKey = "cart_checkout:{$cartKey}";
-        if (Cache::has($cacheKey)) {
-            $cached = Cache::get($cacheKey);
-
-            if ($response = $this->handleCachedCheckoutVoucherFlow($cartKey, $cacheKey, $cached, $entity, $cbUrl, $holdMinutes)) {
-                return $response;
+        $lockKey = "cart_lock:{$cartKey}";
+        
+        // Acquire lock to prevent race conditions
+        $lock = Cache::lock($lockKey, 10);
+        
+        try {
+            // Wait up to 5 seconds to acquire lock
+            if (!$lock->block(5)) {
+                abort(409, 'Another checkout is in progress for this cart. Please wait.');
             }
+            
+            if (Cache::has($cacheKey)) {
+                $cached = Cache::get($cacheKey);
 
-            Log::info('Idempotent reuse of existing checkout for cart_key', ['cart_key' => $cartKey, 'cached' => $cached]);
+                if ($response = $this->handleCachedCheckoutVoucherFlow($cartKey, $cacheKey, $cached, $entity, $cbUrl, $holdMinutes)) {
+                    return $response;
+                }
 
-            return Inertia::render('Payment/RedirectToGateway', [
-                'entityId'          => $entity,
-                'checkoutId'        => $cached['checkoutId'],
-                'checkoutScriptUrl' => config('peach-payment.' . config('peach-payment.environment') . '.embedded_checkout_url'),
-            ]);
+                Log::info('Idempotent reuse of existing checkout for cart_key', ['cart_key' => $cartKey, 'cached' => $cached]);
+
+                return Inertia::render('Payment/RedirectToGateway', [
+                    'entityId'          => $entity,
+                    'checkoutId'        => $cached['checkoutId'],
+                    'checkoutScriptUrl' => config('peach-payment.' . config('peach-payment.environment') . '.embedded_checkout_url'),
+                ]);
+            }
+        } catch (\Exception $e) {
+            $lock->release();
+            throw $e;
         }
 
         // ---------- 1) Pre-aggregate requested headcount ----------
@@ -584,7 +599,12 @@ class BookingController extends Controller
 
         try {
             Log::info('Creating Peach Payment checkout', [
-                'amount' => $amount,
+                'cart_key' => $cartKey,
+                'amount_rands' => $amount,
+                'amount_cents' => $grandTotalCents,
+                'booking_count' => count($bookings),
+                'booking_ids' => collect($bookings)->pluck('id')->all(),
+                'booking_amounts' => collect($bookings)->map(fn($b) => ['id' => $b->id, 'amount' => $b->amount])->all(),
                 'callback_url' => $cbUrl,
             ]);
             
@@ -644,6 +664,9 @@ class BookingController extends Controller
             'orderNumber' => $checkout['order_number'],
             'grandCents'  => $grandTotalCents,
         ], now()->addMinutes(max($holdMinutes, 10)));
+
+        // Release the lock after successful checkout creation
+        $lock->release();
 
         // ---------- 4) Render payment page ----------
         return Inertia::render('Payment/RedirectToGateway', [
@@ -767,6 +790,17 @@ class BookingController extends Controller
 
         $peach    = new PeachPayment();
         $amount   = number_format($reprice['grand_cents'] / 100, 2, '.', '');
+        
+        Log::info('Creating Peach Payment checkout (cached voucher flow)', [
+            'cart_key' => $cartKey,
+            'amount_rands' => $amount,
+            'amount_cents' => $reprice['grand_cents'],
+            'booking_count' => count($bookings),
+            'booking_ids' => $bookingIds,
+            'booking_amounts' => $bookings->map(fn($b) => ['id' => $b->id, 'amount' => $b->amount])->all(),
+            'callback_url' => $cbUrl,
+        ]);
+        
         $checkout = $peach->createCheckout($amount, $cbUrl);
 
         foreach ($bookings as $booking) {
