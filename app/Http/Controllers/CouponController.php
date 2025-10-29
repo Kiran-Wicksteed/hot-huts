@@ -18,15 +18,18 @@ class CouponController extends Controller
         $data = $request->validate([
             'code' => ['required', 'string'],
             'cart_key' => ['required', 'string'],
+            'items' => ['present', 'array'],
         ]);
 
         $code = strtoupper(trim($data['code']));
         $cartKey = $data['cart_key'];
+        $cartItems = $data['items'];
 
         \Log::info('Code apply attempt', [
             'code' => $code,
             'user_id' => Auth::id(),
             'cart_key' => $cartKey,
+            'item_count' => count($cartItems),
         ]);
 
         // First, check if it's a loyalty reward code
@@ -42,53 +45,45 @@ class CouponController extends Controller
                 'reward_id' => $loyaltyReward->id,
             ]);
             
-            // Redirect to loyalty rewards apply route with required service dependency
             $loyaltyService = app(\App\Services\LoyaltyService::class);
             return app(\App\Http\Controllers\Loyalty\LoyaltyRewardController::class)
                 ->apply($request, $loyaltyService);
         }
 
-        // If not a loyalty reward, check if it's a coupon
         $coupon = Coupon::where('code', $code)
             ->forUser(Auth::id())
             ->first();
 
-        \Log::info('Coupon search result', [
-            'found' => $coupon ? 'yes' : 'no',
-            'coupon_id' => $coupon?->id,
-        ]);
-
         if (!$coupon) {
-            // Check if code exists for any user (either system)
-            $anyCoupon = Coupon::where('code', $code)->first();
-            $anyReward = \App\Models\LoyaltyReward::where('code', $code)->first();
-            
-            if ($anyCoupon || $anyReward) {
-                \Log::warning('Code exists but for different user', [
-                    'coupon_user_id' => $anyCoupon?->user_id,
-                    'reward_account_id' => $anyReward?->account_id,
-                    'current_user_id' => Auth::id(),
-                ]);
-            }
-            
             return back()->withErrors(['code' => 'Invalid code.']);
         }
 
         if (!$coupon->isValid()) {
             $message = 'This coupon is no longer valid.';
-            
             if ($coupon->status === Coupon::STATUS_FULLY_REDEEMED) {
                 $message = 'This coupon has been fully redeemed.';
             } elseif ($coupon->status === Coupon::STATUS_EXPIRED) {
                 $message = 'This coupon has expired.';
-            } elseif ($coupon->remaining_value_cents <= 0) {
-                $message = 'This coupon has no remaining value.';
             }
-
             return back()->withErrors(['code' => $message]);
         }
 
-        // Store coupon in cache for this cart
+        // Calculate cart total from frontend items
+        $cartTotal = 0;
+        foreach ($cartItems as $item) {
+            if (!empty($item['lines']) && is_array($item['lines'])) {
+                foreach ($item['lines'] as $line) {
+                    $cartTotal += $line['total'] ?? 0;
+                }
+            } elseif (!empty($item['lineTotal'])) {
+                $cartTotal += $item['lineTotal'];
+            }
+        }
+        $cartTotalCents = (int) ($cartTotal * 100);
+
+        $couponValueCents = $coupon->remaining_value_cents;
+        $finalTotalCents = max(0, $cartTotalCents - $couponValueCents);
+
         $cacheKey = "cart_coupon:{$cartKey}";
         Cache::put($cacheKey, [
             'coupon_id' => $coupon->id,
@@ -96,6 +91,15 @@ class CouponController extends Controller
             'remaining_value_cents' => $coupon->remaining_value_cents,
         ], now()->addMinutes(30));
 
+        // Flash coupon info for Inertia share() to expose
+        $request->session()->flash('coupon_applied', [
+            'success' => true,
+            'message' => "Coupon applied! R" . number_format($coupon->remaining_value, 2) . " available.",
+            'final_total_cents' => $finalTotalCents,
+        ]);
+        $request->session()->flash('coupon_final_total_cents', $finalTotalCents);
+
+        // Return back with success flash
         return back()->with('success', "Coupon applied! R" . number_format($coupon->remaining_value, 2) . " available.");
     }
 
@@ -112,6 +116,9 @@ class CouponController extends Controller
         $cacheKey = "cart_coupon:{$cartKey}";
         
         Cache::forget($cacheKey);
+        // Clear session flash for coupon
+        $request->session()->forget('coupon_applied');
+        $request->session()->forget('coupon_final_total_cents');
 
         return back()->with('success', 'Coupon removed.');
     }

@@ -146,7 +146,7 @@ class UserDashboardController extends Controller
 
 
 
-    /** Show the reschedule page */
+    /** Show the reschedule page - redirect to booking flow with reschedule context */
     public function reschedule(Booking $booking)
     {
         abort_unless($booking->user_id === Auth::id(), 403);
@@ -155,12 +155,19 @@ class UserDashboardController extends Controller
         $start = Carbon::parse($booking->timeslot->starts_at);
 
         if ($start->lessThanOrEqualTo($now->copy()->addHours(6))) {
-            abort(403, 'Cannot reschedule within 6 hours of start time.');
+            return redirect()->route('user.dashboard')
+                ->withErrors(['reschedule' => 'Cannot reschedule within 6 hours of start time.']);
         }
 
-        return Inertia::render('frontend/my-bookings/reschedule', [
-            'booking' => $booking->load('timeslot.schedule.location', 'services'),
+        // Store reschedule context in session
+        session([
+            'reschedule_booking_id' => $booking->id,
+            'reschedule_original_timeslot' => $booking->timeslot_id,
+            'reschedule_people' => $booking->people,
         ]);
+
+        // Redirect to booking flow
+        return redirect()->route('index')->with('info', 'Select a new date and time for your booking.');
     }
 
     /** Return available slots for the booking’s location on a chosen date (grouped by period) */
@@ -291,12 +298,6 @@ class UserDashboardController extends Controller
 
         // Load target slot
         $newTs = Timeslot::with('schedule')->findOrFail($data['timeslot_id']);
-
-        // Must be same location as original booking
-        $currentLocationId = $booking->timeslot->schedule->location_id;
-        if ($newTs->schedule->location_id !== $currentLocationId) {
-            return back()->withErrors(['timeslot_id' => 'Please choose a slot at the same location.']);
-        }
 
         // Must be in the future (and avoid choosing the exact same slot)
         $newStart = Carbon::parse($newTs->starts_at);

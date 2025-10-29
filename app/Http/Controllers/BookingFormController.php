@@ -47,12 +47,23 @@ class BookingFormController extends Controller
             'capacity'       => $o->effective_capacity,
         ]);
 
+        // Check if this is a reschedule flow
+        $rescheduleContext = null;
+        if (session()->has('reschedule_booking_id')) {
+            $rescheduleContext = [
+                'booking_id' => session('reschedule_booking_id'),
+                'original_timeslot' => session('reschedule_original_timeslot'),
+                'people' => session('reschedule_people'),
+            ];
+        }
+
         return Inertia::render('Index', [
             'saunas'    => $saunas,
             'locations' => Location::orderBy('name')->get(['id', 'name', 'image_path']),
             'services'  => $services,
             'addons'    => $addons,
             'events'    => $events,
+            'rescheduleContext' => $rescheduleContext,
         ]);
     }
 }

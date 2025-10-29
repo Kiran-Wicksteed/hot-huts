@@ -4,7 +4,7 @@ import styles from "../../../styles";
 import { useCart } from "@/context/CartContext";
 import { useState, useEffect, useMemo } from "react";
 
-export default function InvoiceDetails() {
+export default function InvoiceDetails({ isReschedule = false }) {
     const { items, removeItem, clearCart, cartKey } = useCart();
 
     const [itemErrors, setItemErrors] = useState({}); // { [itemId]: "message" }
@@ -17,6 +17,7 @@ export default function InvoiceDetails() {
     const [couponMsg, setCouponMsg] = useState(null);
     const [couponErr, setCouponErr] = useState(null);
     const couponBusy = false; // kept simple; set true/false if you want loading states
+    const [grandTotalAfterVoucher, setGrandTotalAfterVoucher] = useState(null);
 
     // ---------- helpers ----------
     const toAmount = (v) => {
@@ -62,22 +63,9 @@ export default function InvoiceDetails() {
         return toAmount(it?.lineTotal);
     };
 
-    // ---------- COUPON: best-effort client estimate (1 sauna seat) ----------
-    const estimatedVoucherDiscount = useMemo(() => {
-        if (!couponApplied) return 0;
-        // find the FIRST sauna item and use its base unit as the “one seat” discount
-        for (const it of items) {
-            if (it?.kind !== "sauna") continue;
-            const lines = (it.lines ?? []).map((l) =>
-                normalizeLine(it.kind, l)
-            );
-            if (!lines.length) continue;
-            const unit = toAmount(lines[0].unit);
-            const itemTotal = calcItemTotal(it);
-            if (unit > 0) return Math.min(unit, itemTotal);
-        }
-        return 0;
-    }, [couponApplied, items]);
+    // ---------- COUPON: Note - actual discount is applied server-side ----------
+    // We don't show an estimated discount here because the backend handles
+    // the full coupon value calculation. The discount will be applied at checkout.
 
     // keep itemErrors in sync if user removes an item
     useEffect(() => {
@@ -92,10 +80,7 @@ export default function InvoiceDetails() {
     // ---- compute values BEFORE any early return (no hooks below) ----
     const invoiceDate = dayjs().format("D MMMM YYYY");
     const grandTotal = items.reduce((t, it) => t + calcItemTotal(it), 0);
-    const grandTotalAfterVoucher = Math.max(
-        0,
-        grandTotal - estimatedVoucherDiscount
-    );
+    // Note: Actual coupon discount is applied server-side at checkout
 
     if (!items.length) {
         const startFreshBooking = () => {
@@ -106,25 +91,46 @@ export default function InvoiceDetails() {
             router.visit(route("index"), { replace: true });
         };
 
+        const storageUrl = (path) => {
+            if (!path) return null;
+            if (/^https?:\/\//i.test(path)) return path;
+            return "/storage/" + String(path).replace(/^\/?(storage\/)?/i, "");
+        };
+
+        const hero = storageUrl("images/tub-bg.jpg");
+
         return (
             <div
-                className={`${styles.boxWidth} py-10 sm:py-20 px-2 sm:px-4 text-center`}
+                className={`${styles.boxWidth} bg-cover bg-center bg-no-repeat pb-10 sm:pb-28 pt-20 sm:pt-40 px-2 sm:px-4 2xl:px-28 md:px-10 lg:px-16 xl:px-20 min-h-screen flex items-center justify-center`}
+                style={hero ? { backgroundImage: `url(${hero})` } : undefined}
             >
-                <p
-                    className={`${styles.paragraph} !text-base sm:!text-lg mb-4`}
-                >
-                    Your cart is empty.
-                </p>
-                <button
-                    onClick={startFreshBooking}
-                    className="bg-hh-orange text-white px-6 py-3 rounded font-medium touch-manipulation"
-                >
-                    <span
-                        className={`${styles.paragraph} !text-sm sm:!text-base`}
+                <div className="border border-hh-orange rounded-md shadow bg-white/95 p-8 sm:p-12 max-w-md w-full text-center">
+                    <div className="mb-6">
+                        <svg className="h-16 w-16 text-hh-orange mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                        </svg>
+                    </div>
+                    <h1
+                        className={`${styles.h2} !text-2xl sm:!text-3xl text-hh-orange font-medium mb-4`}
                     >
-                        Start a booking
-                    </span>
-                </button>
+                        Your cart is empty
+                    </h1>
+                    <p
+                        className={`${styles.paragraph} !text-base sm:!text-lg text-black/70 mb-8`}
+                    >
+                        Looks like you haven't added any bookings yet. Start your journey with us!
+                    </p>
+                    <button
+                        onClick={startFreshBooking}
+                        className="bg-hh-orange text-white px-8 py-3 rounded-lg font-medium touch-manipulation hover:bg-orange-600 transition-colors shadow-lg"
+                    >
+                        <span
+                            className={`${styles.paragraph} !text-base sm:!text-lg`}
+                        >
+                            Start a booking
+                        </span>
+                    </button>
+                </div>
             </div>
         );
     }
@@ -150,29 +156,69 @@ export default function InvoiceDetails() {
 
         router.post(
             route("coupons.apply"),
-            { code, cart_key: cartKey },
+            { code, cart_key: cartKey, items: items.map(it => ({ id: it.id, kind: it.kind, lines: it.lines, lineTotal: it.lineTotal })) },
             {
                 preserveScroll: true,
                 preserveState: true,
                 replace: true,
                 onSuccess: (page) => {
-                    // Inertia usually returns flash + maybe errors
-                    const flash = page?.props?.flash || {};
-                    const err = page?.props?.errors || {};
-                    if (err?.code) {
-                        setCouponErr(err.code);
+                    // Standard Inertia flash/error handling
+                    const flash = page.props.flash || {};
+                    const errors = page.props.errors || {};
+                
+                    if (errors.code) {
+                        setCouponErr(errors.code);
                         setCouponApplied(false);
+                        setGrandTotalAfterVoucher(null);
                         return;
                     }
-                    if (flash?.success) {
+                
+                    // Use coupon_applied for detailed data - check both flash and props
+                    const couponData = page.props.flash?.coupon_applied || page.props.coupon_applied;
+                    const finalTotalCentsFallback = page.props.flash?.coupon_final_total_cents ?? page.props.coupon_final_total_cents ?? null;
+                
+                    console.log('[Coupon Apply] Response data:', {
+                        couponData,
+                        flash,
+                        flashCouponApplied: page.props.flash?.coupon_applied,
+                        propsCouponApplied: page.props.coupon_applied,
+                        grandTotal,
+                        page: page.props
+                    });
+                
+                    if (couponData && couponData.success) {
                         setCouponApplied(true);
-                        setCouponMsg(
-                            flash.success || "Free sauna applied to this cart."
-                        );
+                        setCouponMsg(couponData.message || "Coupon applied!");
+                
+                        // Ensure final_total_cents is a number before setting state
+                        const finalTotal = Number(couponData.final_total_cents);
+                        console.log('[Coupon Apply] Final total calculation:', {
+                            final_total_cents: couponData.final_total_cents,
+                            finalTotal,
+                            divided: finalTotal / 100
+                        });
+                        
+                        if (!isNaN(finalTotal)) {
+                            setGrandTotalAfterVoucher(finalTotal / 100);
+                        } else {
+                            // Fallback or error if final_total_cents is not valid
+                            setGrandTotalAfterVoucher(null);
+                        }
+                    } else if (finalTotalCentsFallback !== null && !isNaN(Number(finalTotalCentsFallback))) {
+                        // Fallback: server provided only a numeric final total in cents
+                        setCouponApplied(true);
+                        setGrandTotalAfterVoucher(Number(finalTotalCentsFallback) / 100);
+                    } else if (flash.success) {
+                        // Fallback for generic success flash
+                        setCouponApplied(true);
+                        setCouponMsg(flash.success);
+                        // No server-provided total; hide estimate rather than guessing
+                        setGrandTotalAfterVoucher(null);
                     } else {
-                        // Some backends redirect without flash; assume success if no errors
+                        // Handle cases where there's no error but no success data either
                         setCouponApplied(true);
-                        setCouponMsg("Free sauna applied to this cart.");
+                        setCouponMsg("Coupon applied.");
+                        setGrandTotalAfterVoucher(null);
                     }
                 },
                 onError: (errors) => {
@@ -180,6 +226,7 @@ export default function InvoiceDetails() {
                         errors?.code || "Could not apply this code right now."
                     );
                     setCouponApplied(false);
+                    setGrandTotalAfterVoucher(null);
                 },
             }
         );
@@ -205,6 +252,7 @@ export default function InvoiceDetails() {
                 const flash = page?.props?.flash || {};
                 if (flash?.success) setCouponMsg(flash.success);
                 setCouponApplied(false);
+                setGrandTotalAfterVoucher(null);
             },
             onError: () => {
                 setCouponErr("Could not remove the code right now.");
@@ -382,6 +430,20 @@ export default function InvoiceDetails() {
                         {invoiceDate}
                     </p>
 
+                    {/* Reschedule Notification Banner */}
+                    {isReschedule && (
+                        <div className="bg-amber-50 border-l-4 border-amber-400 p-4 mb-4 rounded-r">
+                            <div className="flex items-center">
+                                <svg className="h-5 w-5 text-amber-600 mr-3 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                </svg>
+                                <p className="text-sm text-amber-800 font-medium">
+                                    You are rescheduling your booking. Please review the new details below.
+                                </p>
+                            </div>
+                        </div>
+                    )}
+
                     {globalError && (
                         <div className="mb-4 p-3 border border-red-300 bg-red-50 text-red-700 rounded">
                             {globalError}
@@ -478,7 +540,7 @@ export default function InvoiceDetails() {
                                     <p
                                         className={`${styles.paragraph} !text-sm text-black/50`}
                                     >
-                                        Item total:
+                                        Item total:&nbsp;
                                     </p>
                                     <p
                                         className={`${styles.paragraph} !text-sm font-medium text-black`}
@@ -488,64 +550,74 @@ export default function InvoiceDetails() {
                                 </div>
                             </div>
                         );
-                    })}
+                    })} 
 
                     {/* Grand total - Desktop */}
-                    <div className="hidden sm:grid grid-cols-8 bg-[#F5F5F5] rounded py-4">
-                        <div className="col-span-5" />
-                        <p
-                            className={`${styles.paragraph} col-span-2 text-right text-black/50`}
-                        >
-                            Total Amount:
+                    <div className="hidden sm:grid grid-cols-12 mt-6">
+                        <div className="col-span-7" />
+                        <p className={`${styles.paragraph} !text-sm col-span-3 text-right text-black/50`}>
+                            Total Amount
                         </p>
-                        <p
-                            className={`${styles.paragraph} col-span-1 text-black`}
-                        >
-                            R{money(grandTotal)}
-                        </p>
-                    </div>
-
-                    {/* Grand total - Mobile */}
-                    <div className="sm:hidden flex justify-between items-center bg-[#F5F5F5] rounded py-4 px-4">
-                        <p
-                            className={`${styles.paragraph} !text-base font-medium text-black/50`}
-                        >
-                            Total Amount:
-                        </p>
-                        <p
-                            className={`${styles.paragraph} !text-lg font-semibold text-black`}
-                        >
+                        <p className={`${styles.paragraph} !text-sm col-span-2 text-black font-medium text-right`}>
                             R{money(grandTotal)}
                         </p>
                     </div>
 
                     {couponApplied && (
-                        <div className="grid grid-cols-8 bg-[#F5F5F5] rounded py-2 items-center mt-2">
-                            <div className="col-span-5" />
-                            <p
-                                className={`${styles.paragraph} col-span-2 text-right text-black/50`}
-                            >
-                                Voucher (est. 1 seat):
+                        <div className="hidden sm:grid grid-cols-12 mt-2">
+                            <div className="col-span-7" />
+                            <p className={`${styles.paragraph} !text-sm col-span-3 text-right text-black/50`}>
+                                Voucher Applied
                             </p>
-                            <p
-                                className={`${styles.paragraph} col-span-1 text-black`}
-                            >
-                                -R{money(estimatedVoucherDiscount)}
+                            <p className={`${styles.paragraph} !text-sm col-span-2 text-black text-right`}>
+                                {grandTotalAfterVoucher !== null
+                                    ? `- R${money(Math.max(0, grandTotal - grandTotalAfterVoucher))}`
+                                    : 'Applied'}
                             </p>
                         </div>
                     )}
 
-                    {couponApplied && (
-                        <div className="grid grid-cols-8 bg-[#EAFBF0] rounded py-3 items-center mt-2 border border-green-200">
-                            <div className="col-span-5" />
-                            <p
-                                className={`${styles.paragraph} col-span-2 text-right text-black/70 font-medium`}
-                            >
-                                Estimated payable:
+                    {couponApplied && grandTotalAfterVoucher !== null && (
+                        <div className="hidden sm:grid grid-cols-12 mt-2">
+                            <div className="col-span-7" />
+                            <p className={`${styles.paragraph} !text-sm col-span-3 text-right text-green-700 font-medium`}>
+                                Estimated Payable
                             </p>
-                            <p
-                                className={`${styles.paragraph} col-span-1 text-black font-medium`}
-                            >
+                            <p className={`${styles.paragraph} !text-sm col-span-2 text-green-700 font-bold text-right`}>
+                                R{money(grandTotalAfterVoucher)}
+                            </p>
+                        </div>
+                    )}
+
+                    {/* Grand total - Mobile */}
+                    <div className="sm:hidden flex justify-between items-center mt-6">
+                        <p className={`${styles.paragraph} !text-sm text-black/50`}>
+                            Total Amount
+                        </p>
+                        <p className={`${styles.paragraph} !text-base text-black font-medium`}>
+                            R{money(grandTotal)}
+                        </p>
+                    </div>
+
+                    {couponApplied && (
+                        <div className="sm:hidden flex justify-between items-center mt-2">
+                            <p className={`${styles.paragraph} !text-sm text-black/50`}>
+                                Voucher Applied
+                            </p>
+                            <p className={`${styles.paragraph} !text-sm text-black`}>
+                                {grandTotalAfterVoucher !== null
+                                    ? `- R${money(Math.max(0, grandTotal - grandTotalAfterVoucher))}`
+                                    : 'Applied'}
+                            </p>
+                        </div>
+                    )}
+
+                    {couponApplied && grandTotalAfterVoucher !== null && (
+                        <div className="sm:hidden flex justify-between items-center mt-2">
+                            <p className={`${styles.paragraph} !text-sm text-green-700 font-medium`}>
+                                Estimated Payable
+                            </p>
+                            <p className={`${styles.paragraph} !text-base text-green-700 font-bold`}>
                                 R{money(grandTotalAfterVoucher)}
                             </p>
                         </div>
@@ -603,9 +675,8 @@ export default function InvoiceDetails() {
                             )}
                             {couponApplied && !couponErr && (
                                 <p className="text-xs text-black/60 mt-1">
-                                    This voucher reserves one free sauna seat.
-                                    The discount is applied on the checkout
-                                    step.
+                                    Your voucher discount will be applied at checkout.
+                                    The final amount will be calculated based on your voucher balance.
                                 </p>
                             )}
                         </div>
@@ -662,7 +733,7 @@ export default function InvoiceDetails() {
                                 <span
                                     className={`${styles.paragraph} !text-sm sm:!text-base font-medium`}
                                 >
-                                    Proceed to payment
+                                    {isReschedule ? 'Reschedule Booking' : 'Proceed to payment'}
                                 </span>
                             </button>
                         </div>
