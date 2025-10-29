@@ -38,6 +38,14 @@ class HandleInertiaRequests extends Middleware
                 'user' => $user,
                 'organization' => $user ? $user->organization : null,
             ],
+            // Ensure flash messages are exposed to Inertia, including our coupon payload
+            'flash' => [
+                'success' => fn () => $request->session()->get('success'),
+                'error' => fn () => $request->session()->get('error'),
+                'coupon_applied' => fn () => $request->session()->get('coupon_applied'),
+            ],
+            // Also expose coupon info at the top level for convenience
+            'coupon_applied' => fn () => $request->session()->get('coupon_applied'),
             'preflight' => fn() => $request->session()->pull('preflight'),
             'userResults' => Inertia::lazy(function () use ($request) {
                 $q = trim($request->get('q', ''));

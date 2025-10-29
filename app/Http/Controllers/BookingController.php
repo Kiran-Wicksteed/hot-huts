@@ -156,6 +156,11 @@ class BookingController extends Controller
     /* --------------------------------------------------- store */
     public function store(Request $request)
     {
+        // ---------- Check if this is a reschedule flow ----------
+        if (session()->has('reschedule_booking_id')) {
+            return $this->handleReschedule($request);
+        }
+
         $holdMinutes = (int) config('booking.hold_minutes', 10);
         $entity      = config('peach-payment.entity_id');
         $cbUrl       = '/order/callback'; // Relative path - Peach Payment library will make it absolute
@@ -216,20 +221,35 @@ class BookingController extends Controller
         // ---------- 0.1) Idempotency guard (cache) ----------
         // If this cart_key already produced a checkout, reuse it and DO NOT create new bookings.
         $cacheKey = "cart_checkout:{$cartKey}";
-        if (Cache::has($cacheKey)) {
-            $cached = Cache::get($cacheKey);
-
-            if ($response = $this->handleCachedCheckoutVoucherFlow($cartKey, $cacheKey, $cached, $entity, $cbUrl, $holdMinutes)) {
-                return $response;
+        $lockKey = "cart_lock:{$cartKey}";
+        
+        // Acquire lock to prevent race conditions
+        $lock = Cache::lock($lockKey, 10);
+        
+        try {
+            // Wait up to 5 seconds to acquire lock
+            if (!$lock->block(5)) {
+                abort(409, 'Another checkout is in progress for this cart. Please wait.');
             }
+            
+            if (Cache::has($cacheKey)) {
+                $cached = Cache::get($cacheKey);
 
-            Log::info('Idempotent reuse of existing checkout for cart_key', ['cart_key' => $cartKey, 'cached' => $cached]);
+                if ($response = $this->handleCachedCheckoutVoucherFlow($cartKey, $cacheKey, $cached, $entity, $cbUrl, $holdMinutes)) {
+                    return $response;
+                }
 
-            return Inertia::render('Payment/RedirectToGateway', [
-                'entityId'          => $entity,
-                'checkoutId'        => $cached['checkoutId'],
-                'checkoutScriptUrl' => config('peach-payment.' . config('peach-payment.environment') . '.embedded_checkout_url'),
-            ]);
+                Log::info('Idempotent reuse of existing checkout for cart_key', ['cart_key' => $cartKey, 'cached' => $cached]);
+
+                return Inertia::render('Payment/RedirectToGateway', [
+                    'entityId'          => $entity,
+                    'checkoutId'        => $cached['checkoutId'],
+                    'checkoutScriptUrl' => config('peach-payment.' . config('peach-payment.environment') . '.embedded_checkout_url'),
+                ]);
+            }
+        } catch (\Exception $e) {
+            $lock->release();
+            throw $e;
         }
 
         // ---------- 1) Pre-aggregate requested headcount ----------
@@ -584,7 +604,12 @@ class BookingController extends Controller
 
         try {
             Log::info('Creating Peach Payment checkout', [
-                'amount' => $amount,
+                'cart_key' => $cartKey,
+                'amount_rands' => $amount,
+                'amount_cents' => $grandTotalCents,
+                'booking_count' => count($bookings),
+                'booking_ids' => collect($bookings)->pluck('id')->all(),
+                'booking_amounts' => collect($bookings)->map(fn($b) => ['id' => $b->id, 'amount' => $b->amount])->all(),
                 'callback_url' => $cbUrl,
             ]);
             
@@ -644,6 +669,9 @@ class BookingController extends Controller
             'orderNumber' => $checkout['order_number'],
             'grandCents'  => $grandTotalCents,
         ], now()->addMinutes(max($holdMinutes, 10)));
+
+        // Release the lock after successful checkout creation
+        $lock->release();
 
         // ---------- 4) Render payment page ----------
         return Inertia::render('Payment/RedirectToGateway', [
@@ -767,6 +795,17 @@ class BookingController extends Controller
 
         $peach    = new PeachPayment();
         $amount   = number_format($reprice['grand_cents'] / 100, 2, '.', '');
+        
+        Log::info('Creating Peach Payment checkout (cached voucher flow)', [
+            'cart_key' => $cartKey,
+            'amount_rands' => $amount,
+            'amount_cents' => $reprice['grand_cents'],
+            'booking_count' => count($bookings),
+            'booking_ids' => $bookingIds,
+            'booking_amounts' => $bookings->map(fn($b) => ['id' => $b->id, 'amount' => $b->amount])->all(),
+            'callback_url' => $cbUrl,
+        ]);
+        
         $checkout = $peach->createCheckout($amount, $cbUrl);
 
         foreach ($bookings as $booking) {
@@ -1130,5 +1169,94 @@ class BookingController extends Controller
         app(\App\Services\LoyaltyService::class)->accrueFromBooking($booking);
 
         return back()->with('success', 'Admin booking created successfully.');
+    }
+
+    /**
+     * Handle reschedule flow - update existing booking instead of creating new one
+     */
+    protected function handleReschedule(Request $request)
+    {
+        $now = now();
+        $user = $request->user();
+        
+        // Get reschedule context from session
+        $bookingId = session('reschedule_booking_id');
+        $originalTimeslotId = session('reschedule_original_timeslot');
+        
+        // Load the existing booking
+        $booking = Booking::findOrFail($bookingId);
+        
+        // Verify ownership
+        if ($booking->user_id !== $user->id) {
+            abort(403, 'Unauthorized');
+        }
+        
+        // Verify booking can still be rescheduled (6 hour rule)
+        $currentStart = Carbon::parse($booking->timeslot->starts_at);
+        if ($currentStart->lessThanOrEqualTo($now->copy()->addHours(6))) {
+            session()->forget(['reschedule_booking_id', 'reschedule_original_timeslot', 'reschedule_people']);
+            return redirect()->route('user.dashboard')
+                ->withErrors(['reschedule' => 'Cannot reschedule within 6 hours of start time.']);
+        }
+        
+        // Get new timeslot from request (support both cart and legacy formats)
+        $asCart = $request->has('items');
+        
+        if ($asCart) {
+            $data = $request->validate([
+                'items' => ['required', 'array', 'min:1', 'max:1'], // Only allow 1 item for reschedule
+                'items.*.timeslot_id' => ['required', 'integer', 'exists:timeslots,id'],
+            ]);
+            $newTimeslotId = (int) $data['items'][0]['timeslot_id'];
+        } else {
+            $data = $request->validate([
+                'timeslot_id' => ['required', 'integer', 'exists:timeslots,id'],
+            ]);
+            $newTimeslotId = (int) $data['timeslot_id'];
+        }
+        
+        // Load new timeslot
+        $newTimeslot = Timeslot::with('schedule')->findOrFail($newTimeslotId);
+        
+        // Verify it's not the same slot
+        if ($newTimeslotId === $booking->timeslot_id) {
+            return back()->withErrors(['timeslot_id' => 'This is your current slot. Please select a different one.']);
+        }
+        
+        // Verify new slot is in the future
+        $newStart = Carbon::parse($newTimeslot->starts_at);
+        if ($newStart->lessThanOrEqualTo($now)) {
+            return back()->withErrors(['timeslot_id' => 'Chosen slot is in the past.']);
+        }
+        
+        // Capacity check for new slot
+        $bookedPeople = $newTimeslot->bookings()
+            ->where(function ($q) use ($now) {
+                $q->where('status', 'paid')
+                    ->orWhere(function ($q2) use ($now) {
+                        $q2->where('status', 'pending')
+                            ->where('hold_expires_at', '>', $now);
+                    });
+            })->sum('people');
+        
+        if ($bookedPeople + $booking->people > $newTimeslot->capacity) {
+            return back()->withErrors(['timeslot_id' => 'Not enough spots left in this slot.']);
+        }
+        
+        // All validations passed - update the booking
+        $booking->timeslot_id = $newTimeslotId;
+        $booking->save();
+        
+        // Clear reschedule session data
+        session()->forget(['reschedule_booking_id', 'reschedule_original_timeslot', 'reschedule_people']);
+        
+        // Send confirmation email
+        try {
+            $this->sendConfirmationEmail(collect([$booking]), $booking->peach_payment_order_no ?? 'reschedule-' . $booking->id);
+        } catch (\Exception $e) {
+            Log::warning('Failed to send reschedule confirmation email', ['error' => $e->getMessage()]);
+        }
+        
+        return redirect()->route('user.dashboard')->with('success', 'Booking rescheduled successfully!');
     }
 }

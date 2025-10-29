@@ -110,6 +110,45 @@ class PaymentAdminController extends Controller
         ]);
     }
 
+    /**
+     * Categorize payment method into standard types
+     */
+    private function categorizePaymentMethod($paymentMethod)
+    {
+        if (empty($paymentMethod)) {
+            return 'yoco'; // Default to Yoco for empty payment methods
+        }
+        
+        $pm = strtolower(trim($paymentMethod));
+        
+        // Online payments
+        if (str_contains($pm, 'peach') || str_contains($pm, 'online')) {
+            return 'online';
+        }
+        
+        // Yoco card payments - now includes 'paid' and empty strings
+        if (str_contains($pm, 'yoco') || 
+            str_contains($pm, 'card') || 
+            str_contains($pm, 'paid') || 
+            $pm === 'paid' ||
+            $pm === '') {
+            return 'yoco';
+        }
+        
+        // EFT/Voucher
+        if (str_contains($pm, 'eft') || str_contains($pm, 'voucher')) {
+            return 'eft';
+        }
+        
+        // Cash (now routed to Yoco)
+        if (str_contains($pm, 'cash')) {
+            return 'yoco';
+        }
+        
+        // Default to 'yoco' for any uncategorized payments
+        return 'yoco';
+    }
+
     public function export(Request $request)
     {
         // Apply same filters as index - ONLY PAID BOOKINGS
@@ -271,7 +310,7 @@ class PaymentAdminController extends Controller
                 fputcsv($handle, []);
                 
                 // Column headers
-                fputcsv($handle, ['Date', 'Item', 'Online', 'Yoco', 'Cash', 'Voucher/EFT', 'Loyalty', '# of clients', 'Revenue', 'Total for day', 'Max Cap', 'Day %', 'Average Capacity', 'Notes']);
+                fputcsv($handle, ['Date', 'Item', 'Online', 'Yoco', 'Voucher/EFT', 'Loyalty', '# of clients', 'Revenue', 'Total for day', 'Max Cap', 'Day %', 'Average Capacity', 'Notes']);
                 
                 // Sort dates
                 ksort($locationData['dates']);
@@ -279,14 +318,14 @@ class PaymentAdminController extends Controller
                 foreach ($locationData['dates'] as $date => $dayData) {
                     // Aggregate items for this day
                     $items = [];
-                    $dayTotals = ['online' => 0, 'yoco' => 0, 'cash' => 0, 'voucher_eft' => 0, 'loyalty' => 0, 'people' => 0, 'revenue' => 0];
+                    $dayTotals = ['online' => 0, 'yoco' => 0, 'voucher_eft' => 0, 'loyalty' => 0, 'people' => 0, 'revenue' => 0];
                     
                     foreach ($dayData['bookings'] as $booking) {
                         if (isset($booking['is_retail']) && $booking['is_retail']) {
                             // Retail item
                             $itemName = $booking['name'];
                             if (!isset($items[$itemName])) {
-                                $items[$itemName] = ['online' => '', 'yoco' => '', 'cash' => '', 'voucher_eft' => '', 'loyalty' => '', 'clients' => 0, 'revenue' => 0];
+                                $items[$itemName] = ['online' => '', 'yoco' => '', 'voucher_eft' => '', 'loyalty' => '', 'clients' => 0, 'revenue' => 0];
                             }
                             $items[$itemName]['clients'] += $booking['quantity'];
                             $items[$itemName]['revenue'] += $booking['amount'];
@@ -328,29 +367,39 @@ class PaymentAdminController extends Controller
                                 $itemName = $booking['is_event'] ? $booking['event_name'] : ($service->name ?? 'Sauna Session');
                                 
                                 if (!isset($items[$itemName])) {
-                                    $items[$itemName] = ['online' => 0, 'yoco' => 0, 'cash' => 0, 'voucher_eft' => 0, 'loyalty' => 0, 'clients' => 0, 'revenue' => 0];
+                                    $items[$itemName] = ['online' => 0, 'yoco' => 0, 'voucher_eft' => 0, 'loyalty' => 0, 'clients' => 0, 'revenue' => 0];
                                 }
                                 
                                 // Count payment method only once for the entire booking (count people, not bookings)
                                 if (!$paymentCounted) {
                                     $peopleCount = $booking['people'];
                                     
-                                    if ($bt === 'online') {
-                                        $items[$itemName]['online'] += $peopleCount;
-                                        $dayTotals['online'] += $peopleCount;
-                                    } elseif (str_contains($pm, 'yoco') || $pm === 'card') {
-                                        $items[$itemName]['yoco'] += $peopleCount;
-                                        $dayTotals['yoco'] += $peopleCount;
-                                    } elseif (str_contains($pm, 'cash')) {
-                                        $items[$itemName]['cash'] += $peopleCount;
-                                        $dayTotals['cash'] += $peopleCount;
-                                    } elseif (str_contains($pm, 'voucher') || str_contains($pm, 'eft')) {
-                                        $items[$itemName]['voucher_eft'] += $peopleCount;
-                                        $dayTotals['voucher_eft'] += $peopleCount;
-                                    } else {
-                                        $items[$itemName]['cash'] += $peopleCount;
-                                        $dayTotals['cash'] += $peopleCount;
-                                    }
+                                    $paymentCategory = $this->categorizePaymentMethod($pm);
+                            
+                            // Map the category to the correct column
+                            switch ($paymentCategory) {
+                                case 'online':
+                                    $items[$itemName]['online'] += $peopleCount;
+                                    $dayTotals['online'] += $peopleCount;
+                                    break;
+                                case 'yoco':
+                                    $items[$itemName]['yoco'] += $peopleCount;
+                                    $dayTotals['yoco'] += $peopleCount;
+                                    break;
+                                case 'eft':
+                                    $items[$itemName]['voucher_eft'] += $peopleCount;
+                                    $dayTotals['voucher_eft'] += $peopleCount;
+                                    break;
+                                default:
+                                    // For 'other' or any uncategorized payments, default to yoco
+                                    $items[$itemName]['yoco'] += $peopleCount;
+                                    $dayTotals['yoco'] += $peopleCount;
+                                    // Log uncategorized payments for review
+                                    \Log::info('Uncategorized payment method defaulted to Yoco', [
+                                        'payment_method' => $pm,
+                                        'booking_id' => $booking['id'],
+                                    ]);
+                            }
                                     $paymentCounted = true;
                                 }
                                 
@@ -373,20 +422,24 @@ class PaymentAdminController extends Controller
                                 }
                                 
                                 if (!isset($items[$addonName])) {
-                                    $items[$addonName] = ['online' => 0, 'yoco' => 0, 'cash' => 0, 'voucher_eft' => 0, 'loyalty' => 0, 'clients' => 0, 'revenue' => 0];
+                                    $items[$addonName] = ['online' => 0, 'yoco' => 0, 'voucher_eft' => 0, 'loyalty' => 0, 'clients' => 0, 'revenue' => 0];
                                 }
                                 
                                 // Track payment method for add-ons based on booking's payment method
-                                if ($bt === 'online') {
-                                    $items[$addonName]['online'] += $quantity;
-                                } elseif (str_contains($pm, 'yoco') || $pm === 'card') {
-                                    $items[$addonName]['yoco'] += $quantity;
-                                } elseif (str_contains($pm, 'cash')) {
-                                    $items[$addonName]['cash'] += $quantity;
-                                } elseif (str_contains($pm, 'voucher') || str_contains($pm, 'eft')) {
-                                    $items[$addonName]['voucher_eft'] += $quantity;
-                                } else {
-                                    $items[$addonName]['cash'] += $quantity;
+                                $paymentCategory = $this->categorizePaymentMethod($booking['payment_method'] ?? '');
+                                
+                                switch ($paymentCategory) {
+                                    case 'online':
+                                        $items[$addonName]['online'] += $quantity;
+                                        break;
+                                    case 'yoco':
+                                        $items[$addonName]['yoco'] += $quantity;
+                                        break;
+                                    case 'eft':
+                                        $items[$addonName]['voucher_eft'] += $quantity;
+                                        break;
+                                    default:
+                                        $items[$addonName]['yoco'] += $quantity;
                                 }
                                 
                                 $items[$addonName]['clients'] += $quantity;
@@ -403,7 +456,6 @@ class PaymentAdminController extends Controller
                         $row[] = $itemName;
                         $row[] = $item['online'] ?: '';
                         $row[] = $item['yoco'] ?: '';
-                        $row[] = $item['cash'] ?: '';
                         $row[] = $item['voucher_eft'] ?: '';
                         $row[] = $item['loyalty'] ?: '';
                         $row[] = $item['clients'];

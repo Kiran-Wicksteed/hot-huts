@@ -21,7 +21,7 @@ function usePersistedState(key, defaultValue) {
     return [state, setState];
 }
 
-export default function Index({ locations, services, addons, events }) {
+export default function Index({ locations, services, addons, events, rescheduleContext }) {
     const [currentStep, setCurrentStep] = usePersistedState("hh_step", 1);
     const [formData, setFormData] = usePersistedState("hh_form", {
         event_occurrence_id: null,
@@ -122,6 +122,7 @@ export default function Index({ locations, services, addons, events }) {
                         formData={formData}
                         locations={locations}
                         events={events}
+                        isReschedule={!!rescheduleContext}
                     />
                 )}
 
@@ -156,6 +157,7 @@ export default function Index({ locations, services, addons, events }) {
                         nextStep={goToNextStep}
                         prevStep={goToPrevStep}
                         formData={formData}
+                        isReschedule={!!rescheduleContext}
                     />
                 )}
             </div>

@@ -21,6 +21,7 @@ export default function ServiceSection({
     sessionService, // pass the one row where category==='session'
     locations,
     events,
+    isReschedule = false,
 }) {
     const { location } = formData;
     const people = servicesData.people;
@@ -294,21 +295,29 @@ export default function ServiceSection({
                                 </p>
 
                                 <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-x-4">
-                                    <p
-                                        className={`text-hh-gray ${styles.paragraph} !text-sm text-center sm:text-left`}
-                                    >
-                                        No of people (max 8)
-                                    </p>
+                                    <div className="flex flex-col items-center sm:items-start">
+                                        <p
+                                            className={`text-hh-gray ${styles.paragraph} !text-sm text-center sm:text-left`}
+                                        >
+                                            No of people (max 8)
+                                        </p>
+                                        {isReschedule && (
+                                            <p className="text-xs text-amber-600 mt-1">
+                                                Cannot change during reschedule
+                                            </p>
+                                        )}
+                                    </div>
                                     <div className="flex gap-x-2 justify-center sm:justify-end">
                                         <button
                                             onClick={() =>
-                                                updateQuantity(
+                                                !isReschedule && updateQuantity(
                                                     "people",
                                                     people - 1
                                                 )
                                             }
+                                            disabled={isReschedule}
                                             aria-label="Decrease people"
-                                            className="touch-manipulation"
+                                            className={`touch-manipulation ${isReschedule ? 'opacity-50 cursor-not-allowed' : ''}`}
                                         >
                                             <MinusIcon className="h-8 w-8 sm:h-6 sm:w-6 text-black bg-[#E2E2E2] rounded-lg p-1 sm:p-0.5" />
                                         </button>
@@ -319,13 +328,14 @@ export default function ServiceSection({
                                         </span>
                                         <button
                                             onClick={() =>
-                                                updateQuantity(
+                                                !isReschedule && updateQuantity(
                                                     "people",
                                                     Math.min(8, people + 1)
                                                 )
                                             }
+                                            disabled={isReschedule}
                                             aria-label="Increase people"
-                                            className="touch-manipulation"
+                                            className={`touch-manipulation ${isReschedule ? 'opacity-50 cursor-not-allowed' : ''}`}
                                         >
                                             <PlusIcon className="h-8 w-8 sm:h-6 sm:w-6 text-black bg-[#E2E2E2] rounded-lg p-1 sm:p-0.5" />
                                         </button>
