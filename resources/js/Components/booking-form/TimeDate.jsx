@@ -304,35 +304,26 @@ export default function TimeDate({
                                 })}
                             </div>
 
-                            {/* slots - Morning and Afternoon dropdowns only */}
+                            {/* slots - show all periods that have availability */}
                             <div className="space-y-6 sm:space-y-8">
-                                {(slots.morning?.length > 0 || slots.afternoon?.length > 0) ? (
-                                    <>
-                                        {slots.morning?.length > 0 && (
-                                            <PeriodSection
-                                                key="morning"
-                                                period="morning"
-                                                items={slots.morning}
-                                                isMobile={isMobile}
-                                                mobileOpen={mobileOpen}
-                                                setMobileOpen={setMobileOpen}
-                                                selectedSlotId={selectedSlot?.id}
-                                                onPick={handleTimeSelect}
-                                            />
-                                        )}
-                                        {slots.afternoon?.length > 0 && (
-                                            <PeriodSection
-                                                key="afternoon"
-                                                period="afternoon"
-                                                items={slots.afternoon}
-                                                isMobile={isMobile}
-                                                mobileOpen={mobileOpen}
-                                                setMobileOpen={setMobileOpen}
-                                                selectedSlotId={selectedSlot?.id}
-                                                onPick={handleTimeSelect}
-                                            />
-                                        )}
-                                    </>
+                                {["morning", "afternoon", "evening", "night"].some(
+                                    (period) => (slots[period]?.length ?? 0) > 0
+                                ) ? (
+                                    ["morning", "afternoon", "evening", "night"].map(
+                                        (period) =>
+                                            slots[period]?.length > 0 && (
+                                                <PeriodSection
+                                                    key={period}
+                                                    period={period}
+                                                    items={slots[period]}
+                                                    isMobile={isMobile}
+                                                    mobileOpen={mobileOpen}
+                                                    setMobileOpen={setMobileOpen}
+                                                    selectedSlotId={selectedSlot?.id}
+                                                    onPick={handleTimeSelect}
+                                                />
+                                            )
+                                    )
                                 ) : (
                                     <p
                                         className={`${styles.paragraph} text-hh-gray`}
