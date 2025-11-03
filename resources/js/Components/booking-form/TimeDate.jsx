@@ -148,7 +148,7 @@ export default function TimeDate({
             timeslot_id: item.id,
             booking_type: "sauna",
         });
-        
+
         // Immediately add to cart and proceed to order summary
         const pickedAddons = addons
             .filter((a) => (servicesData[a.code] ?? 0) > 0)
@@ -205,7 +205,6 @@ export default function TimeDate({
         });
         return sum.toFixed(2);
     }, [servicesData, addons, people, sessionService.price]);
-
 
     const storageUrl = (path) => {
         if (!path) return null;
@@ -304,35 +303,40 @@ export default function TimeDate({
                                 })}
                             </div>
 
-                            {/* slots - Morning and Afternoon dropdowns only */}
+                            {/* slots - show all periods that have availability */}
                             <div className="space-y-6 sm:space-y-8">
-                                {(slots.morning?.length > 0 || slots.afternoon?.length > 0) ? (
-                                    <>
-                                        {slots.morning?.length > 0 && (
-                                            <PeriodSection
-                                                key="morning"
-                                                period="morning"
-                                                items={slots.morning}
-                                                isMobile={isMobile}
-                                                mobileOpen={mobileOpen}
-                                                setMobileOpen={setMobileOpen}
-                                                selectedSlotId={selectedSlot?.id}
-                                                onPick={handleTimeSelect}
-                                            />
-                                        )}
-                                        {slots.afternoon?.length > 0 && (
-                                            <PeriodSection
-                                                key="afternoon"
-                                                period="afternoon"
-                                                items={slots.afternoon}
-                                                isMobile={isMobile}
-                                                mobileOpen={mobileOpen}
-                                                setMobileOpen={setMobileOpen}
-                                                selectedSlotId={selectedSlot?.id}
-                                                onPick={handleTimeSelect}
-                                            />
-                                        )}
-                                    </>
+                                {[
+                                    "morning",
+                                    "afternoon",
+                                    "evening",
+                                    "night",
+                                ].some(
+                                    (period) => (slots[period]?.length ?? 0) > 0
+                                ) ? (
+                                    [
+                                        "morning",
+                                        "afternoon",
+                                        "evening",
+                                        "night",
+                                    ].map(
+                                        (period) =>
+                                            slots[period]?.length > 0 && (
+                                                <PeriodSection
+                                                    key={period}
+                                                    period={period}
+                                                    items={slots[period]}
+                                                    isMobile={isMobile}
+                                                    mobileOpen={mobileOpen}
+                                                    setMobileOpen={
+                                                        setMobileOpen
+                                                    }
+                                                    selectedSlotId={
+                                                        selectedSlot?.id
+                                                    }
+                                                    onPick={handleTimeSelect}
+                                                />
+                                            )
+                                    )
                                 ) : (
                                     <p
                                         className={`${styles.paragraph} text-hh-gray`}
@@ -459,8 +463,10 @@ export default function TimeDate({
                                     </span>
                                 </button>
                             </div>
-                            
-                            <p className={`${styles.paragraph} text-center text-gray-600 !text-sm mt-4`}>
+
+                            <p
+                                className={`${styles.paragraph} text-center text-gray-600 !text-sm mt-4`}
+                            >
                                 Select a time slot above to continue
                             </p>
                         </div>
