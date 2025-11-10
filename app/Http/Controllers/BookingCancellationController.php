@@ -178,6 +178,28 @@ class BookingCancellationController extends Controller
                 ]);
             }
 
+            // Reverse loyalty accruals and restore any redeemed rewards
+            if (class_exists(\App\Services\LoyaltyService::class)) {
+                try {
+                    app(\App\Services\LoyaltyService::class)->reverseFromBooking($booking);
+
+                    if (class_exists(\App\Models\LoyaltyReward::class)) {
+                        \App\Models\LoyaltyReward::where('redemption_booking_id', $booking->id)
+                            ->where('status', \App\Models\LoyaltyReward::STATUS_REDEEMED)
+                            ->update([
+                                'status' => \App\Models\LoyaltyReward::STATUS_ISSUED,
+                                'redemption_booking_id' => null,
+                                'redeemed_at' => null,
+                            ]);
+                    }
+                } catch (\Exception $e) {
+                    \Log::error('Failed to reverse loyalty for admin-cancelled booking', [
+                        'booking_id' => $booking->id,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            }
+
             $message = $coupon
                 ? "Booking cancelled. Refund coupon: {$coupon->code} (R" . number_format($coupon->remaining_value, 2) . ")"
                 : 'Booking cancelled. No refund issued.';
