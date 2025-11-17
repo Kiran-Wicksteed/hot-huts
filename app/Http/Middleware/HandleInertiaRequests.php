@@ -35,7 +35,9 @@ class HandleInertiaRequests extends Middleware
 
         return array_merge(parent::share($request), [
             'auth' => [
-                'user' => $user,
+                'user' => $user ? array_merge($user->toArray(), [
+                    'has_active_membership' => $user->hasActiveMembership(),
+                ]) : null,
                 'organization' => $user ? $user->organization : null,
             ],
             // Ensure flash messages are exposed to Inertia, including our coupon payload

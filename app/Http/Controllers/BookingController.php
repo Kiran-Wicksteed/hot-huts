@@ -153,6 +153,55 @@ class BookingController extends Controller
         ]);
     }
 
+    /* --------------------------------------------------- checkMemberEligibility */
+    public function checkMemberEligibility(Request $request)
+    {
+        $user = $request->user();
+        
+        Log::info('[MEMBERSHIP API] checkMemberEligibility called', [
+            'user_id' => $user?->id,
+            'has_membership' => $user ? $user->hasActiveMembership() : false,
+        ]);
+        
+        if (!$user || !$user->hasActiveMembership()) {
+            return response()->json([
+                'has_membership' => false,
+                'eligible_dates' => [],
+            ]);
+        }
+
+        $data = $request->validate([
+            'dates' => ['required', 'array'],
+            'dates.*' => ['required', 'date'],
+        ]);
+
+        Log::info('[MEMBERSHIP API] Checking dates', [
+            'user_id' => $user->id,
+            'dates' => $data['dates'],
+        ]);
+
+        $eligibleDates = [];
+        foreach ($data['dates'] as $date) {
+            $hasUsed = $user->hasUsedFreeBookingOnDate($date);
+            $eligibleDates[$date] = !$hasUsed;
+            
+            Log::info('[MEMBERSHIP API] Date eligibility', [
+                'date' => $date,
+                'has_used' => $hasUsed,
+                'is_eligible' => !$hasUsed,
+            ]);
+        }
+
+        $response = [
+            'has_membership' => true,
+            'eligible_dates' => $eligibleDates,
+        ];
+        
+        Log::info('[MEMBERSHIP API] Response', $response);
+
+        return response()->json($response);
+    }
+
     /* --------------------------------------------------- store */
     public function store(Request $request)
     {
@@ -235,17 +284,32 @@ class BookingController extends Controller
             if (Cache::has($cacheKey)) {
                 $cached = Cache::get($cacheKey);
 
-                if ($response = $this->handleCachedCheckoutVoucherFlow($cartKey, $cacheKey, $cached, $entity, $cbUrl, $holdMinutes)) {
-                    return $response;
+                // Verify that the cached bookings still exist and are in pending state
+                $cachedBookingIds = $cached['booking_ids'] ?? [];
+                $existingBookings = Booking::whereIn('id', $cachedBookingIds)
+                    ->where('status', 'pending')
+                    ->count();
+
+                if ($existingBookings !== count($cachedBookingIds)) {
+                    Log::info('Cached checkout invalid - bookings deleted or paid', [
+                        'cart_key' => $cartKey,
+                        'cached_booking_ids' => $cachedBookingIds,
+                        'existing_count' => $existingBookings,
+                    ]);
+                    Cache::forget($cacheKey);
+                } else {
+                    if ($response = $this->handleCachedCheckoutVoucherFlow($cartKey, $cacheKey, $cached, $entity, $cbUrl, $holdMinutes)) {
+                        return $response;
+                    }
+
+                    Log::info('Idempotent reuse of existing checkout for cart_key', ['cart_key' => $cartKey, 'cached' => $cached]);
+
+                    return Inertia::render('Payment/RedirectToGateway', [
+                        'entityId'          => $entity,
+                        'checkoutId'        => $cached['checkoutId'],
+                        'checkoutScriptUrl' => config('peach-payment.' . config('peach-payment.environment') . '.embedded_checkout_url'),
+                    ]);
                 }
-
-                Log::info('Idempotent reuse of existing checkout for cart_key', ['cart_key' => $cartKey, 'cached' => $cached]);
-
-                return Inertia::render('Payment/RedirectToGateway', [
-                    'entityId'          => $entity,
-                    'checkoutId'        => $cached['checkoutId'],
-                    'checkoutScriptUrl' => config('peach-payment.' . config('peach-payment.environment') . '.embedded_checkout_url'),
-                ]);
             }
         } catch (\Exception $e) {
             $lock->release();
@@ -458,11 +522,40 @@ class BookingController extends Controller
                             $membershipAlreadyUsed = Cache::get($membershipUsageKey, false);
                         }
 
-                        if (!$membershipAlreadyUsed && !$user->hasUsedFreeBookingOnDate($membershipUsageDate)) {
+                        $hasUsedOnDate = $user->hasUsedFreeBookingOnDate($membershipUsageDate);
+
+                        if ($membershipAlreadyUsed && !$hasUsedOnDate) {
+                            Log::info('[MEMBERSHIP] Cache indicated free booking already used but database disagrees — clearing cache', [
+                                'user_id' => $user->id,
+                                'booking_date' => $membershipUsageDate,
+                            ]);
+                            Cache::forget($membershipUsageKey);
+                            $membershipAlreadyUsed = false;
+                        }
+
+                        Log::info('[MEMBERSHIP] Checking free booking eligibility', [
+                            'user_id' => $user->id,
+                            'booking_date' => $membershipUsageDate,
+                            'membership_already_used_cache' => $membershipAlreadyUsed,
+                            'has_used_on_date_db' => $hasUsedOnDate,
+                            'price_each' => $priceEach,
+                            'total_before' => $total,
+                        ]);
+
+                        if (!$membershipAlreadyUsed && !$hasUsedOnDate) {
                             $discount = min($priceEach, $total);
                             $total -= $discount;
                             $membershipApplied = true;
                             $membershipAlreadyUsed = true;
+                            
+                            Log::info('[MEMBERSHIP] Free booking applied', [
+                                'discount' => $discount,
+                                'total_after' => $total,
+                            ]);
+                        } else {
+                            Log::info('[MEMBERSHIP] Free booking NOT applied', [
+                                'reason' => $membershipAlreadyUsed ? 'cache_already_used' : 'db_already_used',
+                            ]);
                         }
                     }
                 } else {
@@ -534,7 +627,19 @@ class BookingController extends Controller
         }
 
         // ---------- 2.5) Zero-amount flow (voucher fully covered) ----------
+        Log::info('[CHECKOUT] Final total check', [
+            'grandTotalCents' => $grandTotalCents,
+            'membershipApplied' => $membershipApplied,
+            'couponDiscount' => $couponDiscount,
+            'appliedCoupon' => $appliedCoupon ? $appliedCoupon->code : null,
+        ]);
+        
         if ($grandTotalCents <= 0) {
+            Log::info('[CHECKOUT] Zero-amount flow triggered', [
+                'membershipApplied' => $membershipApplied,
+                'booking_ids' => collect($bookings)->pluck('id')->all(),
+            ]);
+            
             // Redeem coupon if it was used
             if ($appliedCoupon && $couponDiscount > 0) {
                 $appliedCoupon->redeem($couponDiscount, $bookings[0]->id);

@@ -1,4 +1,4 @@
-import { router } from "@inertiajs/react";
+import { router, usePage } from "@inertiajs/react";
 import dayjs from "dayjs";
 import styles from "../../../styles";
 import { useCart } from "@/context/CartContext";
@@ -6,10 +6,14 @@ import { useState, useEffect, useMemo } from "react";
 
 export default function InvoiceDetails({ isReschedule = false }) {
     const { items, removeItem, clearCart, cartKey } = useCart();
+    const { props } = usePage();
+    const user = props.auth?.user;
 
     const [itemErrors, setItemErrors] = useState({}); // { [itemId]: "message" }
     const [globalError, setGlobalError] = useState(null);
     const [agreed, setAgreed] = useState(false);
+    const [memberEligibility, setMemberEligibility] = useState(null); // { has_membership: bool, eligible_dates: {date: bool} }
+    const [checkingEligibility, setCheckingEligibility] = useState(false);
 
     // ---------- COUPON STATE ----------
     const [coupon, setCoupon] = useState("");
@@ -77,9 +81,152 @@ export default function InvoiceDetails({ isReschedule = false }) {
         });
     }, [items]);
 
+    // Check member eligibility when cart items change
+    useEffect(() => {
+        console.log('[Member Eligibility Check] Starting', {
+            has_active_membership: user?.has_active_membership,
+            items_count: items.length,
+            items: items.map(i => ({ id: i.id, date: i.date, kind: i.kind }))
+        });
+
+        if (!user?.has_active_membership || items.length === 0) {
+            console.log('[Member Eligibility Check] Skipping - no membership or no items');
+            setMemberEligibility(null);
+            return;
+        }
+
+        // Extract unique dates from cart items
+        const dates = [...new Set(items.map(item => item.date).filter(Boolean))];
+        
+        console.log('[Member Eligibility Check] Extracted dates:', dates);
+        
+        if (dates.length === 0) {
+            console.log('[Member Eligibility Check] No valid dates found');
+            setMemberEligibility(null);
+            setCheckingEligibility(false);
+            return;
+        }
+
+        // Check eligibility for these dates using fetch instead of Inertia router
+        setCheckingEligibility(true);
+        console.log('[Member Eligibility Check] Calling API...', route('bookings.checkMemberEligibility'));
+        
+        fetch(route('bookings.checkMemberEligibility'), {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                'Accept': 'application/json',
+            },
+            credentials: 'same-origin', // Include cookies/session
+            body: JSON.stringify({ dates }),
+        })
+            .then(response => {
+                console.log('[Member Eligibility Check] Response status:', response.status);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('[Member Eligibility Check] Response data:', data);
+                setMemberEligibility(data);
+                setCheckingEligibility(false);
+            })
+            .catch(error => {
+                console.error('[Member Eligibility Check] Error:', error);
+                setMemberEligibility(null);
+                setCheckingEligibility(false);
+            });
+    }, [items, user?.has_active_membership]);
+
     // ---- compute values BEFORE any early return (no hooks below) ----
     const invoiceDate = dayjs().format("D MMMM YYYY");
     const grandTotal = items.reduce((t, it) => t + calcItemTotal(it), 0);
+    
+    // Calculate member discount based on actual eligibility from backend
+    // Members get ONE free booking (per-person price) for the first booking of each day
+    // This is an ESTIMATE for display - backend enforces the actual rules
+    const memberDiscount = (() => {
+        console.log('[Member Discount] Calculating', {
+            has_membership: user?.has_active_membership,
+            couponApplied,
+            items_count: items.length,
+            memberEligibility,
+            checkingEligibility,
+        });
+
+        if (!user?.has_active_membership || couponApplied || items.length === 0) {
+            console.log('[Member Discount] Not eligible - returning 0');
+            return 0;
+        }
+        
+        // Only show discount when we have confirmed eligibility from the backend
+        // Don't estimate to avoid showing incorrect discounts
+        let eligibleItem = null;
+        
+        if (memberEligibility?.has_membership && memberEligibility?.eligible_dates) {
+            // Use backend response to find eligible item
+            eligibleItem = items.find(item => {
+                const isEligible = item.date && memberEligibility.eligible_dates?.[item.date] === true;
+                console.log('[Member Discount] Checking item', {
+                    item_id: item.id,
+                    item_date: item.date,
+                    is_eligible: isEligible,
+                    eligible_dates: memberEligibility.eligible_dates
+                });
+                return isEligible;
+            });
+        } else {
+            // Wait for API response - don't show discount until we have confirmation
+            console.log('[Member Discount] Waiting for API response - no discount shown yet');
+            return 0;
+        }
+        
+        console.log('[Member Discount] Eligible item:', eligibleItem);
+        
+        if (!eligibleItem) {
+            console.log('[Member Discount] No eligible item found - returning 0');
+            return 0;
+        }
+        
+        const lines = eligibleItem?.lines ?? [];
+        
+        // Find the per-person price from the first line item (usually the session/event line)
+        if (lines.length > 0) {
+            const firstLine = normalizeLine(eligibleItem.kind, lines[0]);
+            const perPersonPrice = firstLine.unit; // This is the price per person
+            const discount = Math.min(perPersonPrice, grandTotal);
+            console.log('[Member Discount] Calculated discount', {
+                perPersonPrice,
+                grandTotal,
+                discount
+            });
+            return discount;
+        }
+        
+        // Fallback: if no lines, use the entire item total (shouldn't happen)
+        const discount = Math.min(calcItemTotal(eligibleItem), grandTotal);
+        console.log('[Member Discount] Fallback discount', { discount });
+        return discount;
+    })();
+    
+    // Calculate effective total after all discounts
+    let effectiveTotal = grandTotal - memberDiscount;
+    if (grandTotalAfterVoucher !== null) {
+        effectiveTotal = grandTotalAfterVoucher;
+    }
+    
+    const isMemberFreeBooking = memberDiscount > 0 && effectiveTotal === 0;
+    
+    console.log('[Cart Display] Final totals:', {
+        grandTotal,
+        memberDiscount,
+        effectiveTotal,
+        isMemberFreeBooking,
+        buttonText: isMemberFreeBooking ? 'Confirm Booking' : 'Proceed to payment'
+    });
+    
     // Note: Actual coupon discount is applied server-side at checkout
 
     if (!items.length) {
@@ -350,6 +497,13 @@ export default function InvoiceDetails({ isReschedule = false }) {
 
                     if (preflight.ok) {
                         // 2) Holds + checkout
+                        console.log('[CHECKOUT] Proceeding to bookings.store', {
+                            cart_key: cartKey,
+                            items: payloadItems,
+                            memberDiscount,
+                            effectiveTotal,
+                            isMemberFreeBooking
+                        });
                         router.post(route("bookings.store"), { cart_key: cartKey, items: payloadItems });
                         return;
                     }
@@ -563,6 +717,18 @@ export default function InvoiceDetails({ isReschedule = false }) {
                         </p>
                     </div>
 
+                    {memberDiscount > 0 && !couponApplied && (
+                        <div className="hidden sm:grid grid-cols-12 mt-2">
+                            <div className="col-span-7" />
+                            <p className={`${styles.paragraph} !text-sm col-span-3 text-right text-black/50`}>
+                                Member Discount
+                            </p>
+                            <p className={`${styles.paragraph} !text-sm col-span-2 text-black text-right`}>
+                                - R{money(memberDiscount)}
+                            </p>
+                        </div>
+                    )}
+
                     {couponApplied && (
                         <div className="hidden sm:grid grid-cols-12 mt-2">
                             <div className="col-span-7" />
@@ -577,14 +743,14 @@ export default function InvoiceDetails({ isReschedule = false }) {
                         </div>
                     )}
 
-                    {couponApplied && grandTotalAfterVoucher !== null && (
+                    {(memberDiscount > 0 || (couponApplied && grandTotalAfterVoucher !== null)) && (
                         <div className="hidden sm:grid grid-cols-12 mt-2">
                             <div className="col-span-7" />
                             <p className={`${styles.paragraph} !text-sm col-span-3 text-right text-green-700 font-medium`}>
-                                Estimated Payable
+                                Total Payable
                             </p>
                             <p className={`${styles.paragraph} !text-sm col-span-2 text-green-700 font-bold text-right`}>
-                                R{money(grandTotalAfterVoucher)}
+                                R{money(effectiveTotal)}
                             </p>
                         </div>
                     )}
@@ -599,6 +765,17 @@ export default function InvoiceDetails({ isReschedule = false }) {
                         </p>
                     </div>
 
+                    {memberDiscount > 0 && !couponApplied && (
+                        <div className="sm:hidden flex justify-between items-center mt-2">
+                            <p className={`${styles.paragraph} !text-sm text-black/50`}>
+                                Member Discount
+                            </p>
+                            <p className={`${styles.paragraph} !text-sm text-black`}>
+                                - R{money(memberDiscount)}
+                            </p>
+                        </div>
+                    )}
+
                     {couponApplied && (
                         <div className="sm:hidden flex justify-between items-center mt-2">
                             <p className={`${styles.paragraph} !text-sm text-black/50`}>
@@ -612,13 +789,13 @@ export default function InvoiceDetails({ isReschedule = false }) {
                         </div>
                     )}
 
-                    {couponApplied && grandTotalAfterVoucher !== null && (
+                    {(memberDiscount > 0 || (couponApplied && grandTotalAfterVoucher !== null)) && (
                         <div className="sm:hidden flex justify-between items-center mt-2">
                             <p className={`${styles.paragraph} !text-sm text-green-700 font-medium`}>
-                                Estimated Payable
+                                Total Payable
                             </p>
                             <p className={`${styles.paragraph} !text-base text-green-700 font-bold`}>
-                                R{money(grandTotalAfterVoucher)}
+                                R{money(effectiveTotal)}
                             </p>
                         </div>
                     )}
@@ -627,6 +804,25 @@ export default function InvoiceDetails({ isReschedule = false }) {
                 {/* RIGHT: actions */}
                 <div className="col-span-1">
                     <div className="space-y-3 sm:space-y-2 mt-4 sm:mt-6">
+                        {/* Member Free Booking Banner */}
+                        {memberDiscount > 0 && (
+                            <div className="bg-green-50 border-l-4 border-green-400 p-4 rounded-r">
+                                <div className="flex items-start">
+                                    <svg className="h-5 w-5 text-green-600 mr-3 flex-shrink-0 mt-0.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                    </svg>
+                                    <div>
+                                        <p className="text-sm text-green-800 font-medium">
+                                            Member Benefit Applied
+                                        </p>
+                                        <p className="text-xs text-green-700 mt-1">
+                                            Your first booking today is free as part of your membership.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                        
                         {/* COUPON BOX */}
                         <div className="mt-2 mb-4 p-4 bg-white border rounded shadow">
                             <p
@@ -644,7 +840,7 @@ export default function InvoiceDetails({ isReschedule = false }) {
                                     }}
                                     placeholder="Enter code"
                                     className="flex-1 border rounded px-3 py-2"
-                                    disabled={couponApplied}
+                                    disabled={couponApplied || memberDiscount > 0}
                                 />
                                 {!couponApplied ? (
                                     <button
@@ -677,6 +873,11 @@ export default function InvoiceDetails({ isReschedule = false }) {
                                 <p className="text-xs text-black/60 mt-1">
                                     Your voucher discount will be applied at checkout.
                                     The final amount will be calculated based on your voucher balance.
+                                </p>
+                            )}
+                            {memberDiscount > 0 && !couponApplied && (
+                                <p className="text-xs text-black/60 mt-1">
+                                    Coupon codes cannot be combined with member discounts.
                                 </p>
                             )}
                         </div>
@@ -733,7 +934,11 @@ export default function InvoiceDetails({ isReschedule = false }) {
                                 <span
                                     className={`${styles.paragraph} !text-sm sm:!text-base font-medium`}
                                 >
-                                    {isReschedule ? 'Reschedule Booking' : 'Proceed to payment'}
+                                    {isReschedule 
+                                        ? 'Reschedule Booking' 
+                                        : isMemberFreeBooking 
+                                        ? 'Confirm Booking' 
+                                        : 'Proceed to payment'}
                                 </span>
                             </button>
                         </div>

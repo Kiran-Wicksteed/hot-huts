@@ -161,6 +161,7 @@ Route::get('/bookings/{booking}', [BookingController::class, 'show'])
 
 // routes/web.php
 Route::post('/bookings/preflight', [BookingController::class, 'preflight'])->name('bookings.preflight');
+Route::post('/bookings/check-member-eligibility', [BookingController::class, 'checkMemberEligibility'])->name('bookings.checkMemberEligibility');
 
 
 Route::post('/admin-bookings',  [BookingController::class, 'storeAdmin'])

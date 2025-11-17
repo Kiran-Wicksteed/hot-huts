@@ -140,11 +140,25 @@ class User extends Authenticatable implements MustVerifyEmail
             ? $date->toDateString()
             : Carbon::parse($date)->toDateString();
 
-        return $this->bookings()
+        // Check for existing member bookings on this date
+        $query = $this->bookings()
             ->where('payment_status', 'Member')
+            ->where('status', '!=', 'cancelled') // Don't count cancelled bookings
             ->whereHas('timeslot', function ($q) use ($target) {
                 $q->whereDate('starts_at', $target);
-            })
-            ->exists();
+            });
+        
+        $count = $query->count();
+        $exists = $count > 0;
+        
+        \Log::info('[MEMBERSHIP] hasUsedFreeBookingOnDate check', [
+            'user_id' => $this->id,
+            'target_date' => $target,
+            'found_bookings' => $count,
+            'exists' => $exists,
+            'booking_ids' => $query->pluck('id')->toArray(),
+        ]);
+        
+        return $exists;
     }
 }
