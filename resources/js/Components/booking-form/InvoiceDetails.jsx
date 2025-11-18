@@ -31,6 +31,25 @@ export default function InvoiceDetails({ isReschedule = false }) {
 
     const money = (n) => toAmount(n).toFixed(2);
 
+    const getCsrfToken = () => {
+        if (typeof document === "undefined") return "";
+
+        const xsrfCookie = document.cookie
+            .split(";")
+            .map((part) => part.trim())
+            .find((row) => row.startsWith("XSRF-TOKEN="));
+
+        if (xsrfCookie) {
+            return decodeURIComponent(xsrfCookie.split("=")[1]);
+        }
+
+        return (
+            document
+                .querySelector('meta[name="csrf-token"]')
+                ?.getAttribute("content") || ""
+        );
+    };
+
     /**
      * Normalize a single invoice line for display & totals.
      * - For EVENTS: l.total represents the per-ticket price (e.g. 280).
@@ -110,13 +129,16 @@ export default function InvoiceDetails({ isReschedule = false }) {
         // Check eligibility for these dates using fetch instead of Inertia router
         setCheckingEligibility(true);
         console.log('[Member Eligibility Check] Calling API...', route('bookings.checkMemberEligibility'));
+        const csrfToken = getCsrfToken();
         
         fetch(route('bookings.checkMemberEligibility'), {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                'X-CSRF-TOKEN': csrfToken,
+                'X-XSRF-TOKEN': csrfToken,
                 'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
             },
             credentials: 'same-origin', // Include cookies/session
             body: JSON.stringify({ dates }),
