@@ -156,12 +156,12 @@ Route::post('/bookings',  [BookingController::class, 'store'])
 //should be an admin route
 
 
+Route::get('/bookings/check-member-eligibility', [BookingController::class, 'checkMemberEligibility'])->name('bookings.checkMemberEligibility');
 Route::get('/bookings/{booking}', [BookingController::class, 'show'])
     ->name('bookings.show');
 
 // routes/web.php
 Route::post('/bookings/preflight', [BookingController::class, 'preflight'])->name('bookings.preflight');
-Route::post('/bookings/check-member-eligibility', [BookingController::class, 'checkMemberEligibility'])->name('bookings.checkMemberEligibility');
 
 
 Route::post('/admin-bookings',  [BookingController::class, 'storeAdmin'])
