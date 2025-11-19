@@ -161,55 +161,60 @@ export default function InvoiceDetails({ isReschedule = false }) {
             console.log('[Member Discount] Not eligible - returning 0');
             return 0;
         }
-        
-        // Only show discount when we have confirmed eligibility from the backend
-        // Don't estimate to avoid showing incorrect discounts
-        let eligibleItem = null;
-        
-        if (memberEligibility?.has_membership && memberEligibility?.eligible_dates) {
-            // Use backend response to find eligible item
-            eligibleItem = items.find(item => {
-                const isEligible = item.date && memberEligibility.eligible_dates?.[item.date] === true;
-                console.log('[Member Discount] Checking item', {
-                    item_id: item.id,
-                    item_date: item.date,
-                    is_eligible: isEligible,
-                    eligible_dates: memberEligibility.eligible_dates
-                });
-                return isEligible;
-            });
-        } else {
-            // Wait for API response - don't show discount until we have confirmation
+
+        const eligibleDates = memberEligibility?.eligible_dates;
+        if (!memberEligibility?.has_membership || !eligibleDates) {
             console.log('[Member Discount] Waiting for API response - no discount shown yet');
             return 0;
         }
-        
-        console.log('[Member Discount] Eligible item:', eligibleItem);
-        
-        if (!eligibleItem) {
-            console.log('[Member Discount] No eligible item found - returning 0');
-            return 0;
-        }
-        
-        const lines = eligibleItem?.lines ?? [];
-        
-        // Find the per-person price from the first line item (usually the session/event line)
-        if (lines.length > 0) {
-            const firstLine = normalizeLine(eligibleItem.kind, lines[0]);
-            const perPersonPrice = firstLine.unit; // This is the price per person
-            const discount = Math.min(perPersonPrice, grandTotal);
-            console.log('[Member Discount] Calculated discount', {
-                perPersonPrice,
-                grandTotal,
-                discount
+
+        const usedDates = new Set();
+        let runningDiscount = 0;
+
+        items.forEach((item) => {
+            const itemDate = item.date;
+            const isEligible = itemDate && eligibleDates[itemDate] === true;
+            const alreadyUsed = itemDate ? usedDates.has(itemDate) : false;
+
+            console.log('[Member Discount] Checking item', {
+                item_id: item.id,
+                item_date: itemDate,
+                is_eligible: isEligible,
+                already_used_for_date: alreadyUsed,
             });
-            return discount;
-        }
-        
-        // Fallback: if no lines, use the entire item total (shouldn't happen)
-        const discount = Math.min(calcItemTotal(eligibleItem), grandTotal);
-        console.log('[Member Discount] Fallback discount', { discount });
-        return discount;
+
+            if (!isEligible || alreadyUsed) {
+                return;
+            }
+
+            const lines = item?.lines ?? [];
+            let perPersonPrice = 0;
+
+            if (lines.length > 0) {
+                const firstLine = normalizeLine(item.kind, lines[0]);
+                perPersonPrice = firstLine.unit;
+            } else {
+                perPersonPrice = calcItemTotal(item);
+            }
+
+            const remainingTotal = Math.max(0, grandTotal - runningDiscount);
+            const discount = Math.min(perPersonPrice, remainingTotal);
+
+            if (discount > 0) {
+                runningDiscount += discount;
+                usedDates.add(itemDate);
+                console.log('[Member Discount] Applied to item', {
+                    item_id: item.id,
+                    item_date: itemDate,
+                    perPersonPrice,
+                    discount,
+                    runningDiscount,
+                });
+            }
+        });
+
+        console.log('[Member Discount] Total discount', { total: runningDiscount });
+        return runningDiscount;
     })();
     
     // Calculate effective total after all discounts

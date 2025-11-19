@@ -217,9 +217,8 @@ class BookingController extends Controller
         $user        = $request->user();
         $membershipApplied = false; // Initialize membership applied flag
         $couponData = $request->input('coupon', []); // Initialize coupon data from request
-        // Per-booking date usage tracking (populated once we know slot dates)
-        $membershipUsageKey = null;
-        $membershipUsageDate = null;
+        // Track which membership dates we applied in this checkout
+        $membershipUsageRecords = [];
 
         // ---------- 0) Normalise payload to a cart of items ---------
         $asCart = $request->has('items');
@@ -331,7 +330,7 @@ class BookingController extends Controller
         }
 
         // ---------- 2) Atomic cart creation (with capacity checks) ----------
-        [$bookings, $grandTotalCents, $membershipUsageKey, $membershipUsageDate] = DB::transaction(function () use (
+        [$bookings, $grandTotalCents, $membershipUsageRecords] = DB::transaction(function () use (
             $items,
             $wantBySlot,
             $wantByEvent,
@@ -339,15 +338,12 @@ class BookingController extends Controller
             $now,
             $cartKey,
             $user,
-            &$membershipUsageKey,
-            &$membershipUsageDate,
             &$membershipApplied,
         ) {
             $created = [];
             $grand   = 0;
-            $membershipAlreadyUsed = false;
-            $membershipUsageKey = null;
-            $membershipUsageDate = null;
+            $membershipUsageRecords = [];
+            $membershipCacheByDate = [];
 
             // 2A. Slot checks (covers both sauna-only and event+sauna items)
             foreach (array_keys($wantBySlot) as $slotId) {
@@ -515,46 +511,58 @@ class BookingController extends Controller
                         }
                     }
 
-                    if (!$membershipApplied && !$voucherApplied && $user->hasActiveMembership()) {
-                        if (!$membershipUsageKey || !$membershipUsageDate) {
-                            $membershipUsageDate = $bookingDate ?? $now->toDateString();
-                            $membershipUsageKey = sprintf('membership_free_booking:%d:%s', $user->id, $membershipUsageDate);
-                            $membershipAlreadyUsed = Cache::get($membershipUsageKey, false);
+                    if (!$voucherApplied && $user->hasActiveMembership()) {
+                        $usageDate = $bookingDate ?? $now->toDateString();
+                        $usageKey = sprintf('membership_free_booking:%d:%s', $user->id, $usageDate);
+
+                        if (!array_key_exists($usageDate, $membershipCacheByDate)) {
+                            $membershipCacheByDate[$usageDate] = Cache::get($usageKey, false);
                         }
 
-                        $hasUsedOnDate = $user->hasUsedFreeBookingOnDate($membershipUsageDate);
+                        $hasUsedOnDate = $user->hasUsedFreeBookingOnDate($usageDate);
 
-                        if ($membershipAlreadyUsed && !$hasUsedOnDate) {
+                        if ($membershipCacheByDate[$usageDate] && !$hasUsedOnDate) {
                             Log::info('[MEMBERSHIP] Cache indicated free booking already used but database disagrees — clearing cache', [
                                 'user_id' => $user->id,
-                                'booking_date' => $membershipUsageDate,
+                                'booking_date' => $usageDate,
                             ]);
-                            Cache::forget($membershipUsageKey);
-                            $membershipAlreadyUsed = false;
+                            Cache::forget($usageKey);
+                            $membershipCacheByDate[$usageDate] = false;
                         }
+
+                        $appliedInCart = isset($membershipUsageRecords[$usageDate]);
 
                         Log::info('[MEMBERSHIP] Checking free booking eligibility', [
                             'user_id' => $user->id,
-                            'booking_date' => $membershipUsageDate,
-                            'membership_already_used_cache' => $membershipAlreadyUsed,
+                            'booking_date' => $usageDate,
+                            'membership_already_used_cache' => $membershipCacheByDate[$usageDate],
                             'has_used_on_date_db' => $hasUsedOnDate,
+                            'already_applied_in_cart' => $appliedInCart,
                             'price_each' => $priceEach,
                             'total_before' => $total,
                         ]);
 
-                        if (!$membershipAlreadyUsed && !$hasUsedOnDate) {
+                        if (!$appliedInCart && !$membershipCacheByDate[$usageDate] && !$hasUsedOnDate) {
                             $discount = min($priceEach, $total);
                             $total -= $discount;
                             $membershipApplied = true;
-                            $membershipAlreadyUsed = true;
+                            $membershipCacheByDate[$usageDate] = true;
+                            $membershipUsageRecords[$usageDate] = [
+                                'key' => $usageKey,
+                                'date' => $usageDate,
+                            ];
                             
                             Log::info('[MEMBERSHIP] Free booking applied', [
+                                'booking_date' => $usageDate,
                                 'discount' => $discount,
                                 'total_after' => $total,
                             ]);
                         } else {
                             Log::info('[MEMBERSHIP] Free booking NOT applied', [
-                                'reason' => $membershipAlreadyUsed ? 'cache_already_used' : 'db_already_used',
+                                'booking_date' => $usageDate,
+                                'reason' => $appliedInCart
+                                    ? 'cart_already_applied'
+                                    : ($membershipCacheByDate[$usageDate] ? 'cache_already_used' : 'db_already_used'),
                             ]);
                         }
                     }
@@ -596,11 +604,17 @@ class BookingController extends Controller
                 $grand    += $total;
             }
 
-            return [$created, $grand, $membershipUsageKey, $membershipUsageDate];
+            return [$created, $grand, $membershipUsageRecords];
         });
 
-        if ($membershipApplied && $membershipUsageKey) {
-            Cache::put($membershipUsageKey, true, Carbon::parse($membershipUsageDate ?? $now->toDateString())->endOfDay());
+        if ($membershipApplied && !empty($membershipUsageRecords)) {
+            foreach ($membershipUsageRecords as $usage) {
+                Cache::put(
+                    $usage['key'],
+                    true,
+                    Carbon::parse($usage['date'] ?? $now->toDateString())->endOfDay()
+                );
+            }
         }
 
         // ---------- 2.4) Apply coupon discount if present ----------
