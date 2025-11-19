@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Inertia\Inertia;
 use App\Models\Service;
 use App\Models\RetailItem;
+use App\Models\MembershipService;
 use Illuminate\Http\Request;
 
 class ServiceController extends Controller
@@ -28,9 +29,25 @@ class ServiceController extends Controller
                 ];
             });
 
+        $membershipServices = MembershipService::orderByDesc('is_active')
+            ->orderBy('name')
+            ->get()
+            ->map(function (MembershipService $service) {
+                return [
+                    'id' => $service->id,
+                    'code' => $service->code,
+                    'name' => $service->name,
+                    'description' => $service->description,
+                    'price' => round($service->price, 2),
+                    'price_cents' => $service->price_cents,
+                    'is_active' => $service->is_active,
+                ];
+            });
+
         return Inertia::render('services/index', [
             'services' => $services,
             'retailItems' => $retailItems,
+            'membershipServices' => $membershipServices,
         ]);
     }
     public function destroy(Service $service)

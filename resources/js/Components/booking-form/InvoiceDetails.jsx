@@ -8,6 +8,7 @@ export default function InvoiceDetails({ isReschedule = false }) {
     const { items, removeItem, clearCart, cartKey } = useCart();
     const { props } = usePage();
     const user = props.auth?.user;
+    const membershipPlusOnePriceCents = props.membershipPlusOnePriceCents ?? null;
 
     const [itemErrors, setItemErrors] = useState({}); // { [itemId]: "message" }
     const [globalError, setGlobalError] = useState(null);
@@ -30,6 +31,10 @@ export default function InvoiceDetails({ isReschedule = false }) {
     };
 
     const money = (n) => toAmount(n).toFixed(2);
+    const membershipPlusOnePrice =
+        membershipPlusOnePriceCents !== null
+            ? toAmount(membershipPlusOnePriceCents) / 100
+            : null;
 
     /**
      * Normalize a single invoice line for display & totals.
@@ -148,28 +153,35 @@ export default function InvoiceDetails({ isReschedule = false }) {
     // Calculate member discount based on actual eligibility from backend
     // Members get ONE free booking (per-person price) for the first booking of each day
     // This is an ESTIMATE for display - backend enforces the actual rules
-    const memberDiscount = (() => {
+    const { memberDiscount, memberDiscountByItem } = useMemo(() => {
+        const result = {
+            memberDiscount: 0,
+            memberDiscountByItem: {},
+        };
+
         console.log('[Member Discount] Calculating', {
             has_membership: user?.has_active_membership,
             couponApplied,
             items_count: items.length,
             memberEligibility,
             checkingEligibility,
+            membershipPlusOnePrice,
         });
 
         if (!user?.has_active_membership || couponApplied || items.length === 0) {
             console.log('[Member Discount] Not eligible - returning 0');
-            return 0;
+            return result;
         }
 
         const eligibleDates = memberEligibility?.eligible_dates;
         if (!memberEligibility?.has_membership || !eligibleDates) {
             console.log('[Member Discount] Waiting for API response - no discount shown yet');
-            return 0;
+            return result;
         }
 
         const usedDates = new Set();
         let runningDiscount = 0;
+        const perItemDiscounts = {};
 
         items.forEach((item) => {
             const itemDate = item.date;
@@ -189,24 +201,39 @@ export default function InvoiceDetails({ isReschedule = false }) {
 
             const lines = item?.lines ?? [];
             let perPersonPrice = 0;
+            let attendeeCount = 1;
 
             if (lines.length > 0) {
                 const firstLine = normalizeLine(item.kind, lines[0]);
                 perPersonPrice = firstLine.unit;
+                attendeeCount = firstLine.qty || attendeeCount;
             } else {
                 perPersonPrice = calcItemTotal(item);
             }
 
+            const lineTotal = perPersonPrice * attendeeCount;
+            const adjustedPlusOne =
+                membershipPlusOnePrice !== null
+                    ? membershipPlusOnePrice
+                    : perPersonPrice;
+            const desiredLineTotal = Math.max(
+                0,
+                (attendeeCount - 1) * adjustedPlusOne
+            );
+            const potentialDiscount = Math.max(0, lineTotal - desiredLineTotal);
             const remainingTotal = Math.max(0, grandTotal - runningDiscount);
-            const discount = Math.min(perPersonPrice, remainingTotal);
+            const discount = Math.min(potentialDiscount, remainingTotal);
 
             if (discount > 0) {
                 runningDiscount += discount;
                 usedDates.add(itemDate);
+                perItemDiscounts[item.id] = discount;
                 console.log('[Member Discount] Applied to item', {
                     item_id: item.id,
                     item_date: itemDate,
                     perPersonPrice,
+                    attendeeCount,
+                    membershipPlusOnePrice: adjustedPlusOne,
                     discount,
                     runningDiscount,
                 });
@@ -214,8 +241,18 @@ export default function InvoiceDetails({ isReschedule = false }) {
         });
 
         console.log('[Member Discount] Total discount', { total: runningDiscount });
-        return runningDiscount;
-    })();
+        result.memberDiscount = runningDiscount;
+        result.memberDiscountByItem = perItemDiscounts;
+        return result;
+    }, [
+        user?.has_active_membership,
+        couponApplied,
+        items,
+        memberEligibility,
+        checkingEligibility,
+        membershipPlusOnePrice,
+        grandTotal,
+    ]);
     
     // Calculate effective total after all discounts
     let effectiveTotal = grandTotal - memberDiscount;
@@ -615,6 +652,13 @@ export default function InvoiceDetails({ isReschedule = false }) {
                         const lines = (it.lines ?? []).map((l) =>
                             normalizeLine(it.kind, l)
                         );
+                        const originalItemTotal = calcItemTotal(it);
+                        const itemDiscount = memberDiscountByItem?.[it.id] || 0;
+                        const discountedItemTotal = Math.max(
+                            0,
+                            originalItemTotal - itemDiscount
+                        );
+                        const showMemberPrice = itemDiscount > 0;
 
                         return (
                             <div
@@ -688,11 +732,26 @@ export default function InvoiceDetails({ isReschedule = false }) {
                                     >
                                         Item total:
                                     </p>
-                                    <p
-                                        className={`${styles.paragraph} col-span-1 text-black`}
+                                    <div
+                                        className={`col-span-1 text-right ${
+                                            showMemberPrice ? "flex flex-col items-end" : ""
+                                        }`}
                                     >
-                                        R{money(calcItemTotal(it))}
-                                    </p>
+                                        {showMemberPrice ? (
+                                            <>
+                                                <span className="text-sm line-through text-black/50">
+                                                    R{money(originalItemTotal)}
+                                                </span>
+                                                <span className="text-green-700 font-semibold">
+                                                    R{money(discountedItemTotal)}
+                                                </span>
+                                            </>
+                                        ) : (
+                                            <p className={`${styles.paragraph} text-black`}>
+                                                R{money(originalItemTotal)}
+                                            </p>
+                                        )}
+                                    </div>
                                 </div>
 
                                 {/* Mobile item total */}
@@ -702,15 +761,26 @@ export default function InvoiceDetails({ isReschedule = false }) {
                                     >
                                         Item total:&nbsp;
                                     </p>
-                                    <p
-                                        className={`${styles.paragraph} !text-sm font-medium text-black`}
-                                    >
-                                        R{money(calcItemTotal(it))}
-                                    </p>
+                                    {showMemberPrice ? (
+                                        <div className="text-right">
+                                            <span className="block text-xs line-through text-black/50">
+                                                R{money(originalItemTotal)}
+                                            </span>
+                                            <span className="block text-sm text-green-700 font-semibold">
+                                                R{money(discountedItemTotal)}
+                                            </span>
+                                        </div>
+                                    ) : (
+                                        <p
+                                            className={`${styles.paragraph} !text-sm font-medium text-black`}
+                                        >
+                                            R{money(originalItemTotal)}
+                                        </p>
+                                    )}
                                 </div>
                             </div>
                         );
-                    })} 
+                    })}
 
                     {/* Grand total - Desktop */}
                     <div className="hidden sm:grid grid-cols-12 mt-6">

@@ -23,6 +23,7 @@ use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\Admin\AdminCustomerController;
 use App\Http\Controllers\Admin\MembershipController;
 use App\Http\Controllers\Loyalty\LoyaltyRewardController;
+use App\Http\Controllers\MembershipServiceController;
 use Illuminate\Support\Facades\Auth;
 
 Route::get('/welcome', function () {
@@ -329,6 +330,10 @@ Route::middleware(['auth', 'admin'])
             ->name('services.destroy');
         Route::post('services',       [ServiceController::class, 'store'])->name('services.store');
         Route::put('services/{service}', [ServiceController::class, 'update'])->name('services.update');
+
+        Route::post('membership-services', [MembershipServiceController::class, 'store'])->name('membership-services.store');
+        Route::put('membership-services/{membershipService}', [MembershipServiceController::class, 'update'])->name('membership-services.update');
+        Route::delete('membership-services/{membershipService}', [MembershipServiceController::class, 'destroy'])->name('membership-services.destroy');
 
         Route::post('retail-items', [\App\Http\Controllers\RetailItemController::class, 'store'])->name('retail-items.store');
         Route::put('retail-items/{retailItem}', [\App\Http\Controllers\RetailItemController::class, 'update'])->name('retail-items.update');

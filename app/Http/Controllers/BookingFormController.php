@@ -8,6 +8,7 @@ use App\Models\Location;
 use App\Models\SaunaSchedule;
 use App\Models\EventOccurrence;
 use App\Models\Service;
+use App\Models\MembershipService;
 
 class BookingFormController extends Controller
 {
@@ -57,6 +58,8 @@ class BookingFormController extends Controller
             ];
         }
 
+        $membershipPlusService = MembershipService::where('code', 'MEMBER_PLUS_ONE_PRICE')->first();
+
         return Inertia::render('Index', [
             'saunas'    => $saunas,
             'locations' => Location::orderBy('name')->get(['id', 'name', 'image_path']),
@@ -64,6 +67,8 @@ class BookingFormController extends Controller
             'addons'    => $addons,
             'events'    => $events,
             'rescheduleContext' => $rescheduleContext,
+            'membershipPlusOnePriceCents' => $membershipPlusService?->price_cents,
+            'membershipPlusOnePrice' => $membershipPlusService?->price,
         ]);
     }
 }

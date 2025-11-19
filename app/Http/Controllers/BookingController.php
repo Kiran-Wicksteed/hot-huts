@@ -6,6 +6,7 @@ use App\Models\Booking;
 use App\Models\EventOccurrence;
 use App\Models\Service;
 use App\Models\Timeslot;
+use App\Models\MembershipService;
 use Illuminate\Support\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -219,6 +220,8 @@ class BookingController extends Controller
         $couponData = $request->input('coupon', []); // Initialize coupon data from request
         // Track which membership dates we applied in this checkout
         $membershipUsageRecords = [];
+        $membershipPlusOneService = MembershipService::where('code', 'MEMBER_PLUS_ONE_PRICE')->first();
+        $membershipPlusOnePriceCents = $membershipPlusOneService?->price_cents;
 
         // ---------- 0) Normalise payload to a cart of items ---------
         $asCart = $request->has('items');
@@ -339,6 +342,7 @@ class BookingController extends Controller
             $cartKey,
             $user,
             &$membershipApplied,
+            $membershipPlusOnePriceCents,
         ) {
             $created = [];
             $grand   = 0;
@@ -543,7 +547,13 @@ class BookingController extends Controller
                         ]);
 
                         if (!$appliedInCart && !$membershipCacheByDate[$usageDate] && !$hasUsedOnDate) {
-                            $discount = min($priceEach, $total);
+                            $effectivePlusPrice = $membershipPlusOnePriceCents ?? $priceEach;
+                            $baseSessionTotal = $people * $priceEach;
+                            $targetSessionTotal = $people > 1
+                                ? max(0, ($people - 1) * $effectivePlusPrice)
+                                : 0;
+                            $desiredDiscount = max(0, $baseSessionTotal - $targetSessionTotal);
+                            $discount = min($desiredDiscount, $baseSessionTotal, $total);
                             $total -= $discount;
                             $membershipApplied = true;
                             $membershipCacheByDate[$usageDate] = true;
@@ -556,6 +566,9 @@ class BookingController extends Controller
                                 'booking_date' => $usageDate,
                                 'discount' => $discount,
                                 'total_after' => $total,
+                                'membership_plus_one_price' => $effectivePlusPrice,
+                                'base_session_total' => $baseSessionTotal,
+                                'target_session_total' => $targetSessionTotal,
                             ]);
                         } else {
                             Log::info('[MEMBERSHIP] Free booking NOT applied', [
