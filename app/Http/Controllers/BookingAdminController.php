@@ -197,6 +197,7 @@ class BookingAdminController extends Controller
                 'user'        => $booking->user ? [
                     'id' => $booking->user->id,
                     'name' => $booking->user->name,
+                    'indemnity_name' => $booking->user->indemnity_name,
                     'email' => $booking->user->email,
                 ] : null,
                 'services'    => $booking->services->map(fn($s) => [

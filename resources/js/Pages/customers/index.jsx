@@ -145,11 +145,18 @@ export default function CustomerPage() {
 
                     {/* Rows */}
                     <div className="col-span-full space-y-4">
-                        {(customers ?? []).map((c, index) => (
-                            <div
-                                key={c.id}
-                                className="col-span-full bg-white shadow grid grid-cols-12 gap-x-4 items-center border border-hh-gray rounded p-6"
-                            >
+                        {(customers ?? []).map((c, index) => {
+                            const hasIndemnityName =
+                                typeof c.indemnity_name === "string" &&
+                                c.indemnity_name.trim().length > 0;
+                            const displayName = hasIndemnityName
+                                ? c.indemnity_name
+                                : c.name;
+                            return (
+                                <div
+                                    key={c.id}
+                                    className="col-span-full bg-white shadow grid grid-cols-12 gap-x-4 items-center border border-hh-gray rounded p-6"
+                                >
                                 <div className="col-span-1">
                                     <p
                                         className={`${styles.paragraph} !text-[#999999]`}
@@ -158,7 +165,11 @@ export default function CustomerPage() {
                                     </p>
                                 </div>
 
-                                <div className="col-span-2 flex gap-x-2 items-center -ml-6">
+                                <div className="col-span-2 flex gap-x-2 items-start -ml-6">
+                                    {/*
+                                      * Prefer displaying the indemnity signature name when available so staff can
+                                      * quickly confirm what the customer signed with; fall back to the standard name.
+                                      */}
                                     <div className="bg-[#999999] rounded-full h-8 w-8 flex items-center justify-center shrink-0">
                                         <p
                                             className={`${styles.paragraph} !text-white !text-sm`}
@@ -166,11 +177,22 @@ export default function CustomerPage() {
                                             {c.initials}
                                         </p>
                                     </div>
-                                    <p
-                                        className={`${styles.paragraph} !text-[#999999] !text-sm`}
-                                    >
-                                        {c.name}
-                                    </p>
+                                    <div className="flex flex-col">
+                                        <p
+                                            className={`${styles.paragraph} !text-[#999999] !text-sm`}
+                                        >
+                                            {displayName}
+                                        </p>
+                                        {hasIndemnityName &&
+                                            c.name &&
+                                            c.name !== c.indemnity_name && (
+                                                <p
+                                                    className={`${styles.paragraph} !text-[#666666] !text-xs`}
+                                                >
+                                                    {c.name}
+                                                </p>
+                                            )}
+                                    </div>
                                 </div>
 
                                 <div className="col-span-3">
@@ -235,7 +257,8 @@ export default function CustomerPage() {
                                     </button>
                                 </div>
                             </div>
-                        ))}
+                        );
+                        })}
                     </div>
                 </div>
             </div>

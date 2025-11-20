@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from "react";
 import { router } from "@inertiajs/react";
 import CustomerDetailModal from "@/Components/CustomerDetailModal";
@@ -12,7 +11,7 @@ function EditBookingModal({
     retailItems = [], // <-- Add retail items
     bookedInSlot,
     allSlots = [], // <-- Default to empty array
-    formatTime,    // <-- Add formatTime to props
+    formatTime, // <-- Add formatTime to props
 }) {
     const [saving, setSaving] = useState(false);
     const [people, setPeople] = useState(String(booking?.people ?? 1));
@@ -30,21 +29,21 @@ function EditBookingModal({
             setNoShow(booking.no_show ?? false);
             setNote(booking.note ?? "");
             const initialServices = new Map();
-            booking.services?.forEach(service => {
+            booking.services?.forEach((service) => {
                 const serviceId = parseInt(service.id);
                 const quantity = parseInt(service.quantity);
                 initialServices.set(serviceId, quantity);
             });
             setServices(initialServices);
-            
+
             const initialRetailItems = new Map();
-            booking.retail_items?.forEach(item => {
+            booking.retail_items?.forEach((item) => {
                 const itemId = parseInt(item.id);
                 const quantity = parseInt(item.quantity);
                 initialRetailItems.set(itemId, quantity);
             });
             setRetailItemsMap(initialRetailItems);
-            
+
             setNewTimeslotId(booking.timeslot_id);
         }
     }, [open, booking?.id, booking?.services, booking?.retail_items]);
@@ -103,7 +102,7 @@ function EditBookingModal({
     const handleConfirmAndSave = (via) => {
         if (!via) return; // guard
         setSaving(true);
-        
+
         // First update the booking
         router.put(
             route("admin.bookings.update", booking.id),
@@ -128,9 +127,12 @@ function EditBookingModal({
                                 quantity: quantity,
                             });
                         });
-                        
+
                         router.post(
-                            route("admin.bookings.retail-items.add", booking.id),
+                            route(
+                                "admin.bookings.retail-items.add",
+                                booking.id
+                            ),
                             { items: retailItemsPayload },
                             {
                                 preserveScroll: true,
@@ -154,7 +156,9 @@ function EditBookingModal({
 
     const maxPeopleAllowed = Math.max(
         1,
-        Number(slot?.capacity ?? 1) - Number(bookedInSlot ?? 0) + Number(booking?.people ?? 0)
+        Number(slot?.capacity ?? 1) -
+            Number(bookedInSlot ?? 0) +
+            Number(booking?.people ?? 0)
     );
 
     if (!open) return null;
@@ -164,7 +168,10 @@ function EditBookingModal({
             <div className="relative bg-white rounded-lg shadow-xl w-full max-w-md max-h-[90vh] flex flex-col">
                 <div className="flex items-center justify-between p-4 border-b">
                     <h3 className="font-semibold text-sm">Edit booking</h3>
-                    <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
+                    <button
+                        onClick={onClose}
+                        className="text-gray-500 hover:text-gray-700"
+                    >
                         ✕
                     </button>
                 </div>
@@ -209,12 +216,12 @@ function EditBookingModal({
                         >
                             {allSlots.map((s) => (
                                 <option key={s.id} value={s.id}>
-                                    {formatTime(s.starts_at)} - {formatTime(s.ends_at)}
+                                    {formatTime(s.starts_at)} -{" "}
+                                    {formatTime(s.ends_at)}
                                 </option>
                             ))}
                         </select>
                     </div>
-
 
                     <div>
                         <label className="block text-xs font-medium mb-1">
@@ -307,7 +314,9 @@ function EditBookingModal({
                             {retailItems.map((item) => {
                                 const itemId = parseInt(item.id);
                                 const selected = retailItemsMap.has(itemId);
-                                const priceRands = (item.price_cents / 100).toFixed(2);
+                                const priceRands = (
+                                    item.price_cents / 100
+                                ).toFixed(2);
                                 return (
                                     <div
                                         key={item.id}
@@ -321,13 +330,18 @@ function EditBookingModal({
                                             }
                                         />
                                         <span className="flex-1">
-                                            {item.name} <span className="text-gray-500 text-xs">(R{priceRands})</span>
+                                            {item.name}{" "}
+                                            <span className="text-gray-500 text-xs">
+                                                (R{priceRands})
+                                            </span>
                                         </span>
                                         {selected && (
                                             <input
                                                 type="number"
                                                 min="1"
-                                                value={retailItemsMap.get(itemId)}
+                                                value={retailItemsMap.get(
+                                                    itemId
+                                                )}
                                                 onChange={(e) =>
                                                     setRetailQty(
                                                         item.id,
@@ -371,7 +385,6 @@ function EditBookingModal({
                     </div>
                 </div>
             </div>
-
         </div>
     );
 }
@@ -488,7 +501,7 @@ export default function TodayBubbles({
         booking: null,
         slot: null,
     });
-    
+
     const [customerModalUserId, setCustomerModalUserId] = useState(null);
 
     const bySlot = useMemo(() => {
@@ -597,339 +610,426 @@ export default function TodayBubbles({
         <div>
             <div className="grid grid-cols-2 gap-10">
                 {slots.map((slot) => {
-                const list = bySlot.get(slot.id) ?? [];
-                const booked = list.reduce((t, b) => t + (parseInt(b.people, 10) || 0), 0);
-                const full = booked >= slot.capacity;
-                const remaining = Math.max(0, slot.capacity - booked);
+                    const list = bySlot.get(slot.id) ?? [];
+                    const booked = list.reduce(
+                        (t, b) => t + (parseInt(b.people, 10) || 0),
+                        0
+                    );
+                    const full = booked >= slot.capacity;
+                    const remaining = Math.max(0, slot.capacity - booked);
 
-                return (
-                    <div
-                        key={slot.id}
-                        className="col-span-1 bg-white border border-hh-gray rounded-md shadow p-4"
-                    >
-                        {/* header */}
-                        <div className="flex justify-between items-center mb-3">
-                            <h5 className="font-semibold">
-                                {formatTime(slot.starts_at)} –{" "}
-                                {formatTime(slot.ends_at)}
-                            </h5>
-                            <p className="text-sm text-gray-500">
-                                BOOKED:{" "}
-                                <span
-                                    className={`text-sm ${
-                                        full ? "text-red-600" : "text-hh-orange"
-                                    }`}
-                                >
-                                    {booked}/{slot.capacity}
-                                </span>
-                            </p>
-                        </div>
-
-                        {/* booking list */}
-                        {list.length > 0 ? (
-                            <ul className="space-y-3 max-h-80 overflow-y-auto pr-1 text-sm">
-                                {list.map((b) => (
-                                    <li
-                                        key={b.id}
-                                        className="border-b border-gray-400 pb-2 flex justify-between items-center"
+                    return (
+                        <div
+                            key={slot.id}
+                            className="col-span-1 bg-white border border-hh-gray rounded-md shadow p-4"
+                        >
+                            {/* header */}
+                            <div className="flex justify-between items-center mb-3">
+                                <h5 className="font-semibold">
+                                    {formatTime(slot.starts_at)} –{" "}
+                                    {formatTime(slot.ends_at)}
+                                </h5>
+                                <p className="text-sm text-gray-500">
+                                    BOOKED:{" "}
+                                    <span
+                                        className={`text-sm ${
+                                            full
+                                                ? "text-red-600"
+                                                : "text-hh-orange"
+                                        }`}
                                     >
-                                        <div>
-                                            <p className="font-medium">
-                                                Booked under:{" "}
-                                                {b.user?.id ? (
-                                                    <span 
-                                                        className="text-hh-orange cursor-pointer hover:underline"
-                                                        onClick={() => setCustomerModalUserId(b.user.id)}
-                                                    >
-                                                        {b.user.name}
-                                                    </span>
-                                                ) : (
-                                                    <span className="text-gray-700">
-                                                        {b.guest_name || "Guest"}
-                                                    </span>
-                                                )}{" "}
-                                                x {b.people}
-                                                {b.no_show && (
-                                                    <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full bg-red-50 border border-red-200 text-red-700 text-[11px]">
-                                                        NO SHOW
-                                                    </span>
-                                                )}
-                                            </p>
-                                            {(b.user?.email ||
-                                                b.guest_email) && (
-                                                <p className="text-gray-500 text-xs">
-                                                    {b.user?.email ||
-                                                        b.guest_email}
-                                                </p>
-                                            )}
-                                            <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
-                                                {b.is_pending && (
-                                                    <span
-                                                        className={[
-                                                            "inline-flex items-center px-2 py-0.5 mb-2 rounded-full border",
-                                                            b.booking_type?.toLowerCase() ===
-                                                            "walk in"
-                                                                ? "bg-amber-50 border-amber-200 text-amber-700"
-                                                                : "bg-blue-50 border-blue-200 text-blue-700",
-                                                        ].join(" ")}
-                                                        title="booking is pending"
-                                                    >
-                                                        {b.status_note}
-                                                    </span>
-                                                )}
-                                                {b.booking_type && (
-                                                    <span
-                                                        className={[
-                                                            "inline-flex items-center px-2 py-0.5 mb-2 rounded-full border",
-                                                            b.booking_type?.toLowerCase() ===
-                                                            "walk in"
-                                                                ? "bg-amber-50 border-amber-200 text-amber-700"
-                                                                : "bg-blue-50 border-blue-200 text-blue-700",
-                                                        ].join(" ")}
-                                                        title="Booking type"
-                                                    >
-                                                        {b.booking_type}
-                                                    </span>
-                                                )}
-                                                {b.payment_method && (
-                                                    <span
-                                                        className="inline-flex items-center px-2 py-0.5 rounded-full bg-gray-100 border border-gray-200 text-gray-700"
-                                                        title="Payment method"
-                                                    >
-                                                        {b.payment_method}
-                                                    </span>
-                                                )}
-                                                {b.updated_via && (
-                                                    <span
-                                                        className="inline-flex items-center px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700"
-                                                        title="Updated via"
-                                                    >
-                                                        UPDATED •{" "}
-                                                        {b.updated_via}
-                                                    </span>
-                                                )}
-                                            </div>
-                                            {b.note && (
-                                                <div className="mt-2 p-2 bg-gray-50 border-l-4 border-orange-400 text-yellow-800 w-full">
-                                                    <p className="text-sm">Note:</p>
-                                                    <p className="whitespace-pre-wrap text-sm pt-2">{b.note}</p>
-                                                </div>
-                                            )}
-                                            {b.services?.length > 0 && (
-                                                <ul className="mt-1 text-xs text-gray-600 list-disc list-inside">
-                                                    {b.services.map((s) => (
-                                                        <li key={s.id}>
-                                                            {s.name} ×{" "}
-                                                            {s.quantity}
-                                                        </li>
-                                                    ))}
-                                                </ul>
-                                            )}
-                                            {b.retail_items?.length > 0 && (
-                                                <div className="mt-2 p-2 bg-green-50 border-l-4 border-green-400">
-                                                    <p className="text-xs font-medium text-green-800">Retail Items:</p>
-                                                    <ul className="mt-1 text-xs text-green-700 list-disc list-inside">
-                                                        {b.retail_items.map((item) => (
-                                                            <li key={item.id}>
-                                                                {item.name} × {item.quantity} (R{(item.price_each / 100).toFixed(2)} each)
-                                                            </li>
-                                                        ))}
-                                                    </ul>
-                                                </div>
-                                            )}
-                                        </div>
-                                        <div className="flex items-center gap-2 ml-2">
-                                            <button
-                                                onClick={() =>
-                                                    setEditing({
-                                                        open: true,
-                                                        booking: b,
-                                                        slot,
-                                                        bookedInSlot: booked,
-                                                        allSlots: slots, // <-- pass all slots to modal
-                                                    })
-                                                }
-                                                className="text-xs text-hh-orange hover:underline"
+                                        {booked}/{slot.capacity}
+                                    </span>
+                                </p>
+                            </div>
+
+                            {/* booking list */}
+                            {list.length > 0 ? (
+                                <ul className="space-y-3 max-h-80 overflow-y-auto pr-1 text-sm">
+                                    {list.map((b) => {
+                                        const registeredName =
+                                            typeof b.user?.indemnity_name ===
+                                                "string" &&
+                                            b.user.indemnity_name.trim()
+                                                .length > 0
+                                                ? b.user.indemnity_name
+                                                : b.user?.name;
+                                        return (
+                                            <li
+                                                key={b.id}
+                                                className="border-b border-gray-400 pb-2 flex justify-between items-center"
                                             >
-                                                Edit
-                                            </button>
-                                            <button
-                                                onClick={() =>
-                                                    handleDelete(b.id)
-                                                }
-                                                className="text-red-500 hover:text-red-700 text-xs"
-                                                title="Delete booking"
-                                            >
-                                                ✕
-                                            </button>
-                                        </div>
-                                    </li>
-                                ))}
-                            </ul>
-                        ) : (
-                            <p className="text-center text-xs text-gray-400">
-                                No bookings yet
-                            </p>
-                        )}
-
-                        {/* admin booking button + form */}
-                        {!full && (
-                            <div className="mt-4">
-                                {openFormSlot === slot.id ? (
-                                    <form
-                                        onSubmit={(e) => {
-                                            e.preventDefault();
-                                            handleSubmit(slot, remaining);
-                                        }}
-                                        className="space-y-3 text-sm"
-                                    >
-                                        <UserSelect
-                                            value={formData.user_id}
-                                            onChange={(id) =>
-                                                setFormData((f) => ({
-                                                    ...f,
-                                                    user_id: id,
-                                                }))
-                                            }
-                                        />
-
-                                        <div>
-                                            <label className="block text-xs font-medium mb-1">
-                                                Party size
-                                            </label>
-                                            <input
-                                                type="number"
-                                                step="1"
-                                                value={formData.people}
-                                                onChange={(e) => {
-                                                    setFormData((f) => ({ ...f, people: e.target.value }));
-                                                }}
-                                                onBlur={(e) => {
-                                                    const v = parseInt(e.target.value, 10);
-                                                    const clamped = !Number.isFinite(v) || v < 1
-                                                        ? 1
-                                                        : Math.min(v, remaining);
-                                                    setFormData((f) => ({ ...f, people: String(clamped) }));
-                                                }}
-                                                className="w-full border rounded p-1"
-                                                required
-                                            />
-                                            <p className="mt-1 text-[11px] text-gray-500">
-                                                + Available in this slot:{" "}
-                                                {remaining}+{" "}
-                                            </p>
-                                        </div>
-
-                                        {addonServices?.length > 0 && (
-                                            <div className="space-y-1">
-                                                <p className="text-xs font-medium">
-                                                    Add-on Services:
-                                                </p>
-                                                {addonServices.map((svc) => {
-                                                    const selected =
-                                                        formData.services.find(
-                                                            (s) =>
-                                                                s.id === svc.id
-                                                        );
-                                                    return (
-                                                        <div
-                                                            key={svc.id}
-                                                            className="flex items-center gap-2"
-                                                        >
-                                                            <input
-                                                                type="checkbox"
-                                                                checked={
-                                                                    !!selected
-                                                                }
-                                                                onChange={() =>
-                                                                    toggleService(
-                                                                        svc.id
+                                                <div>
+                                                    <p className="font-medium">
+                                                        Booked under:{" "}
+                                                        {b.user?.id ? (
+                                                            <span
+                                                                className="text-hh-orange cursor-pointer hover:underline"
+                                                                onClick={() =>
+                                                                    setCustomerModalUserId(
+                                                                        b.user
+                                                                            .id
                                                                     )
                                                                 }
-                                                            />
-                                                            <span>
-                                                                {svc.name}
+                                                            >
+                                                                {registeredName ||
+                                                                    "Guest"}
                                                             </span>
-                                                            {selected && (
-                                                                <input
-                                                                    type="number"
-                                                                    min="1"
-                                                                    value={
-                                                                        selected.quantity
-                                                                    }
-                                                                    onChange={(
-                                                                        e
-                                                                    ) =>
-                                                                        updateServiceQty(
-                                                                            svc.id,
-                                                                            parseInt(
-                                                                                e
-                                                                                    .target
-                                                                                    .value,
-                                                                                10
-                                                                            ) ||
-                                                                                1
-                                                                        )
-                                                                    }
-                                                                    className="w-16 border rounded p-0.5 text-xs"
-                                                                />
-                                                            )}
+                                                        ) : (
+                                                            <span className="text-gray-700">
+                                                                {b.guest_name ||
+                                                                    "Guest"}
+                                                            </span>
+                                                        )}{" "}
+                                                        x {b.people}
+                                                        {b.no_show && (
+                                                            <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full bg-red-50 border border-red-200 text-red-700 text-[11px]">
+                                                                NO SHOW
+                                                            </span>
+                                                        )}
+                                                    </p>
+                                                    {(b.user?.email ||
+                                                        b.guest_email) && (
+                                                        <p className="text-gray-500 text-xs">
+                                                            {b.user?.email ||
+                                                                b.guest_email}
+                                                        </p>
+                                                    )}
+                                                    <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
+                                                        {b.is_pending && (
+                                                            <span
+                                                                className={[
+                                                                    "inline-flex items-center px-2 py-0.5 mb-2 rounded-full border",
+                                                                    b.booking_type?.toLowerCase() ===
+                                                                    "walk in"
+                                                                        ? "bg-amber-50 border-amber-200 text-amber-700"
+                                                                        : "bg-blue-50 border-blue-200 text-blue-700",
+                                                                ].join(" ")}
+                                                                title="booking is pending"
+                                                            >
+                                                                {b.status_note}
+                                                            </span>
+                                                        )}
+                                                        {b.booking_type && (
+                                                            <span
+                                                                className={[
+                                                                    "inline-flex items-center px-2 py-0.5 mb-2 rounded-full border",
+                                                                    b.booking_type?.toLowerCase() ===
+                                                                    "walk in"
+                                                                        ? "bg-amber-50 border-amber-200 text-amber-700"
+                                                                        : "bg-blue-50 border-blue-200 text-blue-700",
+                                                                ].join(" ")}
+                                                                title="Booking type"
+                                                            >
+                                                                {b.booking_type}
+                                                            </span>
+                                                        )}
+                                                        {b.payment_method && (
+                                                            <span
+                                                                className="inline-flex items-center px-2 py-0.5 rounded-full bg-gray-100 border border-gray-200 text-gray-700"
+                                                                title="Payment method"
+                                                            >
+                                                                {
+                                                                    b.payment_method
+                                                                }
+                                                            </span>
+                                                        )}
+                                                        {b.updated_via && (
+                                                            <span
+                                                                className="inline-flex items-center px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700"
+                                                                title="Updated via"
+                                                            >
+                                                                UPDATED •{" "}
+                                                                {b.updated_via}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    {b.note && (
+                                                        <div className="mt-2 p-2 bg-gray-50 border-l-4 border-orange-400 text-yellow-800 w-full">
+                                                            <p className="text-sm">
+                                                                Note:
+                                                            </p>
+                                                            <p className="whitespace-pre-wrap text-sm pt-2">
+                                                                {b.note}
+                                                            </p>
                                                         </div>
-                                                    );
-                                                })}
-                                            </div>
-                                        )}
+                                                    )}
+                                                    {b.services?.length > 0 && (
+                                                        <ul className="mt-1 text-xs text-gray-600 list-disc list-inside">
+                                                            {b.services.map(
+                                                                (s) => (
+                                                                    <li
+                                                                        key={
+                                                                            s.id
+                                                                        }
+                                                                    >
+                                                                        {s.name}{" "}
+                                                                        ×{" "}
+                                                                        {
+                                                                            s.quantity
+                                                                        }
+                                                                    </li>
+                                                                )
+                                                            )}
+                                                        </ul>
+                                                    )}
+                                                    {b.retail_items?.length >
+                                                        0 && (
+                                                        <div className="mt-2 p-2 bg-green-50 border-l-4 border-green-400">
+                                                            <p className="text-xs font-medium text-green-800">
+                                                                Retail Items:
+                                                            </p>
+                                                            <ul className="mt-1 text-xs text-green-700 list-disc list-inside">
+                                                                {b.retail_items.map(
+                                                                    (item) => (
+                                                                        <li
+                                                                            key={
+                                                                                item.id
+                                                                            }
+                                                                        >
+                                                                            {
+                                                                                item.name
+                                                                            }{" "}
+                                                                            ×{" "}
+                                                                            {
+                                                                                item.quantity
+                                                                            }{" "}
+                                                                            (R
+                                                                            {(
+                                                                                item.price_each /
+                                                                                100
+                                                                            ).toFixed(
+                                                                                2
+                                                                            )}{" "}
+                                                                            each)
+                                                                        </li>
+                                                                    )
+                                                                )}
+                                                            </ul>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <div className="flex items-center gap-2 ml-2">
+                                                    <button
+                                                        onClick={() =>
+                                                            setEditing({
+                                                                open: true,
+                                                                booking: b,
+                                                                slot,
+                                                                bookedInSlot:
+                                                                    booked,
+                                                                allSlots: slots, // <-- pass all slots to modal
+                                                            })
+                                                        }
+                                                        className="text-xs text-hh-orange hover:underline"
+                                                    >
+                                                        Edit
+                                                    </button>
+                                                    <button
+                                                        onClick={() =>
+                                                            handleDelete(b.id)
+                                                        }
+                                                        className="text-red-500 hover:text-red-700 text-xs"
+                                                        title="Delete booking"
+                                                    >
+                                                        ✕
+                                                    </button>
+                                                </div>
+                                            </li>
+                                        );
+                                    })}
+                                </ul>
+                            ) : (
+                                <p className="text-center text-xs text-gray-400">
+                                    No bookings yet
+                                </p>
+                            )}
 
-                                        <div>
-                                            <label className="block text-xs font-medium mb-1">
-                                                Payment method
-                                            </label>
-                                            <input
-                                                type="text"
-                                                placeholder="e.g. Cash / Card / EFT"
-                                                value={formData.payment_method}
-                                                onChange={(e) =>
+                            {/* admin booking button + form */}
+                            {!full && (
+                                <div className="mt-4">
+                                    {openFormSlot === slot.id ? (
+                                        <form
+                                            onSubmit={(e) => {
+                                                e.preventDefault();
+                                                handleSubmit(slot, remaining);
+                                            }}
+                                            className="space-y-3 text-sm"
+                                        >
+                                            <UserSelect
+                                                value={formData.user_id}
+                                                onChange={(id) =>
                                                     setFormData((f) => ({
                                                         ...f,
-                                                        payment_method:
-                                                            e.target.value,
+                                                        user_id: id,
                                                     }))
                                                 }
-                                                className="w-full border rounded p-1"
                                             />
-                                        </div>
 
-                                        <div className="flex justify-end gap-2">
-                                            <button
-                                                type="button"
-                                                onClick={() =>
-                                                    setOpenFormSlot(null)
-                                                }
-                                                className="px-3 py-1 text-xs bg-gray-200 rounded"
-                                            >
-                                                Cancel
-                                            </button>
-                                            <button
-                                                type="submit"
-                                                className="px-3 py-1 text-xs bg-hh-orange text-white rounded"
-                                            >
-                                                Save Booking
-                                            </button>
-                                        </div>
-                                    </form>
-                                ) : (
-                                    <button
-                                        onClick={() => setOpenFormSlot(slot.id)}
-                                        className="mt-2 w-full text-xs px-3 py-1 bg-hh-orange text-white rounded"
-                                    >
-                                        + Add Booking
-                                    </button>
-                                )}
-                            </div>
-                        )}
-                    </div>
-                );
-            })}
+                                            <div>
+                                                <label className="block text-xs font-medium mb-1">
+                                                    Party size
+                                                </label>
+                                                <input
+                                                    type="number"
+                                                    step="1"
+                                                    value={formData.people}
+                                                    onChange={(e) => {
+                                                        setFormData((f) => ({
+                                                            ...f,
+                                                            people: e.target
+                                                                .value,
+                                                        }));
+                                                    }}
+                                                    onBlur={(e) => {
+                                                        const v = parseInt(
+                                                            e.target.value,
+                                                            10
+                                                        );
+                                                        const clamped =
+                                                            !Number.isFinite(
+                                                                v
+                                                            ) || v < 1
+                                                                ? 1
+                                                                : Math.min(
+                                                                      v,
+                                                                      remaining
+                                                                  );
+                                                        setFormData((f) => ({
+                                                            ...f,
+                                                            people: String(
+                                                                clamped
+                                                            ),
+                                                        }));
+                                                    }}
+                                                    className="w-full border rounded p-1"
+                                                    required
+                                                />
+                                                <p className="mt-1 text-[11px] text-gray-500">
+                                                    + Available in this slot:{" "}
+                                                    {remaining}+{" "}
+                                                </p>
+                                            </div>
+
+                                            {addonServices?.length > 0 && (
+                                                <div className="space-y-1">
+                                                    <p className="text-xs font-medium">
+                                                        Add-on Services:
+                                                    </p>
+                                                    {addonServices.map(
+                                                        (svc) => {
+                                                            const selected =
+                                                                formData.services.find(
+                                                                    (s) =>
+                                                                        s.id ===
+                                                                        svc.id
+                                                                );
+                                                            return (
+                                                                <div
+                                                                    key={svc.id}
+                                                                    className="flex items-center gap-2"
+                                                                >
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        checked={
+                                                                            !!selected
+                                                                        }
+                                                                        onChange={() =>
+                                                                            toggleService(
+                                                                                svc.id
+                                                                            )
+                                                                        }
+                                                                    />
+                                                                    <span>
+                                                                        {
+                                                                            svc.name
+                                                                        }
+                                                                    </span>
+                                                                    {selected && (
+                                                                        <input
+                                                                            type="number"
+                                                                            min="1"
+                                                                            value={
+                                                                                selected.quantity
+                                                                            }
+                                                                            onChange={(
+                                                                                e
+                                                                            ) =>
+                                                                                updateServiceQty(
+                                                                                    svc.id,
+                                                                                    parseInt(
+                                                                                        e
+                                                                                            .target
+                                                                                            .value,
+                                                                                        10
+                                                                                    ) ||
+                                                                                        1
+                                                                                )
+                                                                            }
+                                                                            className="w-16 border rounded p-0.5 text-xs"
+                                                                        />
+                                                                    )}
+                                                                </div>
+                                                            );
+                                                        }
+                                                    )}
+                                                </div>
+                                            )}
+
+                                            <div>
+                                                <label className="block text-xs font-medium mb-1">
+                                                    Payment method
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    placeholder="e.g. Cash / Card / EFT"
+                                                    value={
+                                                        formData.payment_method
+                                                    }
+                                                    onChange={(e) =>
+                                                        setFormData((f) => ({
+                                                            ...f,
+                                                            payment_method:
+                                                                e.target.value,
+                                                        }))
+                                                    }
+                                                    className="w-full border rounded p-1"
+                                                />
+                                            </div>
+
+                                            <div className="flex justify-end gap-2">
+                                                <button
+                                                    type="button"
+                                                    onClick={() =>
+                                                        setOpenFormSlot(null)
+                                                    }
+                                                    className="px-3 py-1 text-xs bg-gray-200 rounded"
+                                                >
+                                                    Cancel
+                                                </button>
+                                                <button
+                                                    type="submit"
+                                                    className="px-3 py-1 text-xs bg-hh-orange text-white rounded"
+                                                >
+                                                    Save Booking
+                                                </button>
+                                            </div>
+                                        </form>
+                                    ) : (
+                                        <button
+                                            onClick={() =>
+                                                setOpenFormSlot(slot.id)
+                                            }
+                                            className="mt-2 w-full text-xs px-3 py-1 bg-hh-orange text-white rounded"
+                                        >
+                                            + Add Booking
+                                        </button>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    );
+                })}
             </div>
             <EditBookingModal
                 open={editing.open}
@@ -942,7 +1042,7 @@ export default function TodayBubbles({
                 allSlots={editing.allSlots}
                 formatTime={formatTime}
             />
-            
+
             {customerModalUserId && (
                 <CustomerDetailModal
                     userId={customerModalUserId}

@@ -74,6 +74,7 @@ class PaymentAdminController extends Controller
                 'id' => $booking->id,
                 'customerInitials' => strtoupper(substr($booking->user->name, 0, 1) . substr(strrchr($booking->user->name, ' '), 1, 1)),
                 'customerName' => $booking->user->name,
+                'customerFullName' => $booking->guest_name ?: ($booking->user->indemnity_name ?? $booking->user->name),
                 'date' => $booking->created_at->format('d M Y, g:ia'),
                 'service' => $details['name'] ?? 'Unknown Service',
                 'method' => $booking->payment_status ?? 'Unknown',

@@ -225,7 +225,9 @@ export default function PaymentPage() {
                             <input
                                 type="text"
                                 value={data.search}
-                                onChange={(e) => setData("search", e.target.value)}
+                                onChange={(e) =>
+                                    setData("search", e.target.value)
+                                }
                                 placeholder="Search by name..."
                                 className="bg-white shadow-md border border-hh-gray p-2 rounded"
                             />
@@ -335,7 +337,7 @@ export default function PaymentPage() {
                                             {String(index + 1).padStart(2, "0")}
                                         </p>
                                     </div>
-                                    <div className="col-span-2 flex gap-x-2 items-center -ml-6">
+                                    <div className="col-span-2 flex gap-x-2 items-start -ml-6">
                                         <div className="bg-[#999999] rounded-full h-8 w-8 flex items-center justify-center shrink-0">
                                             <p
                                                 className={`${styles.paragraph} !text-white !text-sm`}
@@ -343,11 +345,24 @@ export default function PaymentPage() {
                                                 {invoice.customerInitials}
                                             </p>
                                         </div>
-                                        <p
-                                            className={`${styles.paragraph} !text-[#999999] !text-sm`}
-                                        >
-                                            {invoice.customerName}
-                                        </p>
+                                        <div className="flex flex-col">
+                                            <p
+                                                className={`${styles.paragraph} !text-[#999999] !text-sm`}
+                                            >
+                                                {invoice.customerName}
+                                            </p>
+                                            {invoice.customerFullName &&
+                                                invoice.customerFullName !==
+                                                    invoice.customerName && (
+                                                    <p
+                                                        className={`${styles.paragraph} !text-[#666666] !text-xs`}
+                                                    >
+                                                        {
+                                                            invoice.customerFullName
+                                                        }
+                                                    </p>
+                                                )}
+                                        </div>
                                     </div>
                                     <div className="col-span-2">
                                         <p
@@ -365,7 +380,9 @@ export default function PaymentPage() {
                                         </p>
                                     </div>
                                     <div className="col-span-1">
-                                        <p className={`${styles.paragraph} !text-[#999999] !text-sm`}>
+                                        <p
+                                            className={`${styles.paragraph} !text-[#999999] !text-sm`}
+                                        >
                                             R{invoice.amount.toFixed(2)}
                                         </p>
                                     </div>
@@ -405,28 +422,79 @@ export default function PaymentPage() {
                                 {expandedRow === index && (
                                     <div className="bg-white p-6 border border-hh-gray rounded mt-1 grid grid-cols-3 gap-6">
                                         <div className="col-span-2">
-                                            <h3 className="font-medium text-base text-gray-800">Order Details</h3>
-                                            {invoice.details && Object.keys(invoice.details).length > 0 ? (
+                                            <h3 className="font-medium text-base text-gray-800">
+                                                Order Details
+                                            </h3>
+                                            {invoice.details &&
+                                            Object.keys(invoice.details)
+                                                .length > 0 ? (
                                                 <div className="mt-2 text-sm text-gray-600 space-y-2">
-                                                    <p className="text-sm text-gray-600"><strong>Type:</strong> {invoice.details.type}</p>
-                                                    <p className="text-sm text-gray-600"><strong>Service:</strong> {invoice.details.name}</p>
-                                                    <p className="text-sm text-gray-600"><strong>Location:</strong> {invoice.details.location}</p>
-                                                    <p className="text-sm text-gray-600"><strong>Date:</strong> {invoice.details.date}</p>
-                                                    <p className="text-sm text-gray-600"><strong>Time:</strong> {invoice.details.time}</p>
-                                                    <p className="text-sm text-gray-600"><strong>Guests:</strong> {invoice.details.people}</p>
+                                                    <p className="text-sm text-gray-600">
+                                                        <strong>Type:</strong>{" "}
+                                                        {invoice.details.type}
+                                                    </p>
+                                                    <p className="text-sm text-gray-600">
+                                                        <strong>
+                                                            Service:
+                                                        </strong>{" "}
+                                                        {invoice.details.name}
+                                                    </p>
+                                                    <p className="text-sm text-gray-600">
+                                                        <strong>
+                                                            Location:
+                                                        </strong>{" "}
+                                                        {
+                                                            invoice.details
+                                                                .location
+                                                        }
+                                                    </p>
+                                                    <p className="text-sm text-gray-600">
+                                                        <strong>Date:</strong>{" "}
+                                                        {invoice.details.date}
+                                                    </p>
+                                                    <p className="text-sm text-gray-600">
+                                                        <strong>Time:</strong>{" "}
+                                                        {invoice.details.time}
+                                                    </p>
+                                                    <p className="text-sm text-gray-600">
+                                                        <strong>Guests:</strong>{" "}
+                                                        {invoice.details.people}
+                                                    </p>
                                                 </div>
-                                            ) : <p className="text-sm text-gray-500 mt-2">No details available.</p>}
+                                            ) : (
+                                                <p className="text-sm text-gray-500 mt-2">
+                                                    No details available.
+                                                </p>
+                                            )}
                                         </div>
                                         <div>
-                                            <h3 className="font-medium text-base text-gray-800">Add-ons</h3>
-                                            {invoice.addOns && invoice.addOns.length > 0 ? (
+                                            <h3 className="font-medium text-base text-gray-800">
+                                                Add-ons
+                                            </h3>
+                                            {invoice.addOns &&
+                                            invoice.addOns.length > 0 ? (
                                                 <ul className="mt-2 text-sm text-gray-600 space-y-1">
-                                                    {invoice.addOns.map((item, i) => (
-                                                        <li key={i}>{item.quantity}x {item.name} - R{item.price.toFixed(2)}</li>
-                                                    ))}
+                                                    {invoice.addOns.map(
+                                                        (item, i) => (
+                                                            <li key={i}>
+                                                                {item.quantity}x{" "}
+                                                                {item.name} - R
+                                                                {item.price.toFixed(
+                                                                    2
+                                                                )}
+                                                            </li>
+                                                        )
+                                                    )}
                                                 </ul>
-                                            ) : <p className="text-sm text-gray-500 mt-2">No add-ons for this order.</p>}
-                                            <p className="text-sm text-gray-600 mt-4 border-t pt-2"><strong>Transaction ID:</strong> {invoice.transactionId || 'N/A'}</p>
+                                            ) : (
+                                                <p className="text-sm text-gray-500 mt-2">
+                                                    No add-ons for this order.
+                                                </p>
+                                            )}
+                                            <p className="text-sm text-gray-600 mt-4 border-t pt-2">
+                                                <strong>Transaction ID:</strong>{" "}
+                                                {invoice.transactionId || "N/A"}
+                                            </p>
                                         </div>
                                     </div>
                                 )}
@@ -434,7 +502,7 @@ export default function PaymentPage() {
                         ))}
                     </div>
 
-                {/* GRAPH SECTION */}
+                    {/* GRAPH SECTION */}
                 </div>
             </div>
         </AuthenticatedLayout>

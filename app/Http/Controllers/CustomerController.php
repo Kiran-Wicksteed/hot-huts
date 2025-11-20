@@ -22,6 +22,7 @@ class CustomerController extends Controller
             ->map(function ($user) {
                 // Safely handle name and initials
                 $name = $user->name ?? 'Unknown User';
+                $fullName = $user->indemnity_name ?: $name;
                 $initials = '??';
                 
                 try {
@@ -42,6 +43,8 @@ class CustomerController extends Controller
                 return [
                     'id' => $user->id,
                     'name' => $name,
+                    'full_name' => $fullName,
+                    'indemnity_name' => $user->indemnity_name,
                     'initials' => $initials,
                     'email' => $user->email ?? 'No email',
                     'contact_number' => $user->contact_number ?? 'N/A',
