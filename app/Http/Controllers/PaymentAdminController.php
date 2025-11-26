@@ -226,6 +226,18 @@ class PaymentAdminController extends Controller
                 return (int) round($numeric);
             };
 
+            $calculateServiceTotals = static function ($service) use ($normalizeAmount) {
+                $lineTotal = $normalizeAmount($service->pivot->line_total ?? 0);
+                $priceEach = $normalizeAmount($service->pivot->price_each ?? 0);
+                $quantity = max(1, (int) ($service->pivot->quantity ?? 1));
+
+                if ($lineTotal < ($priceEach * $quantity) && $priceEach > 0) {
+                    $lineTotal = $priceEach * $quantity;
+                }
+
+                return [$lineTotal, $priceEach, $quantity];
+            };
+
             // STEP 1: Process each booking
             foreach ($bookings as $booking) {
                 // Determine location and date
@@ -334,7 +346,7 @@ class PaymentAdminController extends Controller
                         } else {
                             // Regular booking - process each service
                             $pm = strtolower($booking['payment_method'] ?? '');
-                            $bt = strtolower($booking['booking_type'] ?? '');
+                            $paidAmount = $booking['amount'];
                             
                             // Separate main services from add-ons
                             $mainServices = [];
@@ -351,19 +363,37 @@ class PaymentAdminController extends Controller
                                     $addonServices[] = $service;
                                 }
                             }
+
+                            $mainCount = count($mainServices);
+                            $addonCount = count($addonServices);
+
+                            // Pre-compute totals so we can cap revenue at what was actually paid (after membership discounts)
+                            $mainOriginalTotal = 0;
+                            foreach ($mainServices as $service) {
+                                [$lineTotal] = $calculateServiceTotals($service);
+                                $mainOriginalTotal += $lineTotal;
+                            }
+
+                            $addonOriginalTotal = 0;
+                            foreach ($addonServices as $service) {
+                                [$lineTotal] = $calculateServiceTotals($service);
+                                $addonOriginalTotal += $lineTotal;
+                            }
+
+                            $addonPaid = min($addonOriginalTotal, $paidAmount);
+                            $remainingPaidForMain = max(0, $paidAmount - $addonPaid);
+                            $addonAllocationFactor = ($addonOriginalTotal > 0 && $addonPaid > 0)
+                                ? min(1, $addonPaid / $addonOriginalTotal)
+                                : 0;
                             
                             // Count payment method ONCE per booking (not per service)
                             $paymentCounted = false;
                             
-                            // Process main services
-                            foreach ($mainServices as $service) {
-                                $serviceLineTotal = $normalizeAmount($service->pivot->line_total ?? 0);
-                                $priceEachNormalized = $normalizeAmount($service->pivot->price_each ?? 0);
-                                $quantity = max(1, (int) ($service->pivot->quantity ?? 1));
-
-                                if ($serviceLineTotal < ($priceEachNormalized * $quantity) && $priceEachNormalized > 0) {
-                                    $serviceLineTotal = $priceEachNormalized * $quantity;
-                                }
+                            // Process main services (allocate only the portion actually paid for services after membership discounts)
+                            $remainingMainPaid = $remainingPaidForMain;
+                            $remainingMainTotal = $mainOriginalTotal;
+                            foreach ($mainServices as $index => $service) {
+                                [$serviceLineTotal, $priceEachNormalized, $quantity] = $calculateServiceTotals($service);
 
                                 $itemName = $booking['is_event'] ? $booking['event_name'] : ($service->name ?? 'Sauna Session');
                                 
@@ -405,22 +435,31 @@ class PaymentAdminController extends Controller
                                 }
                                 
                                 $items[$itemName]['clients'] += $booking['people'];
-                                $items[$itemName]['revenue'] += $serviceLineTotal;
+                                
+                                $allocated = 0;
+                                if ($remainingMainPaid > 0 && $remainingMainTotal > 0) {
+                                    if ($index === ($mainCount - 1)) {
+                                        $allocated = $remainingMainPaid;
+                                    } else {
+                                        $allocated = (int) floor(($serviceLineTotal / $remainingMainTotal) * $remainingMainPaid);
+                                        $allocated = max(0, min($allocated, $remainingMainPaid));
+                                    }
+                                }
+
+                                $remainingMainPaid -= $allocated;
+                                $remainingMainTotal -= $serviceLineTotal;
+
+                                $items[$itemName]['revenue'] += $allocated;
                             }
                             
                             $dayTotals['people'] += $booking['people'];
-                            $dayTotals['revenue'] += $booking['amount'];
+                            $dayTotals['revenue'] += $paidAmount;
                             
-                            // Process add-ons as separate items
-                            foreach ($addonServices as $service) {
+                            // Process add-ons as separate items (allocate from the portion paid that relates to add-ons)
+                            $remainingAddonPaid = $addonPaid;
+                            foreach ($addonServices as $idx => $service) {
                                 $addonName = $service->name;
-                                $quantity = $service->pivot->quantity ?? 1;
-                                $addonLineTotal = $normalizeAmount($service->pivot->line_total ?? 0);
-                                $addonPriceEachNormalized = $normalizeAmount($service->pivot->price_each ?? 0);
-
-                                if ($addonLineTotal < ($addonPriceEachNormalized * $quantity) && $addonPriceEachNormalized > 0) {
-                                    $addonLineTotal = $addonPriceEachNormalized * $quantity;
-                                }
+                                [$addonLineTotal, $addonPriceEachNormalized, $quantity] = $calculateServiceTotals($service);
                                 
                                 if (!isset($items[$addonName])) {
                                     $items[$addonName] = ['online' => 0, 'yoco' => 0, 'voucher_eft' => 0, 'loyalty' => 0, 'clients' => 0, 'revenue' => 0];
@@ -444,7 +483,19 @@ class PaymentAdminController extends Controller
                                 }
                                 
                                 $items[$addonName]['clients'] += $quantity;
-                                $items[$addonName]['revenue'] += $addonLineTotal;
+                                
+                                $addonRevenue = 0;
+                                if ($addonAllocationFactor > 0) {
+                                    if ($idx === ($addonCount - 1)) {
+                                        $addonRevenue = $remainingAddonPaid;
+                                    } else {
+                                        $addonRevenue = (int) round($addonLineTotal * $addonAllocationFactor);
+                                        $addonRevenue = max(0, min($addonRevenue, $remainingAddonPaid));
+                                    }
+                                }
+
+                                $remainingAddonPaid -= $addonRevenue;
+                                $items[$addonName]['revenue'] += $addonRevenue;
                             }
                         }
                     }
