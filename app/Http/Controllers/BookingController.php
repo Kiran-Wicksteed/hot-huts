@@ -1297,8 +1297,10 @@ class BookingController extends Controller
             return $booking;
         });
 
-        // Accrue loyalty points for the user
-        app(\App\Services\LoyaltyService::class)->accrueFromBooking($booking);
+        // Accrue loyalty points for the user (skip for active members)
+        if (!$booking->user?->hasActiveMembership()) {
+            app(\App\Services\LoyaltyService::class)->accrueFromBooking($booking);
+        }
 
         return back()->with('success', 'Admin booking created successfully.');
     }

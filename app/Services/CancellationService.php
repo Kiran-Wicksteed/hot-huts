@@ -62,6 +62,18 @@ class CancellationService
         // Use accessor to handle both old (rands) and new (cents) formats
         $bookingAmountCents = $booking->amount_cents;
 
+        // If the booking was fully covered by membership (no cash paid), skip refunds
+        if ($booking->payment_status === 'Member' && $bookingAmountCents <= 0) {
+            return [
+                'refund_percentage' => 0,
+                'refund_amount_cents' => 0,
+                'policy' => 'covered_by_membership',
+                'can_cancel' => true,
+                'can_reschedule' => true,
+                'message' => 'Cancellation allowed, but no refund is due because this booking was covered by your membership.',
+            ];
+        }
+
         // Less than 6 hours
         if ($hoursUntilSession < 6) {
             return [

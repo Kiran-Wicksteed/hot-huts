@@ -33,6 +33,16 @@ class LoyaltyService
             return;
         }
 
+        // Do not accrue points for members (their bookings are already discounted/free)
+        if ($booking->user->hasActiveMembership()) {
+            \Log::info('[LOYALTY] Skipping - user has active membership', [
+                'booking_id' => $booking->id,
+                'user_id' => $booking->user_id,
+                'payment_status' => $booking->payment_status,
+            ]);
+            return;
+        }
+
         if ($booking->status !== config('loyalty.eligible_status')) {
             \Log::info('[LOYALTY] Booking not eligible - status mismatch', [
                 'booking_id' => $booking->id,
