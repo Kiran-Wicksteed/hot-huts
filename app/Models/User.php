@@ -120,14 +120,7 @@ class User extends Authenticatable implements MustVerifyEmail
 
     public function hasUsedFreeBookingToday()
     {
-        if (!$this->hasActiveMembership()) {
-            return false;
-        }
-
-        return $this->bookings()
-            ->where('payment_status', 'Member')
-            ->whereDate('created_at', today())
-            ->exists();
+        return $this->hasUsedFreeBookingOnDate(today());
     }
 
     public function hasUsedFreeBookingOnDate($date)
@@ -140,25 +133,11 @@ class User extends Authenticatable implements MustVerifyEmail
             ? $date->toDateString()
             : Carbon::parse($date)->toDateString();
 
-        // Check for existing member bookings on this date
-        $query = $this->bookings()
-            ->where('payment_status', 'Member')
-            ->where('status', '!=', 'cancelled') // Don't count cancelled bookings
-            ->whereHas('timeslot', function ($q) use ($target) {
-                $q->whereDate('starts_at', $target);
-            });
-        
-        $count = $query->count();
-        $exists = $count > 0;
-        
-        \Log::info('[MEMBERSHIP] hasUsedFreeBookingOnDate check', [
+        \Log::info('[MEMBERSHIP] Free booking usage check bypassed (unlimited member saunas)', [
             'user_id' => $this->id,
             'target_date' => $target,
-            'found_bookings' => $count,
-            'exists' => $exists,
-            'booking_ids' => $query->pluck('id')->toArray(),
         ]);
         
-        return $exists;
+        return false;
     }
 }

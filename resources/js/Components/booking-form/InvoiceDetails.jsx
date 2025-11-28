@@ -150,8 +150,8 @@ export default function InvoiceDetails({ isReschedule = false }) {
     const invoiceDate = dayjs().format("D MMMM YYYY");
     const grandTotal = items.reduce((t, it) => t + calcItemTotal(it), 0);
     
-    // Calculate member discount based on actual eligibility from backend
-    // Members get ONE free booking (per-person price) for the first booking of each day
+    // Calculate member discount based on membership pricing
+    // Unlimited bookings: first seat free on every sauna booking, +1s at member +1 price
     // This is an ESTIMATE for display - backend enforces the actual rules
     const { memberDiscount, memberDiscountByItem } = useMemo(() => {
         const result = {
@@ -173,29 +173,16 @@ export default function InvoiceDetails({ isReschedule = false }) {
             return result;
         }
 
-        const eligibleDates = memberEligibility?.eligible_dates;
-        if (!memberEligibility?.has_membership || !eligibleDates) {
-            console.log('[Member Discount] Waiting for API response - no discount shown yet');
+        if (memberEligibility?.has_membership === false) {
+            console.log('[Member Discount] API says no membership - returning 0');
             return result;
         }
 
-        const usedDates = new Set();
         let runningDiscount = 0;
         const perItemDiscounts = {};
 
         items.forEach((item) => {
-            const itemDate = item.date;
-            const isEligible = itemDate && eligibleDates[itemDate] === true;
-            const alreadyUsed = itemDate ? usedDates.has(itemDate) : false;
-
-            console.log('[Member Discount] Checking item', {
-                item_id: item.id,
-                item_date: itemDate,
-                is_eligible: isEligible,
-                already_used_for_date: alreadyUsed,
-            });
-
-            if (!isEligible || alreadyUsed) {
+            if (item.kind !== "sauna") {
                 return;
             }
 
@@ -209,6 +196,7 @@ export default function InvoiceDetails({ isReschedule = false }) {
                 attendeeCount = firstLine.qty || attendeeCount;
             } else {
                 perPersonPrice = calcItemTotal(item);
+                attendeeCount = item.people || attendeeCount;
             }
 
             const lineTotal = perPersonPrice * attendeeCount;
@@ -226,11 +214,9 @@ export default function InvoiceDetails({ isReschedule = false }) {
 
             if (discount > 0) {
                 runningDiscount += discount;
-                usedDates.add(itemDate);
                 perItemDiscounts[item.id] = discount;
                 console.log('[Member Discount] Applied to item', {
                     item_id: item.id,
-                    item_date: itemDate,
                     perPersonPrice,
                     attendeeCount,
                     membershipPlusOnePrice: adjustedPlusOne,
@@ -892,7 +878,7 @@ export default function InvoiceDetails({ isReschedule = false }) {
                                             Member Benefit Applied
                                         </p>
                                         <p className="text-xs text-green-700 mt-1">
-                                            Your first booking today is free as part of your membership.
+                                            Member pricing applied: your seat is free and +1s are charged at the member +1 rate.
                                         </p>
                                     </div>
                                 </div>
